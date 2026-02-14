@@ -12,11 +12,15 @@ def create_app() -> Flask:
         SUPABASE_ANON_KEY=config.supabase_anon_key,
         ANTHROPIC_API_KEY=config.anthropic_api_key,
         SUPABASE_JWT_SECRET=config.supabase_jwt_secret,
+        MAX_CONTENT_LENGTH=16 * 1024 * 1024,  # 16MB
     )
     from .routes.auth import auth_bp
     app.register_blueprint(auth_bp)
 
     from .routes.classrooms import classrooms_bp
     app.register_blueprint(classrooms_bp)
+
+    from .routes.convert import convert_bp
+    app.register_blueprint(convert_bp)
 
     return app

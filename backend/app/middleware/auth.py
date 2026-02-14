@@ -1,12 +1,16 @@
 import functools
-from typing import Callable
+from typing import Any, Callable, Tuple
+
 import jwt
-from flask import request, g, jsonify, current_app
+from flask import Response, request, g, jsonify, current_app
+
+from app.constants import ROLE_STUDENT
 
 
 def require_auth(f: Callable) -> Callable:
+    """Verify JWT and populate g.user_id, g.user_role."""
     @functools.wraps(f)
-    def decorated(*args, **kwargs):
+    def decorated(*args: Any, **kwargs: Any) -> Tuple[Response, int] | Response:
         auth_header = request.headers.get("Authorization", "")
         if not auth_header.startswith("Bearer "):
             return jsonify({"error": "Missing or invalid Authorization header"}), 401
@@ -16,8 +20,9 @@ def require_auth(f: Callable) -> Callable:
             payload = jwt.decode(
                 token,
                 current_app.config["SUPABASE_JWT_SECRET"],
-                algorithms=["HS256"],
+                algorithms=[current_app.config.get("JWT_ALGORITHM", "HS256")],
                 audience="authenticated",
+                issuer=current_app.config.get("SUPABASE_URL"),
             )
         except jwt.ExpiredSignatureError:
             return jsonify({"error": "Token expired"}), 401
@@ -26,17 +31,18 @@ def require_auth(f: Callable) -> Callable:
 
         g.user_id = payload["sub"]
         user_metadata = payload.get("user_metadata", {})
-        g.user_role = user_metadata.get("role", "student")
+        g.user_role = user_metadata.get("role", ROLE_STUDENT)
         return f(*args, **kwargs)
 
     return decorated
 
 
 def require_role(role: str) -> Callable:
+    """Require the authenticated user to have a specific role."""
     def decorator(f: Callable) -> Callable:
-        @functools.wraps(f)
         @require_auth
-        def decorated(*args, **kwargs):
+        @functools.wraps(f)
+        def decorated(*args: Any, **kwargs: Any) -> Tuple[Response, int] | Response:
             if g.user_role != role:
                 return jsonify({"error": f"Requires {role} role"}), 403
             return f(*args, **kwargs)

@@ -67,6 +67,45 @@ def list_classrooms() -> Response | Tuple[Response, int]:
     return jsonify(result.data), 200
 
 
+@classrooms_bp.route("/<classroom_id>/students", methods=["GET"])
+@require_role("teacher")
+def list_classroom_students(classroom_id: str) -> Response | Tuple[Response, int]:
+    client = get_supabase_admin_client()
+
+    classroom = client.table("classrooms").select("id").eq(
+        "id", classroom_id
+    ).eq("teacher_id", g.user_id).execute()
+    if not classroom.data:
+        return jsonify({"error": "Classroom not found"}), 404
+
+    memberships = client.table("classroom_memberships").select(
+        "student_id, joined_at"
+    ).eq("classroom_id", classroom_id).order("joined_at", desc=False).execute()
+
+    if not memberships.data:
+        return jsonify([]), 200
+
+    student_ids = [membership["student_id"] for membership in memberships.data]
+    profiles = client.table("profiles").select("id, display_name").in_(
+        "id", student_ids
+    ).execute()
+    profile_by_id = {
+        profile["id"]: profile.get("display_name")
+        for profile in profiles.data
+        if profile.get("id")
+    }
+
+    result = []
+    for membership in memberships.data:
+        result.append({
+            "student_id": membership["student_id"],
+            "display_name": profile_by_id.get(membership["student_id"]),
+            "joined_at": membership["joined_at"],
+        })
+
+    return jsonify(result), 200
+
+
 @classrooms_bp.route("/join", methods=["POST"])
 @require_role("student")
 def join_classroom() -> Response | Tuple[Response, int]:

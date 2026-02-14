@@ -4,6 +4,7 @@ import { useFocusEffect } from "@react-navigation/native";
 import * as Linking from "expo-linking";
 import { useCorpus } from "../../hooks/useCorpus";
 import { useAssignments } from "../../hooks/useAssignments";
+import { useClassroomStudents } from "../../hooks/useClassroomStudents";
 import { Classroom, CorpusFile } from "../../types";
 
 type Tab = "assignments" | "corpus" | "students";
@@ -13,12 +14,19 @@ export function TeacherClassroomScreen({ route, navigation }: { route: any; navi
   const [activeTab, setActiveTab] = useState<Tab>("assignments");
   const { files, loading: corpusLoading, error: corpusError, refresh: refreshCorpus } = useCorpus(classroom.id);
   const { assignments, loading: assignmentsLoading, error: assignmentsError, refresh: refreshAssignments } = useAssignments(classroom.id);
+  const {
+    students,
+    loading: studentsLoading,
+    error: studentsError,
+    refresh: refreshStudents,
+  } = useClassroomStudents(classroom.id);
 
   useFocusEffect(
     useCallback(() => {
       refreshAssignments();
       refreshCorpus();
-    }, [refreshAssignments, refreshCorpus])
+      refreshStudents();
+    }, [refreshAssignments, refreshCorpus, refreshStudents])
   );
 
   const handleOpenCorpusFile = (file: CorpusFile) => {
@@ -123,7 +131,29 @@ export function TeacherClassroomScreen({ route, navigation }: { route: any; navi
 
       {activeTab === "students" && (
         <View style={styles.content}>
-          <Text style={styles.empty}>Student list coming soon</Text>
+          {studentsLoading ? (
+            <ActivityIndicator />
+          ) : studentsError ? (
+            <Text style={styles.errorText}>{studentsError}</Text>
+          ) : (
+            <FlatList
+              data={students}
+              keyExtractor={(item) => item.student_id}
+              renderItem={({ item }) => (
+                <View style={styles.listItem}>
+                  <View style={styles.listItemContent}>
+                    <Text style={styles.itemTitle}>{item.display_name ?? "Unnamed Student"}</Text>
+                    <Text style={styles.itemSub}>
+                      Joined {new Date(item.joined_at).toLocaleDateString("en-US", {
+                        year: "numeric", month: "short", day: "numeric", timeZone: "UTC",
+                      })}
+                    </Text>
+                  </View>
+                </View>
+              )}
+              ListEmptyComponent={<Text style={styles.empty}>No students have joined yet</Text>}
+            />
+          )}
         </View>
       )}
     </View>

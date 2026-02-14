@@ -32,6 +32,8 @@ export interface Submission {
   student_id: string;
   storage_path: string;
   submitted_at: string;
+  download_url?: string | null;
+  student_display_name?: string | null;
 }
 
 export interface CorpusFile {
@@ -47,4 +49,10 @@ export interface CorpusFile {
 export interface AssignmentDetail extends Assignment {
   assignment_file_download_url?: string;
   answer_key_download_url?: string;
+}
+
+export interface ClassroomStudent {
+  student_id: string;
+  display_name: string | null;
+  joined_at: string;
 }

@@ -273,6 +273,8 @@ create table public.submissions (
 
 create index idx_submissions_assignment on public.submissions(assignment_id);
 create index idx_submissions_student on public.submissions(student_id);
+alter table public.submissions
+    add constraint submissions_assignment_student_unique unique (assignment_id, student_id);
 
 alter table public.submissions enable row level security;
 

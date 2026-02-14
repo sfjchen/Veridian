@@ -32,23 +32,29 @@ EdTech platform where teachers create math assignments, students submit solution
 - [x] Added README.md with setup instructions
 - [x] Addressed all @claude review feedback (P0/P1/P2)
 
+### PR #12 — PDF preview fallback + assignment hardening
+- [x] Assignment detail endpoint no longer hard-fails when file download URL generation fails
+- [x] Added authenticated PDF-to-image preview endpoint using PyMuPDF
+- [x] Teacher and student assignment screens now render PDF screenshot previews
+- [x] Removed PDF-as-text parsing path for assignment previews
+
 ---
 
 ## Remaining Work
 
 ### P0 — Core functionality gaps
-- [ ] **Student submission flow**: Students can create submissions but there's no UI to view/grade them
+- [ ] **Student submission flow**: Students can create/view submissions, but grading workflow is still missing
 - [ ] **AI mistake analysis**: Core value prop — analyze student submissions against answer key + corpus
 - [ ] **End-to-end testing**: Verify full flow works (create assignment → student submits → teacher reviews)
 
 ### P1 — Teacher experience
-- [ ] **Student list in classroom**: "Students" tab shows placeholder text, needs real data
-- [ ] **Submission review screen**: Teacher views student submissions with AI analysis
+- [x] **Student list in classroom**: "Students" tab shows real roster data
+- [ ] **Submission review screen**: Teacher can view/download submissions, AI analysis still missing
 - [ ] **Bulk operations**: Delete assignments, remove students from classroom
 
 ### P2 — Student experience
-- [ ] **Assignment list in classroom**: Students see assignments and can submit solutions
-- [ ] **Submission history**: Student sees their past submissions and feedback
+- [x] **Assignment list in classroom**: Students see assignments and can submit solutions
+- [x] **Submission history**: Student sees past submissions and can reopen uploaded files
 - [ ] **Due date warnings**: Visual indicators for approaching/past due dates
 
 ### P3 — Polish
@@ -67,4 +73,6 @@ EdTech platform where teachers create math assignments, students submit solution
 | Single-step file upload UX | Two-step flow (create record → upload) confused users; pick-first-then-create is more intuitive |
 | `prompt_storage_path` column name | Live DB uses this name; renaming code is cheaper than migrating production |
 | Signed URLs via admin client | User JWTs are rejected by Supabase Storage API; admin client bypasses this |
+| Submission uniqueness (`assignment_id`, `student_id`) | Aligns API behavior with product intent: one canonical submission per student per assignment |
+| PDF screenshot previews via backend (PyMuPDF) | Prevents frontend PDF text parsing failures and keeps preview behavior consistent across clients |
 | ES256 JWT verification via JWKS | Standard Supabase auth flow, verified against Supabase's JWKS endpoint |

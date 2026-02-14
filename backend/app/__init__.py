@@ -26,4 +26,7 @@ def create_app() -> Flask:
     from .routes.corpus import corpus_bp
     app.register_blueprint(corpus_bp)
 
+    from .routes.assignments import assignments_bp
+    app.register_blueprint(assignments_bp)
+
     return app

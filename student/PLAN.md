@@ -1,6 +1,6 @@
 # Veridian: Post-MVP Roadmap
 
-**Running docs**: This file, `AGENTS.md`, `CLAUDE.md`, and `README.md` are the project's living documentation. Update them when features, architecture, or conventions change. Follow best industry coding standards for streamlined, efficient code; comprehensive testing and documentation are not required.
+**Running docs**: `AGENTS.md`, `CLAUDE.md`, `README.md`, `PLAN.md`. Update when features, architecture, or conventions change.
 
 ## Current State (as of PR #17)
 

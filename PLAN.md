@@ -1,6 +1,6 @@
 # Math Mistake Analysis Platform — Roadmap
 
-**Running docs**: `AGENTS.md`, `CLAUDE.md`, `README.md`, `PLAN.md`, `MIGRATION_GUIDE.md`.
+**Running docs**: `AGENTS.md`, `CLAUDE.md`, `README.md`, `PLAN.md`.
 
 ## Overview
 

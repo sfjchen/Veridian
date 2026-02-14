@@ -1,6 +1,6 @@
 # CLAUDE.md
 
-**Running docs**: `AGENTS.md`, `CLAUDE.md`, `README.md`, `PLAN.md`, `MIGRATION_GUIDE.md`. Update when features, architecture, or conventions change.
+**Running docs**: `AGENTS.md`, `CLAUDE.md`, `README.md`, `PLAN.md`. Update when features, architecture, or conventions change.
 
 ## Project Overview
 

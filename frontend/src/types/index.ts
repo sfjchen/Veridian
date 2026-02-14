@@ -19,7 +19,7 @@ export interface Assignment {
   id: string;
   classroom_id: string;
   title: string;
-  assignment_file_storage_path: string | null;
+  prompt_storage_path: string | null;
   answer_key_storage_path: string | null;
   context_file_ids: string[];
   due_date: string | null;

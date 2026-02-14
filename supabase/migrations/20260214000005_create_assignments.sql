@@ -2,7 +2,7 @@ create table public.assignments (
     id uuid primary key default gen_random_uuid(),
     classroom_id uuid not null references public.classrooms(id) on delete cascade,
     title text not null,
-    assignment_file_storage_path text,
+    prompt_storage_path text,
     answer_key_storage_path text,
     context_file_ids uuid[] default '{}',
     due_date timestamptz,

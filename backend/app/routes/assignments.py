@@ -72,7 +72,7 @@ def create_assignment(classroom_id: str) -> Tuple[Response, int]:
             "id": assignment_id,
             "classroom_id": classroom_id,
             "title": title,
-            "assignment_file_storage_path": assignment_file_path,
+            "prompt_storage_path": assignment_file_path,
             "answer_key_storage_path": answer_key_path,
             "context_file_ids": context_file_ids,
             "due_date": data.get("due_date"),
@@ -144,9 +144,9 @@ def get_assignment(assignment_id: str) -> Tuple[Response, int]:
     result = {k: v for k, v in record.items() if k != "classrooms"}
 
     try:
-        if record.get("assignment_file_storage_path"):
+        if record.get("prompt_storage_path"):
             result["assignment_file_download_url"] = generate_download_url(
-                ASSIGNMENTS_BUCKET, record["assignment_file_storage_path"]
+                ASSIGNMENTS_BUCKET, record["prompt_storage_path"]
             )
         if is_teacher and record.get("answer_key_storage_path"):
             result["answer_key_download_url"] = generate_download_url(
@@ -224,9 +224,9 @@ def reupload_assignment_files(assignment_id: str) -> Tuple[Response, int]:
 
     result: dict = {}
     try:
-        if record.get("assignment_file_storage_path"):
+        if record.get("prompt_storage_path"):
             result["assignment_file_upload_url"] = generate_upload_url(
-                ASSIGNMENTS_BUCKET, record["assignment_file_storage_path"]
+                ASSIGNMENTS_BUCKET, record["prompt_storage_path"]
             )
         if record.get("answer_key_storage_path"):
             result["answer_key_upload_url"] = generate_upload_url(

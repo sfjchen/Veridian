@@ -1,6 +1,6 @@
 import inspect
 import re
-from typing import Any, Protocol
+from typing import Any, Literal, Protocol, TypedDict
 
 # Minimum version that supports `thinking` on messages.create().
 MIN_ANTHROPIC_VERSION = (0, 79, 0)
@@ -15,6 +15,15 @@ _VERSION_PATTERN = re.compile(
 
 class _MessagesClientProtocol(Protocol):
     messages: Any
+
+
+class ThinkingEnabledConfig(TypedDict):
+    type: Literal["enabled"]
+    budget_tokens: int
+
+
+class ThinkingAdaptiveConfig(TypedDict):
+    type: Literal["adaptive"]
 
 
 def _parse_version(version: str) -> tuple[int, int, int]:
@@ -100,3 +109,23 @@ def validate_anthropic_thinking_support(
 ) -> None:
     ensure_supported_anthropic_version(anthropic_version)
     ensure_messages_create_supports_thinking(client)
+
+
+def build_enabled_thinking(
+    max_tokens: int,
+    budget_tokens: int,
+) -> ThinkingEnabledConfig:
+    if max_tokens < 1025:
+        raise ValueError(f"max_tokens must be >= 1025, got {max_tokens}")
+    if budget_tokens < 1024:
+        raise ValueError(f"budget_tokens must be >= 1024, got {budget_tokens}")
+    if budget_tokens >= max_tokens:
+        raise ValueError(
+            "budget_tokens must be less than max_tokens; "
+            f"got budget_tokens={budget_tokens}, max_tokens={max_tokens}"
+        )
+    return {"type": "enabled", "budget_tokens": budget_tokens}
+
+
+def build_adaptive_thinking() -> ThinkingAdaptiveConfig:
+    return {"type": "adaptive"}

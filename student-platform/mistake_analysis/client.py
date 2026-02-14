@@ -18,9 +18,12 @@ Outputs (returned by MistakeAnalyzer.run()):
 import anthropic
 import json
 import logging
+import os
 from concurrent.futures import ThreadPoolExecutor
 from datetime import datetime, timezone
 from pathlib import Path
+
+from openai import OpenAI
 
 from .constants import TAG_BANK, SEVERITIES, TAG_TO_SEVERITY, ALL_TAGS
 from .prompts import ANALYSIS_SYSTEM_PROMPT, GRADER_SYSTEM_PROMPT, CONTINUATION_SYSTEM_PROMPT
@@ -42,6 +45,7 @@ class MistakeAnalyzer:
         grader_model: str = "claude-sonnet-4-5-20250929",
         continuation_model: str = "claude-sonnet-4-5-20250929",
         use_extended_thinking: bool = True,
+        max_tokens: int | None = None,
     ):
         self.client = anthropic.Anthropic()  # uses ANTHROPIC_API_KEY env var
         self.mistakes_path = Path(mistakes_json_path)
@@ -49,6 +53,20 @@ class MistakeAnalyzer:
         self.grader_model = grader_model
         self.continuation_model = continuation_model
         self.use_extended_thinking = use_extended_thinking
+        try:
+            _cap = int(os.getenv("MISTAKE_ANALYSIS_MAX_TOKENS", "8192").strip())
+        except ValueError:
+            _cap = 8192
+        self.max_tokens = max(1024, max_tokens) if max_tokens is not None else max(1024, _cap)
+
+        backend = (os.getenv("MISTAKE_ANALYSIS_BACKEND", "anthropic") or "anthropic").strip().lower()
+        self._backend = "openai" if backend == "openai" else "anthropic"
+        if self._backend == "openai":
+            self._openai_client = OpenAI()
+            self._openai_model = (os.getenv("MISTAKE_ANALYSIS_OPENAI_MODEL", "gpt-4o") or "gpt-4o").strip()
+        else:
+            self._openai_client = None
+            self._openai_model = ""
 
         # load or initialize mistake history
         if self.mistakes_path.exists():
@@ -72,6 +90,44 @@ class MistakeAnalyzer:
                 f"Anthropic API error during {context}: {exc}"
             ) from exc
 
+    def _request_text(
+        self,
+        context: str,
+        system: str,
+        user_msg: str,
+        max_tokens: int,
+        anthropic_model: str,
+        use_thinking: bool = False,
+    ) -> str:
+        """Call LLM (Anthropic or OpenAI per MISTAKE_ANALYSIS_BACKEND) and return response text."""
+        if self._backend == "anthropic":
+            kwargs = {
+                "model": anthropic_model,
+                "max_tokens": max_tokens,
+                "system": system,
+                "messages": [{"role": "user", "content": user_msg}],
+            }
+            if use_thinking:
+                kwargs["temperature"] = 1
+                kwargs["thinking"] = {"type": "adaptive"}
+            response = self._call_api(context, **kwargs)
+            return extract_text(response)
+        try:
+            response = self._openai_client.chat.completions.create(
+                model=self._openai_model,
+                max_completion_tokens=max_tokens,
+                messages=[
+                    {"role": "system", "content": system},
+                    {"role": "user", "content": user_msg},
+                ],
+            )
+        except Exception as exc:
+            raise ValueError(f"OpenAI API error during {context}: {exc}") from exc
+        content = (response.choices[0].message.content or "").strip()
+        if not content:
+            raise ValueError(f"OpenAI returned empty response during {context}")
+        return content
+
     def _analyze(
         self, student_tex: str, reference_tex: str, context_tex: str
     ) -> dict:
@@ -85,24 +141,17 @@ class MistakeAnalyzer:
             f"<reference_solution>\n{reference_tex}\n</reference_solution>\n\n"
             f"<student_attempt>\n{student_tex}\n</student_attempt>"
         )
-
-        kwargs = {
-            "model": self.analysis_model,
-            "max_tokens": 16000,
-            "system": system,
-            "messages": [{"role": "user", "content": user_msg}],
-        }
-
-        if self.use_extended_thinking:
-            kwargs["temperature"] = 1  # required for extended thinking
-            kwargs["thinking"] = {
-                "type": "enabled",
-                "budget_tokens": 10000,
-            }
+        use_thinking = self.use_extended_thinking and "opus" in self.analysis_model.lower()
 
         for attempt in range(2):
-            response = self._call_api("analysis", **kwargs)
-            text = extract_text(response)
+            text = self._request_text(
+                "analysis",
+                system,
+                user_msg,
+                self.max_tokens,
+                self.analysis_model,
+                use_thinking=use_thinking,
+            )
             try:
                 return extract_json_from_llm_response(text, "analysis")
             except ValueError:
@@ -120,23 +169,14 @@ class MistakeAnalyzer:
             f"<analysis>\n{json.dumps(analysis, indent=2)}\n</analysis>"
         )
 
-        kwargs = {
-            "model": self.grader_model,
-            "max_tokens": 16000,
-            "system": GRADER_SYSTEM_PROMPT,
-            "messages": [{"role": "user", "content": user_msg}],
-        }
-
-        if self.use_extended_thinking:
-            kwargs["temperature"] = 1
-            kwargs["thinking"] = {
-                "type": "enabled",
-                "budget_tokens": 10000,
-            }
-
         for attempt in range(2):
-            response = self._call_api("verification", **kwargs)
-            text = extract_text(response)
+            text = self._request_text(
+                "verification",
+                GRADER_SYSTEM_PROMPT,
+                user_msg,
+                self.max_tokens,
+                self.grader_model,
+            )
             try:
                 return extract_json_from_llm_response(text, "verification")
             except ValueError:
@@ -201,22 +241,13 @@ class MistakeAnalyzer:
             f"<mistake_analysis>\n{json.dumps(analysis, indent=2)}\n</mistake_analysis>"
         )
 
-        kwargs = {
-            "model": self.continuation_model,
-            "max_tokens": 16000,
-            "system": CONTINUATION_SYSTEM_PROMPT,
-            "messages": [{"role": "user", "content": user_msg}],
-        }
-
-        if self.use_extended_thinking:
-            kwargs["temperature"] = 1
-            kwargs["thinking"] = {
-                "type": "enabled",
-                "budget_tokens": 10000,
-            }
-
-        response = self._call_api("continuation", **kwargs)
-        return extract_text(response)
+        return self._request_text(
+            "continuation",
+            CONTINUATION_SYSTEM_PROMPT,
+            user_msg,
+            self.max_tokens,
+            self.continuation_model,
+        )
 
     def _annotate(self, student_tex: str, mistakes: list[dict]) -> str:
         """

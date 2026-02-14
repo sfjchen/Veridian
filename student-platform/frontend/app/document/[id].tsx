@@ -144,6 +144,7 @@ export default function DocumentScreen() {
   const isDefault = doc ? isDefaultDocument(doc) : false;
   const problems = assignmentProblems.length > 0 ? assignmentProblems : isDefault ? SAMPLE_PROBLEMS : [];
   const isProblemMode = problems.length > 0;
+  const assignmentIdForChat = assignmentId ?? (isDefault ? 'sample-algebra' : null);
 
   const [pdfBase64, setPdfBase64] = useState<string | null>(null);
   const [loadError, setLoadError] = useState<string | null>(null);
@@ -299,6 +300,11 @@ export default function DocumentScreen() {
     ? assignment.analysis_debounce_seconds * 1000
     : 15_000;
 
+  const onStaleResult = useCallback((result: AnalysisResult) => {
+    if (result.problem_num == null) return;
+    setResultsByProblem((prev) => ({ ...prev, [result.problem_num!]: result }));
+  }, []);
+
   const {
     isAnalyzing,
     lastResult,
@@ -312,6 +318,7 @@ export default function DocumentScreen() {
     enabled: isProblemMode && (assignment?.auto_analyze ?? isDefault),
     captureScreenshot,
     onError: (msg) => showAlert('Analysis failed', msg),
+    onStaleResult,
   });
 
   // Store results per problem when analysis completes.
@@ -557,7 +564,7 @@ export default function DocumentScreen() {
       <ChatPanel
         visible={chatVisible}
         onClose={handleCloseChat}
-        assignmentId={assignmentId}
+        assignmentId={assignmentIdForChat}
         problemNum={chatProblemNum}
       />
     </SafeAreaView>

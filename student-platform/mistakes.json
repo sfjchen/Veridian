@@ -71,6 +71,342 @@
       "severity": "procedural",
       "explanation": "Even from the student's own equation 3x-12=14, the correct solution would be 3x=26, x=26/3; from the original equation the answer is x=9. The student appears to have skipped the addition and division steps entirely.",
       "erroneous_latex": "x=12"
+    },
+    {
+      "student_id": "default",
+      "timestamp": "2026-02-14T17:50:25.244622+00:00",
+      "tag": "wrong-method",
+      "severity": "procedural",
+      "explanation": "If this is meant to represent the distributed form 3x \u2212 12 = 15, the variable x is missing (written as multiplication 3\u00b712 instead of the expression 3x\u221212), and the right-hand side is written as 14 instead of 15.",
+      "erroneous_latex": "3 \\cdot 12 = 14"
+    },
+    {
+      "student_id": "default",
+      "timestamp": "2026-02-14T17:50:25.244622+00:00",
+      "tag": "arithmetic-error",
+      "severity": "mechanical",
+      "explanation": "The right-hand side of the equation 3(x\u22124)=15 after distributing should be 15, not 14.",
+      "erroneous_latex": "= 14"
+    },
+    {
+      "student_id": "default",
+      "timestamp": "2026-02-14T17:50:25.244622+00:00",
+      "tag": "skipped-step",
+      "severity": "procedural",
+      "explanation": "The correct solution to 3(x\u22124)=15 is x=9 (via 3x\u221212=15 \u2192 3x=27 \u2192 x=9); the student appears to have confused the constant term 12 with the value of x, skipping the necessary algebraic steps of isolating x.",
+      "erroneous_latex": "x = 12"
+    },
+    {
+      "student_id": "default",
+      "timestamp": "2026-02-14T17:53:40.812099+00:00",
+      "tag": "arithmetic-error",
+      "severity": "mechanical",
+      "explanation": "The right-hand side should be 15 (from the original equation 3(x-4)=15), not 14.",
+      "erroneous_latex": "3x - 12 = 14"
+    },
+    {
+      "student_id": "default",
+      "timestamp": "2026-02-14T17:53:40.812099+00:00",
+      "tag": "wrong-method",
+      "severity": "procedural",
+      "explanation": "Even from the student's own (incorrect) equation 3x - 12 = 14, adding 12 to both sides gives 3x = 26, so x = 26/3; from the correct equation 3x - 12 = 15, x = 9. The student appears to have skipped proper algebraic steps to isolate x.",
+      "erroneous_latex": "x = 12"
+    },
+    {
+      "student_id": "default",
+      "timestamp": "2026-02-14T18:01:23.478165+00:00",
+      "tag": "arithmetic-error",
+      "severity": "mechanical",
+      "explanation": "The right-hand side should be 15 (from the original equation 3(x-4)=15), not 14.",
+      "erroneous_latex": "3x - 12 = 14"
+    },
+    {
+      "student_id": "default",
+      "timestamp": "2026-02-14T18:01:23.478165+00:00",
+      "tag": "algebra-error",
+      "severity": "mechanical",
+      "explanation": "Even from the student's own equation 3x - 12 = 14, adding 12 to both sides gives 3x = 26, so x = 26/3, not 12; from the correct equation 3x - 12 = 15, the answer is x = 9.",
+      "erroneous_latex": "x = 12"
+    },
+    {
+      "student_id": "default",
+      "timestamp": "2026-02-14T18:06:42.964228+00:00",
+      "tag": "arithmetic-error",
+      "severity": "mechanical",
+      "explanation": "After distributing 3(x-4)=15, the right-hand side should remain 15, not 14.",
+      "erroneous_latex": "3x - 12 = 14"
+    },
+    {
+      "student_id": "default",
+      "timestamp": "2026-02-14T18:06:42.964228+00:00",
+      "tag": "algebra-error",
+      "severity": "mechanical",
+      "explanation": "From 3x - 12 = 14, adding 12 gives 3x = 26, so x = 26/3 (or from the correct equation 3x - 12 = 15, x = 9); x = 12 is incorrect under either interpretation, indicating an error in the solving steps.",
+      "erroneous_latex": "x = 12"
+    },
+    {
+      "student_id": "default",
+      "timestamp": "2026-02-14T18:08:07.412761+00:00",
+      "tag": "arithmetic-error",
+      "severity": "mechanical",
+      "explanation": "The original equation is 3(x-4)=15, so after distributing the right-hand side should remain 15, not 14.",
+      "erroneous_latex": "3x - 12 = 14"
+    },
+    {
+      "student_id": "default",
+      "timestamp": "2026-02-14T18:08:07.412761+00:00",
+      "tag": "arithmetic-error",
+      "severity": "mechanical",
+      "explanation": "Even from the student's own (incorrect) equation 3x-12=14, adding 12 to both sides gives 3x=26 and x=26/3, not 12; from the correct equation the answer is x=9.",
+      "erroneous_latex": "x = 12"
+    },
+    {
+      "student_id": "default",
+      "timestamp": "2026-02-14T18:09:21.080427+00:00",
+      "tag": "incorrect-assumption",
+      "severity": "procedural",
+      "explanation": "The original equation from problem 2 should be 3x - 12 = 15, not 14; this appears to be a transcription error.",
+      "erroneous_latex": "3x - 12 = 14"
+    },
+    {
+      "student_id": "default",
+      "timestamp": "2026-02-14T18:09:21.080427+00:00",
+      "tag": "arithmetic-error",
+      "severity": "mechanical",
+      "explanation": "Even with the incorrect equation 3x - 12 = 14, the solution should be 3x = 26, so x = 26/3, not x = 12; this is an arithmetic error.",
+      "erroneous_latex": "x = 12"
+    },
+    {
+      "student_id": "default",
+      "timestamp": "2026-02-14T18:09:42.254298+00:00",
+      "tag": "arithmetic-error",
+      "severity": "mechanical",
+      "explanation": "The student wrote 14 instead of 15 on the right-hand side, which does not match the result of distributing 3(x - 4) = 15.",
+      "erroneous_latex": "3x - 12 = 14"
+    },
+    {
+      "student_id": "default",
+      "timestamp": "2026-02-14T18:09:42.254298+00:00",
+      "tag": "arithmetic-error",
+      "severity": "mechanical",
+      "explanation": "From 3x - 12 = 14, adding 12 to both sides gives 3x = 26, then x = 26/3, not x = 12.",
+      "erroneous_latex": "3x - 12 = 14 \\Rightarrow x = 12"
+    },
+    {
+      "student_id": "default",
+      "timestamp": "2026-02-14T18:10:16.386184+00:00",
+      "tag": "arithmetic-error",
+      "severity": "mechanical",
+      "explanation": "The student incorrectly wrote 14 on the right side when it should be 15 from the original equation 3(x - 4) = 15",
+      "erroneous_latex": "3x - 12 = 14"
+    },
+    {
+      "student_id": "default",
+      "timestamp": "2026-02-14T18:10:16.386184+00:00",
+      "tag": "algebra-error",
+      "severity": "mechanical",
+      "explanation": "Even if working from the incorrect equation 3x - 12 = 14, solving correctly would give 3x = 26 then x = 26/3, not x = 12; the student appears to have added 12 to 14 incorrectly or skipped solving 3x = 26",
+      "erroneous_latex": "x = 12"
+    },
+    {
+      "student_id": "default",
+      "timestamp": "2026-02-14T18:10:16.386184+00:00",
+      "tag": "sign-error",
+      "severity": "mechanical",
+      "explanation": "The student failed to show the intermediate step of isolating 3x. From 3x - 12 = 14, the next step should be 3x = 26, then divide by 3. The jump directly to x = 12 suggests the student may have incorrectly computed 14 - 12 = 12 instead of 14 + 12 = 26, or made another algebraic error.",
+      "erroneous_latex": "3x - 12 = 14 \\implies x = 12"
+    },
+    {
+      "student_id": "default",
+      "timestamp": "2026-02-14T18:16:21.310965+00:00",
+      "tag": "arithmetic-error",
+      "severity": "mechanical",
+      "explanation": "After applying the distributive property to 3(x - 4) = 15, the student incorrectly wrote the right-hand side as 14 instead of 15.",
+      "erroneous_latex": "3x - 12 = 14"
+    },
+    {
+      "student_id": "default",
+      "timestamp": "2026-02-14T18:16:21.310965+00:00",
+      "tag": "algebra-error",
+      "severity": "mechanical",
+      "explanation": "Even given the incorrect equation 3x - 12 = 14, solving yields 3x = 26, so x = 26/3, not x = 12; the student made an algebraic error in the solution process.",
+      "erroneous_latex": "x = 12"
+    },
+    {
+      "student_id": "default",
+      "timestamp": "2026-02-14T18:16:21.310965+00:00",
+      "tag": "skipped-step",
+      "severity": "procedural",
+      "explanation": "The student skipped the crucial intermediate step of adding 12 to both sides to get 3x = 26 (or 3x = 27 in the correct version), then dividing by 3.",
+      "erroneous_latex": "3x - 12 = 14 \\\\ x = 12"
+    },
+    {
+      "student_id": "default",
+      "timestamp": "2026-02-14T18:16:53.221534+00:00",
+      "tag": "arithmetic-error",
+      "severity": "mechanical",
+      "explanation": "After applying the distributive property to 3(x - 4) = 15, the result should be 3x - 12 = 15, not 3x - 12 = 14",
+      "erroneous_latex": "3x - 12 = 14"
+    },
+    {
+      "student_id": "default",
+      "timestamp": "2026-02-14T18:16:53.221534+00:00",
+      "tag": "algebra-error",
+      "severity": "mechanical",
+      "explanation": "Starting from the incorrect equation 3x - 12 = 14, the student should get 3x = 26 and then x = 26/3, not x = 12; this appears to be an algebra error in solving the equation",
+      "erroneous_latex": "X = 12"
+    },
+    {
+      "student_id": "default",
+      "timestamp": "2026-02-14T18:16:53.221534+00:00",
+      "tag": "skipped-step",
+      "severity": "procedural",
+      "explanation": "The student skipped showing the intermediate step of adding 12 to both sides (3x = 26) and dividing by 3, making it impossible to verify the work",
+      "erroneous_latex": "3x - 12 = 14 \\\\ X = 12"
+    },
+    {
+      "student_id": "default",
+      "timestamp": "2026-02-14T18:19:34.819715+00:00",
+      "tag": "arithmetic-error",
+      "severity": "mechanical",
+      "explanation": "The student incorrectly expanded 3(x - 4) = 15 or copied the equation wrong; the correct result after distributing is 3x - 12 = 15, not 14.",
+      "erroneous_latex": "3x - 12 = 14"
+    },
+    {
+      "student_id": "default",
+      "timestamp": "2026-02-14T18:19:34.819715+00:00",
+      "tag": "arithmetic-error",
+      "severity": "mechanical",
+      "explanation": "The student appears to have added 12 to both sides getting 3x = 26, then divided incorrectly or made an error; from 3x - 12 = 14, the correct solution would be x = 26/3, not x = 12.",
+      "erroneous_latex": "x = 12"
+    },
+    {
+      "student_id": "default",
+      "timestamp": "2026-02-14T18:21:41.603525+00:00",
+      "tag": "sign-error",
+      "severity": "mechanical",
+      "explanation": "Incorrect initial equation compared to the reference problem's 3(x - 4) = 15",
+      "erroneous_latex": "3x - 12 = 14"
+    },
+    {
+      "student_id": "default",
+      "timestamp": "2026-02-14T18:21:41.603525+00:00",
+      "tag": "sign-error",
+      "severity": "mechanical",
+      "explanation": "Incorrect solution value derived from the incorrect equation",
+      "erroneous_latex": "x = 12"
+    },
+    {
+      "student_id": "default",
+      "timestamp": "2026-02-14T18:21:41.603525+00:00",
+      "tag": "arithmetic-error",
+      "severity": "mechanical",
+      "explanation": "Even given the student's incorrect starting equation 3x - 12 = 14, the solution x = 12 is wrong. Solving correctly: 3x - 12 = 14 \u2192 3x = 26 \u2192 x = 26/3 \u2248 8.67. The student failed to properly solve even their own equation.",
+      "erroneous_latex": "x = 12"
+    },
+    {
+      "student_id": "default",
+      "timestamp": "2026-02-14T18:22:44.682002+00:00",
+      "tag": "ambiguous-notation",
+      "severity": "notational",
+      "explanation": "This is not a valid mathematical equation or manipulation; the symbols and arrangement are nonsensical",
+      "erroneous_latex": "3, 12 = 14"
+    },
+    {
+      "student_id": "default",
+      "timestamp": "2026-02-14T18:22:44.682002+00:00",
+      "tag": "incorrect-assumption",
+      "severity": "conceptual",
+      "explanation": "There is no logical connection between the first line and this conclusion; no valid solving steps have been shown",
+      "erroneous_latex": "x = 12"
+    },
+    {
+      "student_id": "default",
+      "timestamp": "2026-02-14T18:22:44.682002+00:00",
+      "tag": "sign-error",
+      "severity": "mechanical",
+      "explanation": "The student has not identified which problem they are attempting to solve (problems 1-5 in the reference). The solution is completely disconnected from any of the given problems.",
+      "erroneous_latex": "entire student attempt"
+    },
+    {
+      "student_id": "default",
+      "timestamp": "2026-02-14T18:22:44.682002+00:00",
+      "tag": "arithmetic-error",
+      "severity": "mechanical",
+      "explanation": "Beyond being nonsensical notation, this equation is arithmetically false (3 + 12 \u2260 14, 3 \u00d7 12 \u2260 14, etc.). The student may be attempting some arithmetic that is also incorrect.",
+      "erroneous_latex": "3, 12 = 14"
+    },
+    {
+      "student_id": "default",
+      "timestamp": "2026-02-14T18:27:30.909221+00:00",
+      "tag": "ambiguous-notation",
+      "severity": "notational",
+      "explanation": "This notation does not represent a valid equation; it appears to be incorrectly formatted or misstated.",
+      "erroneous_latex": "3, 12 = 14"
+    },
+    {
+      "student_id": "default",
+      "timestamp": "2026-02-14T18:27:30.909221+00:00",
+      "tag": "incorrect-assumption",
+      "severity": "conceptual",
+      "explanation": "This solution does not logically follow from the previous line, as the equation provided was invalid.",
+      "erroneous_latex": "x = 12"
+    },
+    {
+      "student_id": "default",
+      "timestamp": "2026-02-14T18:27:59.464820+00:00",
+      "tag": "wrong-theorem",
+      "severity": "conceptual",
+      "explanation": "The equation presented is not a valid linear equation and is incorrectly formatted.",
+      "erroneous_latex": "3, 12 = 14"
+    },
+    {
+      "student_id": "default",
+      "timestamp": "2026-02-14T18:27:59.464820+00:00",
+      "tag": "incorrect-assumption",
+      "severity": "conceptual",
+      "explanation": "The conclusion of x = 12 does not follow from the incorrect premise presented.",
+      "erroneous_latex": "x = 12"
+    },
+    {
+      "student_id": "default",
+      "timestamp": "2026-02-14T18:28:35.965631+00:00",
+      "tag": "wrong-theorem",
+      "severity": "conceptual",
+      "explanation": "This expression is not a valid equation format and does not represent a correct mathematical statement.",
+      "erroneous_latex": "3, 12 = 14"
+    },
+    {
+      "student_id": "default",
+      "timestamp": "2026-02-14T18:28:35.965631+00:00",
+      "tag": "incorrect-assumption",
+      "severity": "conceptual",
+      "explanation": "The solution x = 12 does not follow from the incorrect equation given since it doesn't result from any valid manipulation of the original equation.",
+      "erroneous_latex": "x = 12"
+    },
+    {
+      "student_id": "default",
+      "timestamp": "2026-02-14T18:28:59.089296+00:00",
+      "tag": "incorrect-assumption",
+      "severity": "conceptual",
+      "explanation": "The student incorrectly uses a comma instead of an equals sign, which results in a misunderstanding of the equation itself.",
+      "erroneous_latex": "3x, 12 = 14"
+    },
+    {
+      "student_id": "default",
+      "timestamp": "2026-02-14T18:28:59.089296+00:00",
+      "tag": "wrong-theorem",
+      "severity": "conceptual",
+      "explanation": "Assuming x = 12 is incorrect because it is based on the miswritten equation; proper calculations cannot be made.",
+      "erroneous_latex": "x = 12"
+    },
+    {
+      "student_id": "default",
+      "timestamp": "2026-02-14T19:07:45.860385+00:00",
+      "tag": "sign-error",
+      "severity": "mechanical",
+      "explanation": "No mathematical work was attempted, preventing solution analysis",
+      "erroneous_latex": "I'm unable to process images. If you can describe the mathematical content you need help with, I'd be happy to assist!"
     }
   ],
   "sessions": [
@@ -150,6 +486,132 @@
       "approach_assessment": "viable_with_errors",
       "approach_notes": "Student is attempting problem 2 by applying the distributive property to 3(x-4)=15, which is the correct approach, but makes errors in transcription and solving.",
       "mistake_count": 2
+    },
+    {
+      "student_id": "default",
+      "timestamp": "2026-02-14T17:50:25.244622+00:00",
+      "approach_assessment": "viable_with_errors",
+      "approach_notes": "The student appears to be attempting problem 2 (solving 3(x\u22124)=15) and may have tried the distributive property step, but the work is severely garbled with multiple errors.",
+      "mistake_count": 3
+    },
+    {
+      "student_id": "default",
+      "timestamp": "2026-02-14T17:53:40.812099+00:00",
+      "approach_assessment": "viable_with_errors",
+      "approach_notes": "The student appears to be solving problem 2 (3(x-4)=15) and correctly applies the distributive property to get 3x-12, but then makes errors in the RHS and in solving for x.",
+      "mistake_count": 2
+    },
+    {
+      "student_id": "default",
+      "timestamp": "2026-02-14T18:01:23.478165+00:00",
+      "approach_assessment": "viable_with_errors",
+      "approach_notes": "The student is attempting problem 2, correctly applying the distributive property to expand 3(x-4) but then making errors in the resulting equation and its solution.",
+      "mistake_count": 2
+    },
+    {
+      "student_id": "default",
+      "timestamp": "2026-02-14T18:06:42.964228+00:00",
+      "approach_assessment": "viable_with_errors",
+      "approach_notes": "Student appears to be solving problem 2 (3(x-4)=15) by correctly applying the distributive property but then making errors in arithmetic and solving.",
+      "mistake_count": 2
+    },
+    {
+      "student_id": "default",
+      "timestamp": "2026-02-14T18:08:07.412761+00:00",
+      "approach_assessment": "viable_with_errors",
+      "approach_notes": "Student is attempting problem 2, correctly applying the distributive property to expand 3(x-4), but makes errors in the resulting constant and in solving.",
+      "mistake_count": 2
+    },
+    {
+      "student_id": "default",
+      "timestamp": "2026-02-14T18:09:21.080427+00:00",
+      "approach_assessment": "misguided",
+      "approach_notes": "The student appears to have misread or miscopied problem 2, starting with an incorrect equation (14 instead of 15), then made algebraic errors in solving.",
+      "mistake_count": 2
+    },
+    {
+      "student_id": "default",
+      "timestamp": "2026-02-14T18:09:42.254298+00:00",
+      "approach_assessment": "misguided",
+      "approach_notes": "The student appears to have written a different equation than problem 2 and solved it incorrectly.",
+      "mistake_count": 2
+    },
+    {
+      "student_id": "default",
+      "timestamp": "2026-02-14T18:10:16.386184+00:00",
+      "approach_assessment": "misguided",
+      "approach_notes": "The student appears to be attempting problem 2 but has made errors in both the equation setup and solution process",
+      "mistake_count": 3
+    },
+    {
+      "student_id": "default",
+      "timestamp": "2026-02-14T18:16:21.310965+00:00",
+      "approach_assessment": "misguided",
+      "approach_notes": "The student appears to be attempting problem 2, but has introduced an arithmetic error in the first step and then failed to show the algebraic steps needed to solve for x.",
+      "mistake_count": 3
+    },
+    {
+      "student_id": "default",
+      "timestamp": "2026-02-14T18:16:53.221534+00:00",
+      "approach_assessment": "misguided",
+      "approach_notes": "The student appears to be attempting problem 2 but has introduced an arithmetic error in the first step and then failed to show the algebraic steps needed to solve for x.",
+      "mistake_count": 3
+    },
+    {
+      "student_id": "default",
+      "timestamp": "2026-02-14T18:19:34.819715+00:00",
+      "approach_assessment": "misguided",
+      "approach_notes": "The student appears to be attempting problem 2 but has made errors in both the equation setup and solving process.",
+      "mistake_count": 2
+    },
+    {
+      "student_id": "default",
+      "timestamp": "2026-02-14T18:21:41.603525+00:00",
+      "approach_assessment": "viable_with_errors",
+      "approach_notes": "Student is attempting to solve a linear equation by isolating x",
+      "mistake_count": 3
+    },
+    {
+      "student_id": "default",
+      "timestamp": "2026-02-14T18:22:44.682002+00:00",
+      "approach_assessment": "misguided",
+      "approach_notes": "Student appears to be attempting a random linear equation solving process without understanding the fundamental steps",
+      "mistake_count": 4
+    },
+    {
+      "student_id": "default",
+      "timestamp": "2026-02-14T18:27:30.909221+00:00",
+      "approach_assessment": "misguided",
+      "approach_notes": "The student appears to be attempting to solve a linear equation but has provided an incorrect equation and solution.",
+      "mistake_count": 2
+    },
+    {
+      "student_id": "default",
+      "timestamp": "2026-02-14T18:27:59.464820+00:00",
+      "approach_assessment": "misguided",
+      "approach_notes": "The student appears to be attempting to solve a linear equation, but the setup is incorrect.",
+      "mistake_count": 2
+    },
+    {
+      "student_id": "default",
+      "timestamp": "2026-02-14T18:28:35.965631+00:00",
+      "approach_assessment": "misguided",
+      "approach_notes": "The student seems to be attempting to solve a linear equation but has not set it up or manipulated it correctly.",
+      "mistake_count": 2
+    },
+    {
+      "student_id": "default",
+      "timestamp": "2026-02-14T18:28:59.089296+00:00",
+      "approach_assessment": "misguided",
+      "approach_notes": "The student seems to be attempting to solve for x in a linear equation but does not set up the equation correctly.",
+      "mistake_count": 2
+    },
+    {
+      "student_id": "default",
+      "timestamp": "2026-02-14T19:07:45.860385+00:00",
+      "approach_assessment": "misguided",
+      "approach_notes": "Student did not provide a solution to the algebra problems",
+      "mistake_count": 1
     }
   ]
 }

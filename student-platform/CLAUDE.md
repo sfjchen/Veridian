@@ -18,7 +18,7 @@ Address both reviewers' feedback before merging. **Always tag `@claude` and @cod
 ## Key Directories
 
 - `mistake_analysis/` — Python package: LLM-based mistake detection, annotation, and continuation
-- `src/math_screenshot_to_latex/` — OpenAI-based math OCR (screenshot → LaTeX)
+- `src/math_screenshot_to_latex/` — OpenAI-based math OCR (screenshot → LaTeX); MATH_OCR_MODEL, MATH_OCR_IMAGE_DETAIL, MATH_OCR_MAX_IMAGE_SIDE in env
 - `get_coords.py` — Flask server: mistake bounding box detection via Claude vision
 - `frontend/` — React Native/Expo frontend app
 - `scripts/` — Backend capture servers (Claude, Gemini, OpenRouter)

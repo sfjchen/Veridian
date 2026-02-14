@@ -9,6 +9,15 @@ EdTech platform for teachers to create math assignments and analyze student mist
 - [Expo CLI](https://docs.expo.dev/get-started/installation/) (`npm install -g expo-cli`)
 - A [Supabase](https://supabase.com) project
 
+## Quick run (from repo root)
+
+After one-time setup, use the scripts in `scripts/`:
+
+- **Teacher app:** `./scripts/setup-teacher.sh` once, then `./scripts/run-teacher.sh` (or run backend and frontend separately).
+- **Student platform:** `./scripts/setup-student.sh` once, then `./scripts/run-student.sh`.
+
+See `scripts/README.md` for all script options.
+
 ## Setup
 
 ### 1. Environment variables

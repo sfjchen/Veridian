@@ -11,79 +11,94 @@ Full platform monorepo: teacher side (classrooms, assignments, corpus, submissio
 ## Teacher Side (teacher/backend/, teacher/frontend/)
 
 ### Completed
-- PR #1–9: Supabase schema, RLS, Flask backend, teacher/student dashboards, corpus/assignment/submission flows
+
+- PR #1-9: Supabase schema, RLS, Flask backend, teacher/student dashboards, corpus/assignment/submission flows
 - PR #10: Column name revert (`prompt_storage_path`)
 - PR #11: Admin client, single-step corpus upload
 - PR #12: PDF preview fallback, assignment hardening
+- PR #21: Live monitoring + insights
+- PR #22: Classroom and assignment CRUD
+- PR #23: Corpus management
+- PR #24: Documentation consistency fixes
 - Supabase schema: profiles, classrooms, memberships, corpus_files, assignments, submissions
 - RLS policies, JWT auth
-- Teacher dashboard: create/list classrooms
+- Teacher dashboard: create/list classrooms, assignments, corpus
 - Student dashboard: join/list classrooms
-- Corpus file upload, assignment creation, submission creation
 - Signed URLs via admin client
 - PDF-to-LaTeX conversion, PDF preview fallback
 
 ### Remaining
-- **P0**: Student grading workflow, AI mistake analysis integration, E2E testing
+
+- **P0**: Teacher config system (classroom defaults + per-assignment overrides) — PR #3 in notebook overhaul
 - **P1**: Submission review screen with AI analysis, bulk operations
-- **P2**: Due date warnings
-- **P3**: Loading states, error boundaries, responsive design, pagination
+- **P2**: Due date warnings, loading states, error boundaries
 
 ---
 
 ## Student Side (student/backend/, student/frontend/)
 
 ### Completed
+
 - Per-problem pipeline: OCR, mistake analysis, coordinate detection
 - Red dot annotations, MistakeOverlay, progressive reveal
 - problem_results table, WebSocket real-time push
 - Socratic chat (Claude), ChatPanel UI
+- Results persistence with retry + dead-letter queue
 - Sample worksheet flow, workspace flow
 - require_auth_or_sample for sample-only requests
 
-### Remaining
-- **Phase 3c**: Background analysis worker (ThreadPoolExecutor)
-- **Phase 3d**: Result loading on app open
-- **Phase 4**: Teacher backend integration (answer keys, context from corpus)
-- **Phase 5c-d**: Chat guardrails, analytics
-- **Phase 6**: Enhanced note-taking (grid/lined, colors, zoom)
+### Student Notebook Overhaul (current focus)
+
+6 parallel PRs to transform the student app from prototype to assignment-driven, teacher-controlled experience:
+
+| PR | Title | Status | Dependencies |
+|----|-------|--------|-------------|
+| 1 | Fix Anthropic `thinking` SDK parameter | Not started | Standalone |
+| 2 | Student home screen (classrooms > assignments) | Not started | Standalone (uses PR 7 tokens if available) |
+| 3 | Teacher config system (classroom defaults + overrides) | Not started | Standalone |
+| 4 | Student app reads teacher config | Not started | Depends on PR 3 |
+| 5 | Eliminate all silent failures | Not started | Standalone |
+| 7 | Shared design system + visual overhaul | Not started | Standalone |
+
+See `student/PLAN.md` for detailed specs on each PR.
+
+### Future Milestones
+
+- **Chat intelligent context**: Teacher selects corpus files per assignment; chat uses them as tutoring context
+- **Enhanced note-taking**: Grid/lined backgrounds, color palette, stroke width, pinch-to-zoom
+- **Analytics**: Daily aggregation — struggle heatmap, engagement metrics, AI-synthesized concept gaps
 
 ---
 
-## Tech Debt: Try-Catch Cleanup (student)
+## Tech Debt: Silent Failure Cleanup (student)
 
 See `student/PLAN.md` for full inventory. Summary:
 
-1. **Persistence retry** — Retry with backoff; dead-letter queue on failure
-2. **WebSocket health** — `is_healthy()` check; polling fallback in frontend
-3. **Status update** — Retry or derive from in-flight request
-4. **Dot coords** — Pass dims from pipeline, avoid redundant PIL open
-5. **Coord pipeline failure** — Return mistakes without coords, not empty list
-6. **Stroke loading** — Schema version, validation, migration
-7. **ViewShot capture** — Readiness check, surface capture errors
-8. **Legacy submit** — Use isNetworkError, show actual error messages
+| # | Item | Status |
+|---|------|--------|
+| 1 | Persistence retry | FIXED |
+| 2 | WebSocket health | Still present |
+| 3 | Status update | FIXED |
+| 4 | Dot coords | Partially fixed |
+| 5 | Coord pipeline failure | Still present |
+| 6 | Stroke loading | Partially fixed |
+| 7 | ViewShot capture | Improved |
+| 8 | Legacy submit | Improved |
 
 ---
 
-## Architecture Decisions (Teacher)
+## Architecture Decisions
 
 | Decision | Rationale |
 |----------|-----------|
 | Shared Supabase | Single source of truth for assignments, results, chat |
 | Admin client for DB | RLS + PostgREST joins caused silent failures |
+| Assignment-driven student flow | Teacher uploads everything, students just solve |
+| Invisible analysis | No spinners; teacher config controls triggers and visibility |
 | One problem per screen (student) | Clear UX, per-problem result history |
-| 15s idle debounce | Balance responsiveness vs API cost |
+| Configurable analysis trigger | Default 15s idle debounce; teacher can set auto/manual/passive |
 | WebSocket for real-time | Push results without polling |
 | threading for SocketIO | eventlet caused startup hangs |
 | Signed URLs via admin client | User JWTs rejected by Storage API |
 | PDF screenshot previews via backend | Consistent preview across clients |
-
----
-
-## Open Decisions (User Input Needed)
-
-1. **Supabase schema merge**: Teacher-side uses `assignments` with `prompt_storage_path`, `classrooms`, `corpus_files`, `submissions`. Student-platform uses `assignments` with `problems` jsonb, `problem_results`, `chat_messages`, artifact tables. Need to reconcile: single `assignments` table schema, or separate teacher/student tables with linking.
-
-2. **Deployment**: Teacher and student backends are separate Flask apps (ports 5001 and 8000). Deploy as two services, or unify behind one gateway?
-
-3. **Try-catch fixes priority**: The 8 items in student tech debt — fix before further feature work, or tackle incrementally?
+| Teacher config resolution | Classroom defaults + assignment overrides, merged at fetch time |

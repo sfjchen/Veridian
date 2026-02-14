@@ -40,3 +40,4 @@ Address both reviewers' feedback before merging. **Always tag @codex and @claude
 - Max 3 parameters per function
 - No premature abstraction
 - Minimal comments — code should be self-documenting
+- **NEVER silently swallow exceptions** — always surface errors to the user or implement proper retry/recovery. No bare `except: pass`, no `catch { /* ignore */ }`. If an operation can fail, handle the failure visibly (toast, error state, retry) rather than hiding it.

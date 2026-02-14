@@ -16,3 +16,5 @@ Student platform — AI-powered math tutoring pipeline. Backend (`backend/`) for
 ## Conventions
 
 See root `CLAUDE.md` and `AGENTS.md` for all code style rules, review process, and workflow conventions.
+
+- **NEVER silently swallow exceptions** — always surface errors to the user or implement proper retry/recovery. No bare `except: pass`, no `catch { /* ignore */ }`. If an operation can fail, handle the failure visibly (toast, error state, retry) rather than hiding it.

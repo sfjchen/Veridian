@@ -23,4 +23,7 @@ def create_app() -> Flask:
     from .routes.convert import convert_bp
     app.register_blueprint(convert_bp)
 
+    from .routes.corpus import corpus_bp
+    app.register_blueprint(corpus_bp)
+
     return app

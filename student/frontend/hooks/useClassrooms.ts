@@ -1,0 +1,38 @@
+import { useCallback, useEffect, useRef, useState } from 'react';
+
+import { fetchClassrooms, type Classroom } from '@/lib/api';
+
+export function useClassrooms() {
+  const [classrooms, setClassrooms] = useState<Classroom[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
+  const mountedRef = useRef(true);
+
+  useEffect(() => {
+    mountedRef.current = true;
+    return () => {
+      mountedRef.current = false;
+    };
+  }, []);
+
+  const refresh = useCallback(async () => {
+    setLoading(true);
+    setError(null);
+    try {
+      const data = await fetchClassrooms();
+      if (mountedRef.current) setClassrooms(data);
+    } catch (e) {
+      if (mountedRef.current) {
+        setError(e instanceof Error ? e.message : 'Failed to fetch classrooms');
+      }
+    } finally {
+      if (mountedRef.current) setLoading(false);
+    }
+  }, []);
+
+  useEffect(() => {
+    refresh();
+  }, [refresh]);
+
+  return { classrooms, loading, error, refresh };
+}

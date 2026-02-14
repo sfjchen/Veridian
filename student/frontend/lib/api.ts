@@ -1,10 +1,26 @@
 const BASE_URL = (process.env.EXPO_PUBLIC_BACKEND_URL ?? '').replace(/\/$/, '');
 
-function getAuthHeaders(): Record<string, string> {
-  const token = process.env.EXPO_PUBLIC_SUPABASE_ACCESS_TOKEN?.trim();
+/** Prefer passing the logged-in user's token (e.g. from Supabase session) when available; env token is for dev/sample. */
+export function getAuthHeaders(accessToken?: string): Record<string, string> {
+  const token = accessToken ?? process.env.EXPO_PUBLIC_SUPABASE_ACCESS_TOKEN?.trim();
   if (token) return { Authorization: `Bearer ${token}` };
   return {};
 }
+
+export type Classroom = {
+  id: string;
+  name: string;
+  class_code: string;
+  created_at?: string;
+};
+
+export type AssignmentListItem = {
+  id: string;
+  title: string;
+  due_date: string | null;
+  classroom_id: string;
+  created_at?: string;
+};
 
 export type Problem = {
   num: number;
@@ -61,6 +77,35 @@ export type ChatResponse = {
   problem_num: number;
   assignment_id: string;
 };
+
+export async function fetchClassrooms(token?: string): Promise<Classroom[]> {
+  const res = await fetch(`${BASE_URL}/classrooms`, {
+    headers: getAuthHeaders(token),
+  });
+  if (!res.ok) {
+    const body = await res.json().catch(() => ({}));
+    throw new Error(body.error ?? `Failed to fetch classrooms (${res.status})`);
+  }
+  const data = await res.json();
+  const list = data.classrooms ?? data;
+  return Array.isArray(list) ? list : [];
+}
+
+export async function fetchAssignments(
+  classroomId: string,
+  token?: string,
+): Promise<AssignmentListItem[]> {
+  const res = await fetch(`${BASE_URL}/classrooms/${classroomId}/assignments`, {
+    headers: getAuthHeaders(token),
+  });
+  if (!res.ok) {
+    const body = await res.json().catch(() => ({}));
+    throw new Error(body.error ?? `Failed to fetch assignments (${res.status})`);
+  }
+  const data = await res.json();
+  const list = data.assignments ?? data;
+  return Array.isArray(list) ? list : [];
+}
 
 export async function fetchAssignment(assignmentId: string): Promise<Assignment> {
   const res = await fetch(`${BASE_URL}/assignments/${assignmentId}`);

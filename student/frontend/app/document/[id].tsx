@@ -27,6 +27,7 @@ import { useAssignment } from '@/hooks/useAssignment';
 import { useAutoAnalysis } from '@/hooks/useAutoAnalysis';
 import { useDocuments, isDefaultDocument } from '@/hooks/useDocuments';
 import type { AnalysisResult, Mistake } from '@/lib/api';
+import type { CaptureResult } from '@/lib/capture-types';
 import { buildAnalysisFormData } from '@/lib/image-upload';
 import { captureStrokesAsDataUri } from '@/lib/capture-web';
 import { PDF_VIEWER_HTML } from '@/lib/pdf-viewer-html';
@@ -40,6 +41,7 @@ const SAMPLE_PROBLEMS = [
   { num: 4, statement_tex: 'x/2 + 3 = 8' },
   { num: 5, statement_tex: 'x + y = 10,\\; 2x - y = 2' },
 ];
+const DEFAULT_ANALYSIS_DEBOUNCE_MS = 15_000;
 
 function isNetworkError(err: Error): boolean {
   if (err.name === 'TypeError' || err.name === 'NetworkError') return true;
@@ -132,19 +134,36 @@ function CanvasView({
 }
 
 export default function DocumentScreen() {
-  const { id } = useLocalSearchParams<{ id: string }>();
+  const params = useLocalSearchParams<{ id: string; assignmentId?: string; classroomName?: string }>();
+  const { id, assignmentId: assignmentIdParam, classroomName } = params;
+  const assignmentId = assignmentIdParam ?? null;
   const router = useRouter();
-  const { getDocument, loading: docsLoading } = useDocuments();
+  const {
+    getDocument,
+    loading: docsLoading,
+    loadError: docsLoadError,
+    saveError: docsSaveError,
+    clearLoadError: clearDocsLoadError,
+    clearSaveError: clearDocsSaveError,
+  } = useDocuments();
   const doc = id ? getDocument(id) : undefined;
 
-  // Assignment data -- fetched if document has an assignmentId param.
-  const assignmentId = (useLocalSearchParams<{ assignmentId?: string }>()).assignmentId ?? null;
-  const { assignment, problems: assignmentProblems } = useAssignment(assignmentId);
+  const assignmentOnly = !!assignmentId;
+  const { assignment, problems: assignmentProblems, loading: assignmentLoading, error: assignmentError } = useAssignment(assignmentId);
 
   const isDefault = doc ? isDefaultDocument(doc) : false;
-  const problems = assignmentProblems.length > 0 ? assignmentProblems : isDefault ? SAMPLE_PROBLEMS : [];
+  const problems =
+    assignmentProblems.length > 0
+      ? assignmentProblems
+      : isDefault
+        ? SAMPLE_PROBLEMS
+        : [];
   const isProblemMode = problems.length > 0;
   const assignmentIdForChat = assignmentId ?? (isDefault ? 'sample-algebra' : null);
+  const headerTitle = assignmentOnly && assignment ? assignment.title : doc?.name ?? '';
+  const backLabel = assignmentOnly
+    ? (classroomName ? `Back to ${classroomName}` : 'Back')
+    : 'Back to Library';
 
   const [pdfBase64, setPdfBase64] = useState<string | null>(null);
   const [loadError, setLoadError] = useState<string | null>(null);
@@ -152,6 +171,8 @@ export default function DocumentScreen() {
   const [currentPage, setCurrentPage] = useState<number>(1);
   const [strokesByPage, setStrokesByPage] = useState<Record<number, Stroke[]>>({});
   const [strokesLoaded, setStrokesLoaded] = useState(false);
+  const [strokeLoadError, setStrokeLoadError] = useState<string | null>(null);
+  const [strokeSaveError, setStrokeSaveError] = useState(false);
   const [resultsByProblem, setResultsByProblem] = useState<Record<number, AnalysisResult>>({});
   const [chatVisible, setChatVisible] = useState(false);
   const [chatProblemNum, setChatProblemNum] = useState<number | null>(null);
@@ -162,7 +183,6 @@ export default function DocumentScreen() {
   const [canvasDims, setCanvasDims] = useState<{ w: number; h: number } | null>(null);
 
   const STROKES_KEY = id ? `veridian_strokes:${id}` : null;
-
   const pageIndex = currentPage - 1;
   const currentStrokes = useMemo(() => strokesByPage[pageIndex] ?? [], [strokesByPage, pageIndex]);
   const currentProblem = isProblemMode ? problems[pageIndex] : null;
@@ -197,7 +217,9 @@ export default function DocumentScreen() {
           setStrokesByPage(byPage);
         }
       } catch (e) {
-        if (__DEV__) console.warn('[DocumentScreen] Failed to load strokes:', e);
+        if (!cancelled) {
+          setStrokeLoadError(e instanceof Error ? e.message : 'Failed to load saved strokes');
+        }
       } finally {
         if (!cancelled) setStrokesLoaded(true);
       }
@@ -209,8 +231,10 @@ export default function DocumentScreen() {
     if (!STROKES_KEY || !strokesLoaded) return;
     if (saveTimeoutRef.current) clearTimeout(saveTimeoutRef.current);
     saveTimeoutRef.current = setTimeout(() => {
-      AsyncStorage.setItem(STROKES_KEY, JSON.stringify(strokesByPage));
-      saveTimeoutRef.current = null;
+      const done = () => { saveTimeoutRef.current = null; };
+      AsyncStorage.setItem(STROKES_KEY, JSON.stringify(strokesByPage)).catch(() => {
+        setStrokeSaveError(true);
+      }).finally(done);
     }, 500);
     return () => { if (saveTimeoutRef.current) clearTimeout(saveTimeoutRef.current); };
   }, [STROKES_KEY, strokesLoaded, strokesByPage]);
@@ -258,8 +282,8 @@ export default function DocumentScreen() {
       const msg = JSON.parse(event.nativeEvent.data);
       if (msg.type === 'totalPages') setTotalPages(msg.totalPages ?? 1);
       if (msg.type === 'error') setLoadError(msg.message ?? 'PDF error');
-    } catch (e) {
-      if (__DEV__) console.warn('[DocumentScreen] WebView message parse error:', e);
+    } catch {
+      setLoadError('Invalid response from PDF viewer');
     }
   }, []);
 
@@ -273,32 +297,31 @@ export default function DocumentScreen() {
   const goToPage = (page: number) => setCurrentPage(Math.max(1, Math.min(totalPages, page)));
 
   // --- Screenshot capture ---
-  const captureScreenshot = useCallback(async (): Promise<string | null> => {
+  const captureScreenshot = useCallback(async (): Promise<CaptureResult> => {
     if (Platform.OS === 'web') {
-      if (!canvasDims) return null;
-      return captureStrokesAsDataUri(currentStrokes, canvasDims.w, canvasDims.h);
+      if (!canvasDims) return { error: 'unavailable' };
+      try {
+        const uri = captureStrokesAsDataUri(currentStrokes, canvasDims.w, canvasDims.h);
+        return { uri };
+      } catch {
+        return { error: 'failed' };
+      }
     }
     const viewShot = viewShotRef.current;
-    if (!viewShot || typeof viewShot.capture !== 'function') {
-      showAlert('Capture failed', 'Capture is not supported on this platform (e.g. web). Try the iOS or Android app.');
-      return null;
-    }
+    if (!viewShot || typeof viewShot.capture !== 'function') return { error: 'unavailable' };
     try {
       const uri = await viewShot.capture();
-      if (!uri) {
-        showAlert('Capture failed', 'No image URI returned.');
-      }
-      return uri ?? null;
+      if (!uri) return { error: 'failed' };
+      return { uri };
     } catch {
-      showAlert('Capture failed', 'Screenshot capture failed unexpectedly.');
-      return null;
+      return { error: 'failed' };
     }
   }, [canvasDims, currentStrokes]);
 
   // --- Auto-analysis ---
   const debounceMs = assignment?.analysis_debounce_seconds
     ? assignment.analysis_debounce_seconds * 1000
-    : 15_000;
+    : DEFAULT_ANALYSIS_DEBOUNCE_MS;
 
   const onStaleResult = useCallback((result: AnalysisResult) => {
     if (result.problem_num == null) return;
@@ -308,6 +331,8 @@ export default function DocumentScreen() {
   const {
     isAnalyzing,
     lastResult,
+    error: analysisError,
+    clearError: clearAnalysisError,
     triggerNow,
     markDirty,
   } = useAutoAnalysis({
@@ -315,11 +340,16 @@ export default function DocumentScreen() {
     problemNum: currentProblem?.num,
     isSample: isDefault,
     debounceMs,
-    enabled: isProblemMode && (assignment?.auto_analyze ?? isDefault),
+    enabled: isProblemMode && (assignment?.auto_analyze ?? isDefault) && !!canvasDims,
     captureScreenshot,
     onError: (msg) => showAlert('Analysis failed', msg),
     onStaleResult,
   });
+
+  useEffect(() => {
+    setCanvasDims(null);
+    clearAnalysisError();
+  }, [pageIndex, clearAnalysisError]);
 
   // Store results per problem when analysis completes.
   useEffect(() => {
@@ -343,8 +373,12 @@ export default function DocumentScreen() {
       return;
     }
     // Legacy: full-page analysis for non-assignment documents.
-    const uri = await captureScreenshot();
-    if (!uri) return;
+    const result = await captureScreenshot();
+    if ('error' in result) {
+      showAlert('Capture failed', result.error === 'unavailable' ? 'Capture unavailable' : 'Capture failed');
+      return;
+    }
+    const uri = result.uri;
     const apiUrl = process.env.EXPO_PUBLIC_BACKEND_URL ?? '';
     if (!apiUrl) {
       showAlert('Submit failed', 'Set EXPO_PUBLIC_BACKEND_URL in .env and restart Expo.');
@@ -365,7 +399,6 @@ export default function DocumentScreen() {
       }
     } catch (e) {
       const err = e instanceof Error ? e : new Error(String(e));
-      if (__DEV__) console.warn('[DocumentScreen] Submit error:', err.message, err);
       if (isNetworkError(err)) {
         showAlert(
           'Submit failed',
@@ -397,12 +430,11 @@ export default function DocumentScreen() {
 
   const handleCloseChat = useCallback(() => setChatVisible(false), []);
 
-  // --- Loading / error states ---
   const backAction = (
     <Pressable
-      style={({ pressed }) => [styles.backButtonTextWrap, pressed && { opacity: 0.7 }]}
+      style={({ pressed }) => [pressed && { opacity: 0.7 }]}
       onPress={() => router.back()}>
-      <Text style={styles.backButtonText}>Back to Library</Text>
+      <Text style={styles.backButtonText}>{backLabel}</Text>
     </Pressable>
   );
 
@@ -414,21 +446,54 @@ export default function DocumentScreen() {
     );
   }
 
-  if (docsLoading || !doc) {
-    if (docsLoading) {
+  if (assignmentOnly) {
+    if (assignmentLoading) {
       return (
         <SafeAreaView style={styles.screen}>
           <CenteredMessage
-            message={<><ActivityIndicator size="large" color={palette.primary} /><Text style={styles.loadingText}>Loading...</Text></>}
+            message={
+              <>
+                <ActivityIndicator size="large" color={palette.primary} />
+                <Text style={styles.loadingText}>Loading assignment…</Text>
+              </>
+            }
+            action={backAction}
           />
         </SafeAreaView>
       );
     }
-    return (
-      <SafeAreaView style={styles.screen}>
-        <CenteredMessage message={<Text style={styles.errorText}>Document not found</Text>} action={backAction} />
-      </SafeAreaView>
-    );
+    if (assignmentError || !assignment) {
+      return (
+        <SafeAreaView style={styles.screen}>
+          <CenteredMessage
+            message={<Text style={styles.errorText}>{assignmentError ?? 'Assignment not found'}</Text>}
+            action={backAction}
+          />
+        </SafeAreaView>
+      );
+    }
+  } else {
+    if (docsLoading || !doc) {
+      if (docsLoading) {
+        return (
+          <SafeAreaView style={styles.screen}>
+            <CenteredMessage
+              message={
+                <>
+                  <ActivityIndicator size="large" color={palette.primary} />
+                  <Text style={styles.loadingText}>Loading…</Text>
+                </>
+              }
+            />
+          </SafeAreaView>
+        );
+      }
+      return (
+        <SafeAreaView style={styles.screen}>
+          <CenteredMessage message={<Text style={styles.errorText}>Document not found</Text>} action={backAction} />
+        </SafeAreaView>
+      );
+    }
   }
 
   if (loadError) {
@@ -439,11 +504,16 @@ export default function DocumentScreen() {
     );
   }
 
-  if (!isProblemMode && !isDefault && !pdfBase64) {
+  if (!assignmentOnly && !isProblemMode && !isDefault && !pdfBase64) {
     return (
       <SafeAreaView style={styles.screen}>
         <CenteredMessage
-          message={<><ActivityIndicator size="large" color={palette.primary} /><Text style={styles.loadingText}>Loading PDF...</Text></>}
+          message={
+            <>
+              <ActivityIndicator size="large" color={palette.primary} />
+              <Text style={styles.loadingText}>Loading PDF…</Text>
+            </>
+          }
         />
       </SafeAreaView>
     );
@@ -464,7 +534,7 @@ export default function DocumentScreen() {
           accessibilityLabel="Back">
           <MaterialCommunityIcons name="arrow-left" size={24} color={palette.primary} />
         </Pressable>
-        <Text style={styles.title} numberOfLines={1}>{doc.name}</Text>
+        <Text style={styles.title} numberOfLines={1}>{headerTitle}</Text>
         <Pressable
           style={({ pressed }) => [styles.checkButton, pressed && { opacity: 0.7 }]}
           onPress={handleCheckWork}
@@ -491,6 +561,36 @@ export default function DocumentScreen() {
         <View style={styles.analyzingBar}>
           <ActivityIndicator size="small" color={palette.textMuted} />
           <Text style={styles.analyzingText}>Analyzing...</Text>
+        </View>
+      )}
+
+      {/* Capture / analysis error status */}
+      {analysisError !== null && !isAnalyzing && (
+        <View style={styles.analyzingBar}>
+          <MaterialCommunityIcons name="alert-outline" size={18} color={palette.textMuted} />
+          <Text style={styles.analyzingText}>{analysisError}</Text>
+        </View>
+      )}
+
+      {/* Stroke / docs persistence errors (non-blocking) */}
+      {(strokeLoadError || strokeSaveError || docsLoadError || docsSaveError) && (
+        <View style={styles.strokeErrorBar}>
+          <MaterialCommunityIcons name="alert-outline" size={18} color={palette.errorText} />
+          <Text style={styles.strokeErrorText}>
+            {strokeLoadError ?? docsLoadError ?? docsSaveError ?? (strokeSaveError ? "Couldn't save strokes." : '')}
+          </Text>
+          <Pressable
+            style={({ pressed }) => [styles.strokeErrorDismiss, pressed && { opacity: 0.7 }]}
+            onPress={() => {
+              setStrokeLoadError(null);
+              setStrokeSaveError(false);
+              clearDocsLoadError();
+              clearDocsSaveError();
+            }}
+            accessibilityRole="button"
+            accessibilityLabel="Dismiss">
+            <Text style={styles.strokeErrorDismissText}>Dismiss</Text>
+          </Pressable>
         </View>
       )}
 
@@ -631,6 +731,23 @@ const styles = StyleSheet.create({
     fontSize: 13,
     color: palette.textMuted,
   },
+  strokeErrorBar: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 8,
+    paddingVertical: 6,
+    paddingHorizontal: 12,
+    backgroundColor: palette.errorBg,
+    borderBottomWidth: 1,
+    borderBottomColor: palette.border,
+  },
+  strokeErrorText: {
+    flex: 1,
+    fontSize: 13,
+    color: palette.errorText,
+  },
+  strokeErrorDismiss: { paddingVertical: 4, paddingHorizontal: 8 },
+  strokeErrorDismissText: { fontSize: 13, fontWeight: '600', color: palette.primary },
   pagerBar: {
     flexDirection: 'row',
     alignItems: 'center',
@@ -728,7 +845,17 @@ const styles = StyleSheet.create({
     color: palette.textSecondary,
     textAlign: 'center',
   },
-  backButtonTextWrap: {},
+  retryButton: {
+    paddingVertical: 10,
+    paddingHorizontal: 16,
+    backgroundColor: palette.primary,
+    borderRadius: radius.button,
+  },
+  retryButtonText: {
+    color: palette.white,
+    fontSize: 15,
+    fontWeight: '600',
+  },
   backButtonText: {
     fontSize: 15,
     fontWeight: '600',

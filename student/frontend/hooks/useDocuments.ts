@@ -38,8 +38,13 @@ async function ensurePdfsDir(): Promise<string> {
 export function useDocuments() {
   const [documents, setDocuments] = useState<DocumentMeta[]>([]);
   const [loading, setLoading] = useState(true);
+  const [loadError, setLoadError] = useState<string | null>(null);
+  const [saveError, setSaveError] = useState<string | null>(null);
+  const [addError, setAddError] = useState<string | null>(null);
+  const [removeError, setRemoveError] = useState<string | null>(null);
 
   const load = useCallback(async () => {
+    setLoadError(null);
     try {
       const raw = await AsyncStorage.getItem(DOCUMENTS_KEY);
       let list: DocumentMeta[] = raw ? JSON.parse(raw) : [];
@@ -48,8 +53,9 @@ export function useDocuments() {
         await AsyncStorage.setItem(DOCUMENTS_KEY, JSON.stringify(list));
       }
       setDocuments(list);
-    } catch {
+    } catch (e) {
       setDocuments([DEFAULT_DOCUMENT]);
+      setLoadError(e instanceof Error ? e.message : 'Failed to load documents');
     } finally {
       setLoading(false);
     }
@@ -60,11 +66,17 @@ export function useDocuments() {
   }, [load]);
 
   const save = useCallback(async (list: DocumentMeta[]) => {
+    setSaveError(null);
     setDocuments(list);
-    await AsyncStorage.setItem(DOCUMENTS_KEY, JSON.stringify(list));
+    try {
+      await AsyncStorage.setItem(DOCUMENTS_KEY, JSON.stringify(list));
+    } catch (e) {
+      setSaveError(e instanceof Error ? e.message : 'Failed to save document list');
+    }
   }, []);
 
   const addDocument = useCallback(async (): Promise<DocumentMeta | null> => {
+    setAddError(null);
     try {
       const result = await DocumentPicker.getDocumentAsync({
         type: 'application/pdf',
@@ -82,7 +94,9 @@ export function useDocuments() {
       const meta: DocumentMeta = { id, name: name ?? 'Untitled PDF', uri: destUri };
       await save([...documents, meta]);
       return meta;
-    } catch {
+    } catch (e) {
+      const msg = e instanceof Error ? e.message : 'Failed to add document';
+      setAddError(msg);
       return null;
     }
   }, [documents, save]);
@@ -91,11 +105,12 @@ export function useDocuments() {
     async (id: string) => {
       const next = documents.filter((d) => d.id !== id);
       await save(next);
+      setRemoveError(null);
       try {
         const doc = documents.find((d) => d.id === id);
         if (doc?.uri) await FileSystem.deleteAsync(doc.uri, { idempotent: true });
-      } catch {
-        // ignore
+      } catch (e) {
+        setRemoveError(e instanceof Error ? e.message : 'Failed to delete file');
       }
     },
     [documents, save]
@@ -106,5 +121,20 @@ export function useDocuments() {
     [documents]
   );
 
-  return { documents, loading, addDocument, removeDocument, getDocument, refresh: load };
+  return {
+    documents,
+    loading,
+    loadError,
+    saveError,
+    addError,
+    removeError,
+    clearLoadError: () => setLoadError(null),
+    clearSaveError: () => setSaveError(null),
+    clearAddError: () => setAddError(null),
+    clearRemoveError: () => setRemoveError(null),
+    addDocument,
+    removeDocument,
+    getDocument,
+    refresh: load,
+  };
 }

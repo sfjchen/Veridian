@@ -16,6 +16,10 @@ export default function RootLayout() {
     <ThemeProvider value={colorScheme === 'dark' ? DarkTheme : DefaultTheme}>
       <Stack>
         <Stack.Screen name="(tabs)" options={{ headerShown: false }} />
+        <Stack.Screen
+          name="assignments/[classroomId]"
+          options={{ headerShown: false }}
+        />
         <Stack.Screen name="WorkspaceScreen" options={{ title: 'Workspace', headerShown: true }} />
         <Stack.Screen name="modal" options={{ presentation: 'modal', title: 'Modal' }} />
       </Stack>

@@ -46,11 +46,14 @@ Full platform monorepo: teacher side (classrooms, assignments, corpus, submissio
 - Sample worksheet flow, workspace flow
 - require_auth_or_sample for sample-only requests
 - Teacher CRUD: Classrooms, assignments, corpus files (PRs #21-23)
+- PR 2: Student home screen — ClassroomsScreen, AssignmentsScreen, GET /classrooms, GET /classrooms/:id/assignments; assignment-only document entry; back label context-aware
+- No silent failures: stroke load/save and docs load/save/remove errors surfaced in UI (document screen error bar); backend continuation-artifact and coord-pipeline failures logged
 
 ### Backend services
 
 - `get_coords.py` — Main Flask server (refactored: ~20 line functions, max 3 params)
 - `assignment_service.py` — Assignment + problem fetching from Supabase
+- `classroom_service.py` — List classrooms for student, list assignments for classroom (membership check)
 - `result_service.py` — Per-problem result persistence with retry + DLQ
 - `chat.py` — Socratic tutoring with Claude (claude-sonnet-4-5 + extended thinking)
 - `chat_service.py` — Chat history persistence
@@ -59,12 +62,16 @@ Full platform monorepo: teacher side (classrooms, assignments, corpus, submissio
 
 ### Frontend (student/frontend/)
 
-- `app/document/[id].tsx` — Per-problem canvas with auto-analysis
+- `app/(tabs)/index.tsx` — ClassroomsScreen (card grid of joined classrooms)
+- `app/assignments/[classroomId].tsx` — AssignmentsScreen (per-classroom assignment list)
+- `app/document/[id].tsx` — Per-problem canvas with auto-analysis; assignment-only entry when opened from assignment
 - `components/MistakeOverlay.tsx` — Red dots with progressive reveal
 - `components/ChatPanel.tsx` — Socratic chat bottom sheet
 - `components/ProblemHeader.tsx` — KaTeX rendering via WebView
 - `hooks/useAutoAnalysis.ts` — 15s idle debounce with error callbacks
 - `hooks/useAssignment.ts` — Assignment data fetching
+- `hooks/useClassrooms.ts` — Classrooms list (GET /classrooms)
+- `hooks/useAssignments.ts` — Assignments list per classroom (GET /classrooms/:id/assignments)
 - `hooks/useChat.ts` — Chat with optimistic updates
 - `hooks/useWebSocket.ts` — Real-time result push
 - `lib/api.ts` — API client with typed endpoints
@@ -78,10 +85,10 @@ Full platform monorepo: teacher side (classrooms, assignments, corpus, submissio
 | PR | Title | Priority | Status | Dependencies |
 |----|-------|----------|--------|--------------|
 | 1 | Fix Anthropic `thinking` SDK parameter | P0 | Completed (2026-02-14) | Standalone |
-| 2 | Student home screen (classrooms > assignments) | P0 | Not started | Standalone (uses PR 7 tokens if available) |
+| 2 | Student home screen (classrooms > assignments) | P0 | Done (2026-02-14) | Standalone (uses PR 7 tokens if available) |
 | 3 | Teacher config system (classroom defaults + overrides) | P0 | Not started | Standalone |
 | 4 | Student app reads teacher config | P0 | Not started | Depends on PR 3 |
-| 5 | Eliminate all silent failures | P1 | Not started | Standalone |
+| 5 | Eliminate all silent failures | P1 | Done | Standalone |
 | 7 | Shared design system + visual overhaul | P2 | Not started | Standalone |
 
 ### PR 1: Fix Anthropic `thinking` SDK Parameter
@@ -129,9 +136,9 @@ Make the student frontend respect all teacher config fields. Remove the "Analyzi
 
 ### PR 5: Eliminate All Silent Failures
 
-**P1**
+**P1 — Done**
 
-Fix remaining silent failure patterns. See Tech Debt section below for item-by-item status.
+Surfaced all remaining silent failure patterns: document screen stroke load/save and WebView parse errors show in a dismissible error bar; useDocuments load/save/remove/add errors exposed and shown where used; backend logs errors for continuation-artifact storage, coord pipeline, and coord-run creation (no more bare `except: pass`).
 
 ### PR 7: Shared Design System + Visual Overhaul
 
@@ -149,10 +156,11 @@ Create `packages/design/` with Veridian branding (green-primary #16A34A), shared
 | 2 | WebSocket emit | STILL PRESENT | Add `is_healthy()` check; no-op when uninitialized |
 | 3 | Status update on analysis | FIXED (retry) | No action |
 | 4 | Dot coordinate computation | PARTIALLY FIXED | Cache `image_dims` from pipeline, pass through |
-| 5 | Mistake coord pipeline | STILL PRESENT | Keep `mistake_count`, return mistakes without coords |
-| 6 | Stroke loading | PARTIALLY FIXED | Add schema validation + toast on corrupt data |
-| 7 | ViewShot capture | IMPROVED | Add `captureReady` gating |
-| 8 | Legacy submit error | IMPROVED | Add 401 handling, show actual error messages |
+| 5 | Mistake coord pipeline | IMPROVED | Failures logged; mistakes fallback to [] |
+| 6 | Stroke loading | FIXED | Error surfaced in banner; document list load/save/add/remove errors surfaced |
+| 7 | ViewShot capture | FIXED | Gate on canvasDims; CaptureResult (unavailable/failed); status banner; no swallowed errors |
+| 8 | Legacy submit error | FIXED | showAlert for all failure paths |
+| 9 | Continuation artifact / coord run | FIXED | Backend logs errors instead of silent pass |
 
 ---
 

@@ -11,79 +11,164 @@ Full platform monorepo: teacher side (classrooms, assignments, corpus, submissio
 ## Teacher Side (teacher/backend/, teacher/frontend/)
 
 ### Completed
-- PR #1–9: Supabase schema, RLS, Flask backend, teacher/student dashboards, corpus/assignment/submission flows
+
+- PR #1-9: Supabase schema, RLS, Flask backend, teacher/student dashboards, corpus/assignment/submission flows
 - PR #10: Column name revert (`prompt_storage_path`)
 - PR #11: Admin client, single-step corpus upload
 - PR #12: PDF preview fallback, assignment hardening
+- PR #21: Live monitoring + insights
+- PR #22: Classroom and assignment CRUD
+- PR #23: Corpus management
+- PR #24: Documentation consistency fixes
 - Supabase schema: profiles, classrooms, memberships, corpus_files, assignments, submissions
 - RLS policies, JWT auth
-- Teacher dashboard: create/list classrooms
+- Teacher dashboard: create/list classrooms, assignments, corpus
 - Student dashboard: join/list classrooms
-- Corpus file upload, assignment creation, submission creation
 - Signed URLs via admin client
 - PDF-to-LaTeX conversion, PDF preview fallback
 
 ### Remaining
-- **P0**: Student grading workflow, AI mistake analysis integration, E2E testing
+
+- **P0**: Teacher config system (classroom defaults + per-assignment overrides)
 - **P1**: Submission review screen with AI analysis, bulk operations
-- **P2**: Due date warnings
-- **P3**: Loading states, error boundaries, responsive design, pagination
+- **P2**: Due date warnings, loading states, error boundaries
 
 ---
 
 ## Student Side (student/backend/, student/frontend/)
 
 ### Completed
+
 - Per-problem pipeline: OCR, mistake analysis, coordinate detection
 - Red dot annotations, MistakeOverlay, progressive reveal
-- problem_results table, WebSocket real-time push
+- problem_results table, WebSocket real-time push, result persistence with retry + DLQ
 - Socratic chat (Claude), ChatPanel UI
 - Sample worksheet flow, workspace flow
 - require_auth_or_sample for sample-only requests
+- Teacher CRUD: Classrooms, assignments, corpus files (PRs #21-23)
 
-### Remaining
-- **Phase 3c**: Background analysis worker (ThreadPoolExecutor)
-- **Phase 3d**: Result loading on app open
-- **Phase 4**: Teacher backend integration (answer keys, context from corpus)
-- **Phase 5c-d**: Chat guardrails, analytics
-- **Phase 6**: Enhanced note-taking (grid/lined, colors, zoom)
+### Backend services
+
+- `get_coords.py` — Main Flask server (refactored: ~20 line functions, max 3 params)
+- `assignment_service.py` — Assignment + problem fetching from Supabase
+- `result_service.py` — Per-problem result persistence with retry + DLQ
+- `chat.py` — Socratic tutoring with Claude (claude-sonnet-4-5 + extended thinking)
+- `chat_service.py` — Chat history persistence
+- `websocket_service.py` — Real-time WebSocket push via flask-socketio
+- `auth_middleware.py` — JWT authentication middleware
+
+### Frontend (student/frontend/)
+
+- `app/document/[id].tsx` — Per-problem canvas with auto-analysis
+- `components/MistakeOverlay.tsx` — Red dots with progressive reveal
+- `components/ChatPanel.tsx` — Socratic chat bottom sheet
+- `components/ProblemHeader.tsx` — KaTeX rendering via WebView
+- `hooks/useAutoAnalysis.ts` — 15s idle debounce with error callbacks
+- `hooks/useAssignment.ts` — Assignment data fetching
+- `hooks/useChat.ts` — Chat with optimistic updates
+- `hooks/useWebSocket.ts` — Real-time result push
+- `lib/api.ts` — API client with typed endpoints
 
 ---
 
-## Tech Debt: Try-Catch Cleanup (student)
+## Student Notebook Overhaul (current focus)
 
-See `student/PLAN.md` for full inventory. Summary:
+6 parallel PRs to transform the student app from prototype to assignment-driven, teacher-controlled experience. Core shift: **assignment-driven flow** (teacher uploads everything, students just solve) with **invisible analysis** (no spinners, no manual triggers unless teacher configures it) and **teacher-controlled behavior** (config system controls every aspect of what students see).
 
-1. **Persistence retry** — Retry with backoff; dead-letter queue on failure
-2. **WebSocket health** — `is_healthy()` check; polling fallback in frontend
-3. **Status update** — Retry or derive from in-flight request
-4. **Dot coords** — Pass dims from pipeline, avoid redundant PIL open
-5. **Coord pipeline failure** — Return mistakes without coords, not empty list
-6. **Stroke loading** — Schema version, validation, migration
-7. **ViewShot capture** — Readiness check, surface capture errors
-8. **Legacy submit** — Use isNetworkError, show actual error messages
+| PR | Title | Priority | Status | Dependencies |
+|----|-------|----------|--------|--------------|
+| 1 | Fix Anthropic `thinking` SDK parameter | P0 | Not started | Standalone |
+| 2 | Student home screen (classrooms > assignments) | P0 | Not started | Standalone (uses PR 7 tokens if available) |
+| 3 | Teacher config system (classroom defaults + overrides) | P0 | Not started | Standalone |
+| 4 | Student app reads teacher config | P0 | Not started | Depends on PR 3 |
+| 5 | Eliminate all silent failures | P1 | Not started | Standalone |
+| 7 | Shared design system + visual overhaul | P2 | Not started | Standalone |
+
+### PR 1: Fix Anthropic `thinking` SDK Parameter
+
+**P0 — blocks both analysis and chat**
+
+The `thinking` parameter format in `client.py` and `chat.py` causes `Messages.create() got an unexpected keyword argument 'thinking'` errors. Fix the parameter format to match what `anthropic>=0.79.0` expects.
+
+**Files**: `student/backend/mistake_analysis/client.py` (line 112), `student/backend/chat.py` (lines 81-84)
+
+### PR 2: Student Home Screen — Classrooms > Assignments
+
+**P0**
+
+Replace the "Library" / "Add PDF" flow with an assignment-driven home screen. Students see their classrooms, tap to see assignments, tap an assignment to open the canvas. No student-initiated PDF uploads.
+
+**Key changes**:
+- Replace `LibraryScreen` with `ClassroomsScreen` (card grid)
+- New `AssignmentsScreen` for per-classroom assignment list
+- Strip out PDF upload UI and legacy document management
+- Wire assignment tap to existing `DocumentScreen` in problem mode
+
+### PR 3: Teacher Config System (Classroom Defaults + Assignment Overrides)
+
+**P0**
+
+Add teacher-controlled config that governs student behavior: check button visibility, dot threshold, analysis trigger mode, notification style, chat enabled/disabled. Classroom-level defaults with per-assignment overrides.
+
+**Config fields**: `check_button_visible`, `dot_threshold`, `max_dots_shown`, `analysis_trigger` (auto_idle/auto_page_change/manual_only/passive), `notification_style` (silent/toast/badge), `chat_enabled`
+
+**Student backend**: `assignment_service.py` gets `get_resolved_config()` — merges classroom defaults with assignment overrides.
+
+### PR 4: Student App Reads Teacher Config (depends on PR 3)
+
+**P0**
+
+Make the student frontend respect all teacher config fields. Remove the "Analyzing..." spinner, conditionally render Check button, gate chat on `chat_enabled`, apply `dot_threshold` and `max_dots_shown` in `MistakeOverlay`, apply `analysis_trigger` mode in `useAutoAnalysis`.
+
+### PR 5: Eliminate All Silent Failures
+
+**P1**
+
+Fix remaining silent failure patterns. See Tech Debt section below for item-by-item status.
+
+### PR 7: Shared Design System + Visual Overhaul
+
+**P2**
+
+Create `packages/design/` with Veridian branding (green-primary #16A34A), shared components (Card, Button, Toast, Skeleton, EmptyState, ErrorState), and apply across both frontends. Notability-like minimal canvas UX. Card grid navigation.
 
 ---
 
-## Architecture Decisions (Teacher)
+## Tech Debt: Silent Failure Inventory
+
+| # | Item | Status | Action |
+|---|------|--------|--------|
+| 1 | Fire-and-forget persistence | FIXED (retry + DLQ) | No action |
+| 2 | WebSocket emit | STILL PRESENT | Add `is_healthy()` check; no-op when uninitialized |
+| 3 | Status update on analysis | FIXED (retry) | No action |
+| 4 | Dot coordinate computation | PARTIALLY FIXED | Cache `image_dims` from pipeline, pass through |
+| 5 | Mistake coord pipeline | STILL PRESENT | Keep `mistake_count`, return mistakes without coords |
+| 6 | Stroke loading | PARTIALLY FIXED | Add schema validation + toast on corrupt data |
+| 7 | ViewShot capture | IMPROVED | Add `captureReady` gating |
+| 8 | Legacy submit error | IMPROVED | Add 401 handling, show actual error messages |
+
+---
+
+## Future Milestones
+
+- **Chat intelligent context**: Teacher selects corpus files per assignment; chat uses them as tutoring context
+- **Enhanced note-taking**: Grid/lined backgrounds, color palette, stroke width, pinch-to-zoom
+- **Analytics**: Daily aggregation — struggle heatmap, engagement metrics, AI-synthesized concept gaps
+
+---
+
+## Architecture Decisions
 
 | Decision | Rationale |
 |----------|-----------|
 | Shared Supabase | Single source of truth for assignments, results, chat |
 | Admin client for DB | RLS + PostgREST joins caused silent failures |
+| Assignment-driven student flow | Teacher uploads everything, students just solve |
+| Invisible analysis | No spinners; teacher config controls triggers and visibility |
 | One problem per screen (student) | Clear UX, per-problem result history |
-| 15s idle debounce | Balance responsiveness vs API cost |
+| Configurable analysis trigger | Default 15s idle debounce; teacher can set auto/manual/passive |
 | WebSocket for real-time | Push results without polling |
 | threading for SocketIO | eventlet caused startup hangs |
 | Signed URLs via admin client | User JWTs rejected by Storage API |
 | PDF screenshot previews via backend | Consistent preview across clients |
-
----
-
-## Open Decisions (User Input Needed)
-
-1. **Supabase schema merge**: Teacher-side uses `assignments` with `prompt_storage_path`, `classrooms`, `corpus_files`, `submissions`. Student-platform uses `assignments` with `problems` jsonb, `problem_results`, `chat_messages`, artifact tables. Need to reconcile: single `assignments` table schema, or separate teacher/student tables with linking.
-
-2. **Deployment**: Teacher and student backends are separate Flask apps (ports 5001 and 8000). Deploy as two services, or unify behind one gateway?
-
-3. **Try-catch fixes priority**: The 8 items in student tech debt — fix before further feature work, or tackle incrementally?
+| Teacher config resolution | Classroom defaults + assignment overrides, merged at fetch time |

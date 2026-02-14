@@ -84,8 +84,8 @@ Full platform monorepo: teacher side (classrooms, assignments, corpus, submissio
 
 | PR | Title | Priority | Status | Dependencies |
 |----|-------|----------|--------|--------------|
-| 1 | Fix Anthropic `thinking` SDK parameter | P0 | Not started | Standalone |
-| 2 | Student home screen (classrooms > assignments) | P0 | Done | Standalone (uses PR 7 tokens if available) |
+| 1 | Fix Anthropic `thinking` SDK parameter | P0 | Completed (2026-02-14) | Standalone |
+| 2 | Student home screen (classrooms > assignments) | P0 | Done (2026-02-14) | Standalone (uses PR 7 tokens if available) |
 | 3 | Teacher config system (classroom defaults + overrides) | P0 | Not started | Standalone |
 | 4 | Student app reads teacher config | P0 | Not started | Depends on PR 3 |
 | 5 | Eliminate all silent failures | P1 | Done | Standalone |
@@ -98,6 +98,13 @@ Full platform monorepo: teacher side (classrooms, assignments, corpus, submissio
 The `thinking` parameter format in `client.py` and `chat.py` causes `Messages.create() got an unexpected keyword argument 'thinking'` errors. Fix the parameter format to match what `anthropic>=0.79.0` expects.
 
 **Files**: `student/backend/mistake_analysis/client.py` (line 112), `student/backend/chat.py` (lines 81-84)
+
+**Status**: Completed on 2026-02-14 via stacked PRs #27 (PR1A), #28 (PR1B), #29 (PR1C).
+
+**Completion rationale**:
+- Enforced Anthropic contract in backend with shared guardrails (`anthropic>=0.79.0` and runtime signature checks for `messages.create(..., thinking=...)`) to fail fast with explicit remediation instead of opaque runtime errors.
+- Canonicalized `thinking` payload construction across chat and mistake-analysis paths so both call sites send validated, consistent payloads (enabled/budgeted chat thinking and adaptive analysis thinking).
+- Added targeted backend regression tests for SDK/version guard behavior, payload shape validation, and error-surface behavior to prevent reintroducing `unexpected keyword argument 'thinking'` failures.
 
 ### PR 2: Student Home Screen — Classrooms > Assignments
 

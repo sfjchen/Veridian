@@ -25,7 +25,7 @@ from artifact_service import (
     list_artifacts,
     mark_artifact_uploaded,
 )
-from assignment_service import get_assignment, get_assignment_settings, get_problem, get_problems
+from assignment_service import get_assignment, get_problem, get_problems, get_resolved_config
 from auth_middleware import require_auth, require_auth_or_sample, require_auth_or_sample_chat
 from classroom_service import list_assignments_for_classroom, list_classrooms_for_student
 from chat import generate_chat_response
@@ -1254,8 +1254,8 @@ def _resolve_context(lookup: ContextLookup) -> tuple[str, str, str]:
             ref = form_ref
             if assignment and assignment.get("answer_key_storage_path"):
                 ref = ref or ""
-            settings = get_assignment_settings(assignment_id)
-            return (ref or form_ref, ctx or form_ctx, settings.get("hint_level", "guided"))
+            config = get_resolved_config(assignment_id)
+            return (ref or form_ref, ctx or form_ctx, config.get("hint_level", "guided"))
         except ValueError:
             pass
     if lookup["is_sample"]:

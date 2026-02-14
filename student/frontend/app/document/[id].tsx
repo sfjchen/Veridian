@@ -41,6 +41,7 @@ const SAMPLE_PROBLEMS = [
   { num: 4, statement_tex: 'x/2 + 3 = 8' },
   { num: 5, statement_tex: 'x + y = 10,\\; 2x - y = 2' },
 ];
+const DEFAULT_ANALYSIS_DEBOUNCE_MS = 15_000;
 
 function isNetworkError(err: Error): boolean {
   if (err.name === 'TypeError' || err.name === 'NetworkError') return true;
@@ -320,7 +321,7 @@ export default function DocumentScreen() {
   // --- Auto-analysis ---
   const debounceMs = assignment?.analysis_debounce_seconds
     ? assignment.analysis_debounce_seconds * 1000
-    : 15_000;
+    : DEFAULT_ANALYSIS_DEBOUNCE_MS;
 
   const onStaleResult = useCallback((result: AnalysisResult) => {
     if (result.problem_num == null) return;
@@ -431,7 +432,7 @@ export default function DocumentScreen() {
 
   const backAction = (
     <Pressable
-      style={({ pressed }) => [styles.backButtonTextWrap, pressed && { opacity: 0.7 }]}
+      style={({ pressed }) => [pressed && { opacity: 0.7 }]}
       onPress={() => router.back()}>
       <Text style={styles.backButtonText}>{backLabel}</Text>
     </Pressable>
@@ -844,7 +845,6 @@ const styles = StyleSheet.create({
     color: palette.textSecondary,
     textAlign: 'center',
   },
-  backButtonTextWrap: {},
   retryButton: {
     paddingVertical: 10,
     paddingHorizontal: 16,

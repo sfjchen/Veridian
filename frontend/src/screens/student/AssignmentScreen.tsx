@@ -1,17 +1,11 @@
-import React, { useState, useEffect } from "react";
+import React, { useState, useEffect, useRef } from "react";
 import { View, Text, StyleSheet, Alert, ActivityIndicator, TouchableOpacity } from "react-native";
 import { api } from "../../lib/api";
 import { LatexRenderer } from "../../components/LatexRenderer";
 import { FileUploader } from "../../components/FileUploader";
+import { AssignmentDetail } from "../../types";
 
 const MAX_ASSIGNMENT_FILE_LENGTH = 100_000;
-
-interface AssignmentDetail {
-  id: string;
-  title: string;
-  assignment_file_download_url?: string;
-  due_date: string | null;
-}
 
 function sanitizeLatexContent(raw: string): string {
   if (raw.length > MAX_ASSIGNMENT_FILE_LENGTH) {

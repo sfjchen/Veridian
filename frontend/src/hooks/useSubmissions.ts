@@ -1,4 +1,4 @@
-import { useState, useEffect, useCallback } from "react";
+import { useState, useEffect, useCallback, useRef } from "react";
 import { api } from "../lib/api";
 import { Submission } from "../types";
 
@@ -6,43 +6,32 @@ export function useSubmissions(assignmentId: string) {
   const [submissions, setSubmissions] = useState<Submission[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
+  const mountedRef = useRef(true);
+
+  useEffect(() => {
+    mountedRef.current = true;
+    return () => { mountedRef.current = false; };
+  }, []);
 
   const refresh = useCallback(async () => {
+    if (!assignmentId) return;
     setLoading(true);
     setError(null);
     try {
       const data = await api<Submission[]>(`/assignments/${assignmentId}/submissions`);
-      setSubmissions(data);
+      if (mountedRef.current) setSubmissions(data);
     } catch (e) {
-      const message = e instanceof Error ? e.message : "Failed to fetch submissions";
-      setError(message);
-      console.error("Failed to fetch submissions:", e);
+      if (mountedRef.current) {
+        setError(e instanceof Error ? e.message : "Failed to fetch submissions");
+      }
     } finally {
-      setLoading(false);
+      if (mountedRef.current) setLoading(false);
     }
   }, [assignmentId]);
 
   useEffect(() => {
-    let cancelled = false;
-    const load = async () => {
-      setLoading(true);
-      setError(null);
-      try {
-        const data = await api<Submission[]>(`/assignments/${assignmentId}/submissions`);
-        if (!cancelled) setSubmissions(data);
-      } catch (e) {
-        if (!cancelled) {
-          const message = e instanceof Error ? e.message : "Failed to fetch submissions";
-          setError(message);
-          console.error("Failed to fetch submissions:", e);
-        }
-      } finally {
-        if (!cancelled) setLoading(false);
-      }
-    };
-    load();
-    return () => { cancelled = true; };
-  }, [assignmentId]);
+    refresh();
+  }, [refresh]);
 
   return { submissions, loading, error, refresh };
 }

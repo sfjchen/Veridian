@@ -1,4 +1,4 @@
-import React, { createContext, useContext, useEffect, useState } from "react";
+import React, { createContext, useCallback, useContext, useEffect, useMemo, useState } from "react";
 import { Session, User } from "@supabase/supabase-js";
 import { supabase } from "../lib/supabase";
 import { UserRole } from "../types";
@@ -46,30 +46,39 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
+    let stale = false;
+
     supabase.auth
       .getSession()
       .then(async ({ data: { session }, error }) => {
+        if (stale) return;
         if (error) {
           console.error("Failed to load session:", error);
           setLoading(false);
           return;
         }
         setSession(session);
-        const resolved = await resolveRole(session?.user ?? null);
-        setRole(resolved);
-        setLoading(false);
+        try {
+          const resolved = await resolveRole(session?.user ?? null);
+          if (!stale) setRole(resolved);
+        } catch (err) {
+          console.error("Failed to resolve role:", err);
+        }
+        if (!stale) setLoading(false);
       })
       .catch((err) => {
-        console.error("Critical session load error:", err);
-        setLoading(false);
+        if (!stale) {
+          console.error("Critical session load error:", err);
+          setLoading(false);
+        }
       });
 
     const {
       data: { subscription },
-    } = supabase.auth.onAuthStateChange(async (_event, session) => {
-      setSession(session);
+    } = supabase.auth.onAuthStateChange(async (_event, newSession) => {
+      setSession(newSession);
       try {
-        const resolved = await resolveRole(session?.user ?? null);
+        const resolved = await resolveRole(newSession?.user ?? null);
         setRole(resolved);
       } catch (err) {
         console.error("Failed to resolve role on auth state change:", err);
@@ -77,12 +86,15 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       }
     });
 
-    return () => subscription.unsubscribe();
+    return () => {
+      stale = true;
+      subscription.unsubscribe();
+    };
   }, []);
 
   const user = session?.user ?? null;
 
-  const signUp = async (
+  const signUp = useCallback(async (
     email: string,
     password: string,
     role: UserRole,
@@ -98,20 +110,25 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     if (data.user && !data.session) {
       throw new Error("Please check your email to verify your account before signing in.");
     }
-  };
+  }, []);
 
-  const signIn = async (email: string, password: string): Promise<void> => {
+  const signIn = useCallback(async (email: string, password: string): Promise<void> => {
     const { error } = await supabase.auth.signInWithPassword({ email, password });
     if (error) throw error;
-  };
+  }, []);
 
-  const signOut = async (): Promise<void> => {
+  const signOut = useCallback(async (): Promise<void> => {
     const { error } = await supabase.auth.signOut();
     if (error) throw error;
-  };
+  }, []);
+
+  const value = useMemo<AuthState>(
+    () => ({ session, user, role, loading, signUp, signIn, signOut }),
+    [session, user, role, loading, signUp, signIn, signOut]
+  );
 
   return (
-    <AuthContext.Provider value={{ session, user, role, loading, signUp, signIn, signOut }}>
+    <AuthContext.Provider value={value}>
       {children}
     </AuthContext.Provider>
   );

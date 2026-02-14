@@ -1,32 +1,56 @@
-import React, { useState, useEffect } from "react";
-import { View, Text, TextInput, TouchableOpacity, StyleSheet, Alert, ScrollView } from "react-native";
+import React, { useState } from "react";
+import {
+  View, Text, TextInput, TouchableOpacity, StyleSheet,
+  Alert, ScrollView, ActivityIndicator,
+} from "react-native";
+import * as DocumentPicker from "expo-document-picker";
+import * as FileSystem from "expo-file-system";
 import { api } from "../../lib/api";
-import { FileUploader } from "../../components/FileUploader";
 
 const DATE_PATTERN = /^\d{4}-\d{2}-\d{2}$/;
+
+interface PickedFile {
+  name: string;
+  uri: string;
+  mimeType: string;
+}
 
 export function CreateAssignmentScreen({ route, navigation }: { route: any; navigation: any }) {
   const { classroomId } = route.params;
   const [title, setTitle] = useState("");
   const [dueDate, setDueDate] = useState("");
-  const [urls, setUrls] = useState<{ assignment_file: string; answer_key: string } | null>(null);
-  const [assignmentFileUploaded, setAssignmentFileUploaded] = useState(false);
-  const [answerKeyUploaded, setAnswerKeyUploaded] = useState(false);
+  const [assignmentFile, setAssignmentFile] = useState<PickedFile | null>(null);
+  const [answerKeyFile, setAnswerKeyFile] = useState<PickedFile | null>(null);
   const [creating, setCreating] = useState(false);
 
-  const allDone = assignmentFileUploaded && answerKeyUploaded;
+  const pickFile = async (setter: (f: PickedFile) => void) => {
+    const result = await DocumentPicker.getDocumentAsync({
+      type: ["application/pdf", "text/*", "image/*"],
+      copyToCacheDirectory: true,
+    });
+    if (result.canceled) return;
+    const file = result.assets[0];
+    setter({
+      name: file.name,
+      uri: file.uri,
+      mimeType: file.mimeType ?? "application/octet-stream",
+    });
+  };
 
-  useEffect(() => {
-    if (allDone) {
-      Alert.alert("Success", "Assignment created!", [
-        { text: "OK", onPress: () => navigation.goBack() },
-      ]);
+  const uploadFile = async (uri: string, uploadUrl: string, mimeType: string) => {
+    const response = await FileSystem.uploadAsync(uploadUrl, uri, {
+      httpMethod: "PUT",
+      uploadType: FileSystem.FileSystemUploadType.BINARY_CONTENT,
+      headers: { "Content-Type": mimeType },
+    });
+    if (response.status < 200 || response.status >= 300) {
+      throw new Error(`Upload failed with status ${response.status}`);
     }
-  }, [allDone, navigation]);
+  };
 
   const handleCreate = async () => {
     if (!title.trim()) {
-      Alert.alert("Error", "Title required");
+      Alert.alert("Error", "Title is required");
       return;
     }
 
@@ -51,14 +75,26 @@ export function CreateAssignmentScreen({ route, navigation }: { route: any; navi
         answer_key_upload_url: string;
       }>(`/classrooms/${classroomId}/assignments`, {
         method: "POST",
-        body: {
-          title: title.trim(),
-          due_date: dueDateValue,
-        },
+        body: { title: title.trim(), due_date: dueDateValue },
       });
-      setUrls({ assignment_file: result.assignment_file_upload_url, answer_key: result.answer_key_upload_url });
+
+      const uploads: Promise<void>[] = [];
+      if (assignmentFile) {
+        uploads.push(uploadFile(assignmentFile.uri, result.assignment_file_upload_url, assignmentFile.mimeType));
+      }
+      if (answerKeyFile) {
+        uploads.push(uploadFile(answerKeyFile.uri, result.answer_key_upload_url, answerKeyFile.mimeType));
+      }
+
+      if (uploads.length > 0) {
+        await Promise.all(uploads);
+      }
+
+      Alert.alert("Success", "Assignment created!", [
+        { text: "OK", onPress: () => navigation.goBack() },
+      ]);
     } catch (e: any) {
-      Alert.alert("Error", e.message);
+      Alert.alert("Error", e instanceof Error ? e.message : "Failed to create assignment");
     } finally {
       setCreating(false);
     }
@@ -67,6 +103,7 @@ export function CreateAssignmentScreen({ route, navigation }: { route: any; navi
   return (
     <ScrollView style={styles.container}>
       <Text style={styles.title}>New Assignment</Text>
+
       <TextInput
         style={styles.input}
         placeholder="Assignment title"
@@ -79,26 +116,32 @@ export function CreateAssignmentScreen({ route, navigation }: { route: any; navi
         value={dueDate}
         onChangeText={setDueDate}
       />
-      {!urls ? (
-        <TouchableOpacity style={styles.button} onPress={handleCreate} disabled={creating}>
-          <Text style={styles.buttonText}>{creating ? "Creating..." : "Create Assignment"}</Text>
-        </TouchableOpacity>
-      ) : (
-        <View>
-          <Text style={styles.sectionTitle}>Upload Assignment File</Text>
-          <FileUploader
-            uploadUrl={urls.assignment_file}
-            label="Select Assignment File"
-            onUploadComplete={() => setAssignmentFileUploaded(true)}
-          />
-          <Text style={styles.sectionTitle}>Upload Answer Key</Text>
-          <FileUploader
-            uploadUrl={urls.answer_key}
-            label="Select Answer Key"
-            onUploadComplete={() => setAnswerKeyUploaded(true)}
-          />
-        </View>
-      )}
+
+      <Text style={styles.sectionTitle}>Assignment File (optional)</Text>
+      <TouchableOpacity style={styles.filePicker} onPress={() => pickFile(setAssignmentFile)}>
+        <Text style={styles.filePickerText}>
+          {assignmentFile ? assignmentFile.name : "Select Assignment File"}
+        </Text>
+      </TouchableOpacity>
+
+      <Text style={styles.sectionTitle}>Answer Key (optional)</Text>
+      <TouchableOpacity style={styles.filePicker} onPress={() => pickFile(setAnswerKeyFile)}>
+        <Text style={styles.filePickerText}>
+          {answerKeyFile ? answerKeyFile.name : "Select Answer Key"}
+        </Text>
+      </TouchableOpacity>
+
+      <TouchableOpacity
+        style={[styles.button, creating && styles.buttonDisabled]}
+        onPress={handleCreate}
+        disabled={creating}
+      >
+        {creating ? (
+          <ActivityIndicator color="#fff" />
+        ) : (
+          <Text style={styles.buttonText}>Create Assignment</Text>
+        )}
+      </TouchableOpacity>
     </ScrollView>
   );
 }
@@ -106,14 +149,20 @@ export function CreateAssignmentScreen({ route, navigation }: { route: any; navi
 const styles = StyleSheet.create({
   container: { flex: 1, padding: 24, backgroundColor: "#fff" },
   title: { fontSize: 22, fontWeight: "bold", marginBottom: 24 },
-  sectionTitle: { fontSize: 16, fontWeight: "600", marginTop: 16, marginBottom: 8 },
+  sectionTitle: { fontSize: 14, fontWeight: "600", color: "#374151", marginBottom: 8, marginTop: 8 },
   input: {
     borderWidth: 1, borderColor: "#ddd", borderRadius: 8,
     padding: 14, marginBottom: 16, fontSize: 16,
   },
+  filePicker: {
+    borderWidth: 1, borderColor: "#ddd", borderRadius: 8,
+    padding: 14, marginBottom: 16, backgroundColor: "#F9FAFB",
+  },
+  filePickerText: { fontSize: 15, color: "#6B7280" },
   button: {
     backgroundColor: "#4F46E5", borderRadius: 8, padding: 16,
-    alignItems: "center",
+    alignItems: "center", marginTop: 8,
   },
+  buttonDisabled: { opacity: 0.7 },
   buttonText: { color: "#fff", fontSize: 16, fontWeight: "600" },
 });

@@ -1,4 +1,4 @@
-import { useState, useEffect, useCallback } from "react";
+import { useState, useEffect, useCallback, useRef } from "react";
 import { api } from "../lib/api";
 import { CorpusFile } from "../types";
 
@@ -6,43 +6,32 @@ export function useCorpus(classroomId: string) {
   const [files, setFiles] = useState<CorpusFile[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
+  const mountedRef = useRef(true);
+
+  useEffect(() => {
+    mountedRef.current = true;
+    return () => { mountedRef.current = false; };
+  }, []);
 
   const refresh = useCallback(async () => {
+    if (!classroomId) return;
     setLoading(true);
     setError(null);
     try {
       const data = await api<CorpusFile[]>(`/classrooms/${classroomId}/corpus`);
-      setFiles(data);
+      if (mountedRef.current) setFiles(data);
     } catch (e) {
-      const message = e instanceof Error ? e.message : "Failed to fetch corpus";
-      setError(message);
-      console.error("Failed to fetch corpus:", e);
+      if (mountedRef.current) {
+        setError(e instanceof Error ? e.message : "Failed to fetch corpus");
+      }
     } finally {
-      setLoading(false);
+      if (mountedRef.current) setLoading(false);
     }
   }, [classroomId]);
 
   useEffect(() => {
-    let cancelled = false;
-    const load = async () => {
-      setLoading(true);
-      setError(null);
-      try {
-        const data = await api<CorpusFile[]>(`/classrooms/${classroomId}/corpus`);
-        if (!cancelled) setFiles(data);
-      } catch (e) {
-        if (!cancelled) {
-          const message = e instanceof Error ? e.message : "Failed to fetch corpus";
-          setError(message);
-          console.error("Failed to fetch corpus:", e);
-        }
-      } finally {
-        if (!cancelled) setLoading(false);
-      }
-    };
-    load();
-    return () => { cancelled = true; };
-  }, [classroomId]);
+    refresh();
+  }, [refresh]);
 
   return { files, loading, error, refresh };
 }

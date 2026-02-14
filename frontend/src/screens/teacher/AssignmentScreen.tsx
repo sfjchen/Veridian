@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useCallback } from "react";
+import React, { useState, useEffect, useCallback, useRef } from "react";
 import {
   View, Text, TextInput, TouchableOpacity, StyleSheet,
   Alert, ScrollView, ActivityIndicator,
@@ -34,12 +34,18 @@ type ViewMode = "teacher" | "student";
 
 export function TeacherAssignmentScreen({ route, navigation }: { route: any; navigation: any }) {
   const { assignmentId } = route.params;
+  const mountedRef = useRef(true);
   const [assignment, setAssignment] = useState<AssignmentDetail | null>(null);
   const [loading, setLoading] = useState(true);
   const [assignmentContent, setAssignmentContent] = useState<string | null>(null);
   const [isPdf, setIsPdf] = useState(false);
   const [converting, setConverting] = useState(false);
   const [viewMode, setViewMode] = useState<ViewMode>("teacher");
+
+  useEffect(() => {
+    mountedRef.current = true;
+    return () => { mountedRef.current = false; };
+  }, []);
 
   const [editing, setEditing] = useState(false);
   const [editTitle, setEditTitle] = useState("");
@@ -55,12 +61,14 @@ export function TeacherAssignmentScreen({ route, navigation }: { route: any; nav
   const fetchAssignment = useCallback(async () => {
     try {
       const data = await api<AssignmentDetail>(`/assignments/${assignmentId}`);
+      if (!mountedRef.current) return;
       setAssignment(data);
       setEditTitle(data.title);
       setEditDueDate(data.due_date ? data.due_date.split("T")[0] : "");
 
       if (data.assignment_file_download_url) {
         const resp = await fetch(data.assignment_file_download_url);
+        if (!mountedRef.current) return;
         if (resp.ok) {
           const contentType = resp.headers.get("content-type") ?? "";
           if (contentType.includes("application/pdf")) {
@@ -68,6 +76,7 @@ export function TeacherAssignmentScreen({ route, navigation }: { route: any; nav
             setAssignmentContent(null);
           } else {
             const text = await resp.text();
+            if (!mountedRef.current) return;
             if (isPdfContent(text)) {
               setIsPdf(true);
               setAssignmentContent(null);
@@ -79,9 +88,9 @@ export function TeacherAssignmentScreen({ route, navigation }: { route: any; nav
         }
       }
     } catch (e: any) {
-      Alert.alert("Error", e.message);
+      if (mountedRef.current) Alert.alert("Error", e.message);
     } finally {
-      setLoading(false);
+      if (mountedRef.current) setLoading(false);
     }
   }, [assignmentId]);
 
@@ -121,9 +130,7 @@ export function TeacherAssignmentScreen({ route, navigation }: { route: any; nav
   };
 
   useEffect(() => {
-    let cancelled = false;
-    fetchAssignment().then(() => { if (cancelled) return; });
-    return () => { cancelled = true; };
+    fetchAssignment();
   }, [fetchAssignment]);
 
   const handleSave = async () => {
@@ -139,7 +146,7 @@ export function TeacherAssignmentScreen({ route, navigation }: { route: any; nav
     setSaving(true);
     try {
       const updated = await api<AssignmentDetail>(`/assignments/${assignmentId}`, {
-        method: "PATCH" as any,
+        method: "PATCH",
         body: {
           title: editTitle.trim(),
           due_date: editDueDate.trim() || null,

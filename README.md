@@ -1,84 +1,51 @@
 # Math Mistake Analysis Platform
 
-EdTech platform for teachers to create math assignments and analyze student mistake patterns. Built with Flask + Expo React Native + Supabase.
+EdTech platform for teachers to create math assignments and for students to submit solutions with AI-powered mistake analysis. Built with Flask + Expo React Native + Supabase.
+
+## Repo Structure
+
+| Directory | Purpose |
+|-----------|---------|
+| `backend/` | Teacher Flask API — classrooms, assignments, corpus, submissions |
+| `frontend/` | Teacher React app — dashboard, assignment creation, submission review |
+| `student-platform/` | Student Flask API + Expo app — canvas, mistake analysis, Socratic chat |
+| `supabase/` | Shared database migrations |
 
 ## Prerequisites
 
 - Python 3.11+
 - Node.js 18+
 - [Expo CLI](https://docs.expo.dev/get-started/installation/) (`npm install -g expo-cli`)
-- A [Supabase](https://supabase.com) project
+- [Supabase](https://supabase.com) project
 
-## Setup
+## Quick Start
 
-### 1. Environment variables
+### Teacher Side
 
-Copy `.env.example` to both `backend/.env` and `frontend/.env`:
+1. Copy `.env.example` to `backend/.env` and `frontend/.env`
+2. Run migrations in `supabase/all_migrations.sql` (or individual files)
+3. Backend: `cd backend && pip install -r requirements.txt && python run.py`
+4. Frontend: `cd frontend && npm install && npx expo start`
 
-**backend/.env**
-```
-SUPABASE_URL=https://your-project.supabase.co
-SUPABASE_SERVICE_ROLE_KEY=your-service-role-key
-SUPABASE_ANON_KEY=your-anon-key
-ANTHROPIC_API_KEY=your-anthropic-key
-FLASK_SECRET_KEY=any-random-string
-SUPABASE_JWT_SECRET=your-jwt-secret
-```
+### Student Side
 
-**frontend/.env**
-```
-# Optional in local dev; if omitted, the app auto-detects your Expo host and uses port 5000.
-# On real devices, set this explicitly if auto-detection does not work.
-# Example: EXPO_PUBLIC_API_URL=http://192.168.1.25:5000
-EXPO_PUBLIC_API_URL=http://localhost:5000
-EXPO_PUBLIC_SUPABASE_URL=https://your-project.supabase.co
-EXPO_PUBLIC_SUPABASE_ANON_KEY=your-anon-key
-```
+1. Copy `student-platform/.env.example` to `student-platform/.env`
+2. Apply `student-platform/supabase/migrations/*.sql` to your Supabase project
+3. Backend: `cd student-platform && pip install -r requirements.txt && python get_coords.py`
+4. Frontend: `cd student-platform/frontend && npm install && npx expo start`
 
-### 2. Database
+See `student-platform/README.md` for detailed student-platform setup.
 
-Run the SQL in `supabase/all_migrations.sql` in your Supabase SQL Editor to create all tables, RLS policies, and storage buckets.
+## Architecture
 
-### 3. Backend
+**Teacher flow:** Create classrooms → upload corpus → create assignments → view submissions
 
-```bash
-cd backend
-python -m venv venv
-source venv/bin/activate  # Windows: venv\Scripts\activate
-pip install -r requirements.txt
-python run.py
-```
+**Student flow:** Join classroom → open assignment → work on canvas → tap Done → AI analyzes mistakes → Socratic chat per problem
 
-Server starts at `http://localhost:5000`.
+**Shared:** Supabase (auth, assignments, problem_results, chat_messages). Student platform uses `get_coords.py` for OCR + mistake analysis + coordinate detection.
 
-### 4. Frontend
+## Development
 
-```bash
-cd frontend
-npm install
-npx expo start
-```
+See `AGENTS.md` and `CLAUDE.md` for conventions, workflow, and code review process.
 
-Scan the QR code with Expo Go (mobile) or press `w` for web.
-
-## Project Structure
-
-```
-backend/
-  app/
-    routes/          # Flask blueprints (assignments, classrooms, corpus, convert)
-    services/        # Supabase client, storage helpers
-    middleware/      # JWT auth
-  run.py             # Entry point
-frontend/
-  src/
-    screens/         # Teacher and student screens
-    hooks/           # Data fetching hooks
-    components/      # Shared components (FileUploader, LatexRenderer)
-    stores/          # Auth context
-    lib/             # API client, Supabase config
-    navigation/      # React Navigation setup
-supabase/
-  migrations/        # Individual migration files
-  all_migrations.sql # Combined migrations for fresh setup
-```
+**Running docs**: `AGENTS.md`, `CLAUDE.md`, `README.md`, and `PLAN.md` are the project's living documentation. Update them in the same PR when features, architecture, or conventions change.

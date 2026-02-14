@@ -26,8 +26,8 @@ This catches issues before David sees the plan
  Spawn sub-agents to do the actual coding (Codex orchestrates, doesn't code directly)
  Review sub-agent output for correctness, logic, integration, and style (see review checklist below)
  Create PR — plan file becomes the PR description basis
- Comment @codex review to trigger code review (see prompt template below)
- Address Codex feedback — fix issues, push updates, then comment @codex and review again
+ Comment @codex and @claude review to trigger code review (see prompt template below)
+ Address Codex feedback — fix issues, push updates, then comment @codex and @claude review again
  Update this file's roadmap checkboxes when work completes
 
  Integrate the updates and relevant documentation you made here into PLAN.md, then delete the now redundant docs/plans/feature made in this process.
@@ -97,10 +97,10 @@ Code style requirements:
 - No print statements (errors to stderr only)
 - No verbose logging
 - Use exact formats, no convenience aliases
-  Also provide:
-  Relevant data formats (e.g., parquet schema) if the task involves data
-  File paths to read for context
-  Clear success criteria
+ Also provide:
+ Relevant data formats (e.g., parquet schema) if the task involves data
+ File paths to read for context
+ Clear success criteria
 
 ## Codex's Review Responsibilities
 
@@ -115,7 +115,7 @@ If sub-agent output has issues, iterate with them or fix it before committing. D
 ## PR Review Prompt Template
 
 When ready for review, comment this on the PR:
-@claude Review this PR with extreme attention to detail. Be meticulous and skeptical.
+@codex @claude Review this PR with extreme attention to detail. Be meticulous and skeptical.
 
 Check for:
 

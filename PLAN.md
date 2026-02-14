@@ -84,16 +84,19 @@ Full platform monorepo: teacher side (classrooms, assignments, corpus, submissio
 
 | PR | Title | Priority | Status | Dependencies |
 |----|-------|----------|--------|--------------|
-| 1 | Fix Anthropic `thinking` SDK parameter | P0 | Not started | Standalone |
-| 2 | Student home screen (classrooms > assignments) | P0 | Done | Standalone (uses PR 7 tokens if available) |
-| 3 | Teacher config system (classroom defaults + overrides) | P0 | Not started | Standalone |
 | 4 | Student app reads teacher config | P0 | Not started | Depends on PR 3 |
-| 5 | Eliminate all silent failures | P1 | Done | Standalone |
-| 7 | Shared design system + visual overhaul | P2 | Not started | Standalone |
+
+### Completed (Confirmed)
+
+- PR 1: Fix Anthropic `thinking` SDK parameter
+- PR 2: Student home screen (classrooms > assignments)
+- PR 3: Teacher config system (classroom defaults + overrides)
+- PR 5: Eliminate all silent failures
+- PR 7: Shared design system + visual overhaul
 
 ### PR 1: Fix Anthropic `thinking` SDK Parameter
 
-**P0 — blocks both analysis and chat**
+**P0 — Done**
 
 The `thinking` parameter format in `client.py` and `chat.py` causes `Messages.create() got an unexpected keyword argument 'thinking'` errors. Fix the parameter format to match what `anthropic>=0.79.0` expects.
 
@@ -101,7 +104,7 @@ The `thinking` parameter format in `client.py` and `chat.py` causes `Messages.cr
 
 ### PR 2: Student Home Screen — Classrooms > Assignments
 
-**P0**
+**P0 — Done**
 
 Replace the "Library" / "Add PDF" flow with an assignment-driven home screen. Students see their classrooms, tap to see assignments, tap an assignment to open the canvas. No student-initiated PDF uploads.
 
@@ -113,7 +116,7 @@ Replace the "Library" / "Add PDF" flow with an assignment-driven home screen. St
 
 ### PR 3: Teacher Config System (Classroom Defaults + Assignment Overrides)
 
-**P0**
+**P0 — Done**
 
 Add teacher-controlled config that governs student behavior: check button visibility, dot threshold, analysis trigger mode, notification style, chat enabled/disabled. Classroom-level defaults with per-assignment overrides.
 
@@ -135,7 +138,7 @@ Surfaced all remaining silent failure patterns: document screen stroke load/save
 
 ### PR 7: Shared Design System + Visual Overhaul
 
-**P2**
+**P2 — Done**
 
 Create `packages/design/` with Veridian branding (green-primary #16A34A), shared components (Card, Button, Toast, Skeleton, EmptyState, ErrorState), and apply across both frontends. Notability-like minimal canvas UX. Card grid navigation.
 

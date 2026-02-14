@@ -22,7 +22,7 @@ export function LatexRenderer({ latex, style }: Props) {
       </style>
     </head>
     <body>
-      <div id="content">${latex.replace(/</g, "&lt;").replace(/>/g, "&gt;")}</div>
+      <div id="content">${latex.replace(/<script[\s\S]*?<\/script>/gi, "")}</div>
       <script>
         renderMathInElement(document.getElementById("content"), {
           delimiters: [

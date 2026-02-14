@@ -33,6 +33,7 @@ export function AssignmentScreen({ route }: { route: any }) {
   const [loading, setLoading] = useState(true);
   const [promptContent, setPromptContent] = useState<string | null>(null);
   const [submissionUrl, setSubmissionUrl] = useState<string | null>(null);
+  const [submitting, setSubmitting] = useState(false);
 
   useEffect(() => {
     let cancelled = false;
@@ -58,6 +59,7 @@ export function AssignmentScreen({ route }: { route: any }) {
   }, [assignmentId]);
 
   const handleSubmit = async () => {
+    setSubmitting(true);
     try {
       const result = await api<{ upload_url: string }>(`/assignments/${assignmentId}/submissions`, {
         method: "POST",
@@ -65,6 +67,8 @@ export function AssignmentScreen({ route }: { route: any }) {
       setSubmissionUrl(result.upload_url);
     } catch (e: any) {
       Alert.alert("Error", e.message);
+    } finally {
+      setSubmitting(false);
     }
   };
 
@@ -88,8 +92,8 @@ export function AssignmentScreen({ route }: { route: any }) {
         </View>
       )}
       {!submissionUrl ? (
-        <TouchableOpacity style={styles.submitButton} onPress={handleSubmit}>
-          <Text style={styles.submitButtonText}>Submit Solution</Text>
+        <TouchableOpacity style={styles.submitButton} onPress={handleSubmit} disabled={submitting}>
+          <Text style={styles.submitButtonText}>{submitting ? "Submitting..." : "Submit Solution"}</Text>
         </TouchableOpacity>
       ) : (
         <FileUploader

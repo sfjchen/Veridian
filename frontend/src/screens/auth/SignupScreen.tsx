@@ -5,7 +5,7 @@ import { useAuth } from "../../stores/auth";
 import { UserRole } from "../../types";
 
 const EMAIL_REGEX = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
-const MIN_PASSWORD_LENGTH = 6;
+const MIN_PASSWORD_LENGTH = 8;
 
 type AuthStackParamList = {
   Login: undefined;
@@ -39,12 +39,17 @@ export function SignupScreen({ navigation }: SignupScreenProps) {
     }
     setLoading(true);
     try {
-      await signUp(email.trim(), password, role, displayName.trim());
-      Alert.alert("Success", "Account created! You can now sign in.");
-      navigation.navigate("Login");
+      const { data, error } = await signUp(email.trim(), password, role, displayName.trim());
+      if (error) throw error;
+      if (!data.session) {
+        // Email verification required
+        Alert.alert("Account Created", "Please check your email to verify your account, then sign in.");
+        navigation.navigate("Login");
+        setLoading(false);
+      }
+      // If data.session exists, auto-confirm happened — component will unmount via auth state change
     } catch (e: any) {
       Alert.alert("Signup Failed", e.message);
-    } finally {
       setLoading(false);
     }
   };

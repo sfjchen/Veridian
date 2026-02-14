@@ -41,4 +41,10 @@ export interface CorpusFile {
   storage_path: string;
   file_type: string;
   uploaded_at: string;
+  download_url: string | null;
+}
+
+export interface AssignmentDetail extends Assignment {
+  prompt_download_url?: string;
+  answer_key_download_url?: string;
 }

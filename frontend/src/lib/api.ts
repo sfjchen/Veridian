@@ -1,6 +1,7 @@
 import { supabase } from "./supabase";
 
-const API_URL = process.env.EXPO_PUBLIC_API_URL ?? (__DEV__ ? "http://localhost:5000" : undefined);
+const API_URL = process.env.EXPO_PUBLIC_API_URL ??
+  (process.env.NODE_ENV !== "production" ? "http://localhost:5000" : undefined);
 
 if (!API_URL) {
   throw new Error("EXPO_PUBLIC_API_URL must be set in production");
@@ -46,6 +47,10 @@ export async function api<T = unknown>(
       // Non-JSON response body, fall back to HTTP status
     }
     throw new Error(errorMessage);
+  }
+
+  if (response.status === 204 || response.headers.get("content-length") === "0") {
+    return null as T;
   }
 
   return response.json();

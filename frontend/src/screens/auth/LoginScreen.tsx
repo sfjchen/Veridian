@@ -26,9 +26,9 @@ export function LoginScreen({ navigation }: LoginScreenProps) {
     setLoading(true);
     try {
       await signIn(email.trim(), password);
+      // Component unmounts on success — no setState needed
     } catch (e: any) {
       Alert.alert("Login Failed", e.message);
-    } finally {
       setLoading(false);
     }
   };

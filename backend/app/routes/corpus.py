@@ -68,6 +68,10 @@ def create_corpus_file(classroom_id: str) -> tuple[Response, int]:
         upload_url = generate_upload_url("corpus", storage_path)
     except Exception as e:
         print(f"Failed to generate upload URL: {e}", file=sys.stderr)
+        try:
+            client.table("corpus_files").delete().eq("id", file_id).execute()
+        except Exception:
+            print(f"Failed to clean up orphaned corpus_file {file_id}", file=sys.stderr)
         return jsonify({"error": "Failed to generate upload URL"}), 500
 
     return jsonify({

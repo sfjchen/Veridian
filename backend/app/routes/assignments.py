@@ -1,7 +1,9 @@
+import sys
 import uuid
 from typing import Tuple
 
 from flask import Blueprint, Response, request, jsonify, g
+from postgrest.exceptions import APIError
 
 from app.middleware.auth import require_auth, require_role
 from app.services.supabase_client import get_supabase_client
@@ -46,7 +48,7 @@ def create_assignment(classroom_id: str) -> Tuple[Response, int]:
     if not data or not data.get("title"):
         return jsonify({"error": "title required"}), 400
 
-    title = data["title"].strip()
+    title = str(data["title"]).strip()
     if not title or len(title) > MAX_TITLE_LENGTH:
         return jsonify({"error": f"title must be 1-{MAX_TITLE_LENGTH} characters"}), 400
 
@@ -56,6 +58,8 @@ def create_assignment(classroom_id: str) -> Tuple[Response, int]:
         return jsonify({"error": "Classroom not found"}), 404
 
     context_file_ids = data.get("context_file_ids", [])
+    if not isinstance(context_file_ids, list):
+        return jsonify({"error": "context_file_ids must be a list"}), 400
     if not _validate_context_file_ids(client, classroom_id, context_file_ids):
         return jsonify({"error": "One or more context_file_ids are invalid"}), 400
 
@@ -76,7 +80,11 @@ def create_assignment(classroom_id: str) -> Tuple[Response, int]:
     try:
         prompt_upload_url = generate_upload_url(ASSIGNMENTS_BUCKET, prompt_path)
         answer_key_upload_url = generate_upload_url(ASSIGNMENTS_BUCKET, answer_key_path)
-    except ValueError:
+    except Exception:
+        try:
+            client.table("assignments").delete().eq("id", assignment_id).execute()
+        except Exception:
+            pass
         return jsonify({"error": "Failed to generate upload URLs"}), 500
 
     return jsonify({
@@ -162,21 +170,21 @@ def create_submission(assignment_id: str) -> Tuple[Response, int]:
     if not membership.data:
         return jsonify({"error": "Access denied"}), 403
 
-    existing = client.table("submissions").select("id").eq(
-        "assignment_id", assignment_id
-    ).eq("student_id", g.user_id).execute()
-    if existing.data:
-        return jsonify({"error": "Submission already exists for this assignment"}), 409
-
     submission_id = str(uuid.uuid4())
     storage_path = f"{classroom_id}/{g.user_id}/{submission_id}"
 
-    record = client.table("submissions").insert({
-        "id": submission_id,
-        "assignment_id": assignment_id,
-        "student_id": g.user_id,
-        "storage_path": storage_path,
-    }).execute()
+    try:
+        record = client.table("submissions").insert({
+            "id": submission_id,
+            "assignment_id": assignment_id,
+            "student_id": g.user_id,
+            "storage_path": storage_path,
+        }).execute()
+    except APIError as e:
+        if "23505" in str(e):
+            return jsonify({"error": "Submission already exists for this assignment"}), 409
+        print(f"Failed to insert submission: {e}", file=sys.stderr)
+        return jsonify({"error": "Failed to create submission"}), 500
 
     try:
         upload_url = generate_upload_url(SUBMISSIONS_BUCKET, storage_path)

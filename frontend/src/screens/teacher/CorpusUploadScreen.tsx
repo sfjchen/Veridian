@@ -8,6 +8,7 @@ export function CorpusUploadScreen({ route, navigation }: { route: any; navigati
   const [displayName, setDisplayName] = useState("");
   const [fileType, setFileType] = useState("");
   const [uploadUrl, setUploadUrl] = useState<string | null>(null);
+  const [loading, setLoading] = useState(false);
 
   const handleCreateRecord = async () => {
     if (!displayName.trim()) {
@@ -18,6 +19,7 @@ export function CorpusUploadScreen({ route, navigation }: { route: any; navigati
       Alert.alert("Error", "File type required");
       return;
     }
+    setLoading(true);
     try {
       const result = await api<{ upload_url: string }>(`/classrooms/${classroomId}/corpus`, {
         method: "POST",
@@ -26,6 +28,8 @@ export function CorpusUploadScreen({ route, navigation }: { route: any; navigati
       setUploadUrl(result.upload_url);
     } catch (e: any) {
       Alert.alert("Error", e.message);
+    } finally {
+      setLoading(false);
     }
   };
 
@@ -40,13 +44,13 @@ export function CorpusUploadScreen({ route, navigation }: { route: any; navigati
       />
       <TextInput
         style={styles.input}
-        placeholder="File type (e.g., pdf, tex, png)"
+        placeholder="File type (e.g., pdf, tex, docx)"
         value={fileType}
         onChangeText={setFileType}
       />
       {!uploadUrl ? (
-        <TouchableOpacity style={styles.button} onPress={handleCreateRecord}>
-          <Text style={styles.buttonText}>Get Upload URL</Text>
+        <TouchableOpacity style={styles.button} onPress={handleCreateRecord} disabled={loading}>
+          <Text style={styles.buttonText}>{loading ? "Creating..." : "Get Upload URL"}</Text>
         </TouchableOpacity>
       ) : (
         <FileUploader

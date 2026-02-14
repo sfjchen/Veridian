@@ -16,27 +16,9 @@ create policy "users_read_own_profile" on public.profiles
 create policy "users_update_own_profile" on public.profiles
     for update using (auth.uid() = id);
 
--- Teachers can read student profiles in their classrooms
-create policy "teachers_read_classroom_students" on public.profiles
-    for select using (
-        exists (
-            select 1 from public.classroom_memberships cm
-            join public.classrooms c on c.id = cm.classroom_id
-            where cm.student_id = profiles.id
-            and c.teacher_id = auth.uid()
-        )
-    );
-
--- Students can read teacher profiles of joined classrooms
-create policy "students_read_classroom_teachers" on public.profiles
-    for select using (
-        exists (
-            select 1 from public.classrooms c
-            join public.classroom_memberships cm on cm.classroom_id = c.id
-            where c.teacher_id = profiles.id
-            and cm.student_id = auth.uid()
-        )
-    );
+-- NOTE: Cross-table profile policies (teachers_read_classroom_students,
+-- students_read_classroom_teachers) are created in a deferred migration
+-- after classroom_memberships table exists.
 
 -- Auto-create profile on user signup
 create or replace function public.handle_new_user()
@@ -45,8 +27,12 @@ begin
     insert into public.profiles (id, role, display_name)
     values (
         new.id,
-        coalesce(new.raw_user_meta_data->>'role', 'student'),
-        coalesce(new.raw_user_meta_data->>'display_name', '')
+        case
+            when coalesce(new.raw_user_meta_data->>'role', 'student') in ('teacher', 'student')
+            then new.raw_user_meta_data->>'role'
+            else 'student'
+        end,
+        coalesce(nullif(trim(new.raw_user_meta_data->>'display_name'), ''), 'Unnamed User')
     );
     return new;
 end;

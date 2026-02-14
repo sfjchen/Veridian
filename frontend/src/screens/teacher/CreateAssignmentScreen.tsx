@@ -12,6 +12,7 @@ export function CreateAssignmentScreen({ route, navigation }: { route: any; navi
   const [urls, setUrls] = useState<{ prompt: string; answer_key: string } | null>(null);
   const [promptUploaded, setPromptUploaded] = useState(false);
   const [answerKeyUploaded, setAnswerKeyUploaded] = useState(false);
+  const [creating, setCreating] = useState(false);
 
   const allDone = promptUploaded && answerKeyUploaded;
 
@@ -43,6 +44,7 @@ export function CreateAssignmentScreen({ route, navigation }: { route: any; navi
       dueDateValue = dueDate.trim();
     }
 
+    setCreating(true);
     try {
       const result = await api<{
         prompt_upload_url: string;
@@ -57,6 +59,8 @@ export function CreateAssignmentScreen({ route, navigation }: { route: any; navi
       setUrls({ prompt: result.prompt_upload_url, answer_key: result.answer_key_upload_url });
     } catch (e: any) {
       Alert.alert("Error", e.message);
+    } finally {
+      setCreating(false);
     }
   };
 
@@ -76,8 +80,8 @@ export function CreateAssignmentScreen({ route, navigation }: { route: any; navi
         onChangeText={setDueDate}
       />
       {!urls ? (
-        <TouchableOpacity style={styles.button} onPress={handleCreate}>
-          <Text style={styles.buttonText}>Create Assignment</Text>
+        <TouchableOpacity style={styles.button} onPress={handleCreate} disabled={creating}>
+          <Text style={styles.buttonText}>{creating ? "Creating..." : "Create Assignment"}</Text>
         </TouchableOpacity>
       ) : (
         <View>

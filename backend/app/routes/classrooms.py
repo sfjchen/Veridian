@@ -50,9 +50,10 @@ def list_classrooms() -> Response | Tuple[Response, int]:
             "teacher_id", g.user_id
         ).execute()
     else:
-        result = client.table("classroom_memberships").select(
-            "classroom_id, joined_at, classrooms(*)"
+        memberships = client.table("classroom_memberships").select(
+            "classrooms(*)"
         ).eq("student_id", g.user_id).execute()
+        return jsonify([m["classrooms"] for m in memberships.data if m.get("classrooms")]), 200
     return jsonify(result.data), 200
 
 

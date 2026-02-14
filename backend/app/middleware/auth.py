@@ -8,7 +8,7 @@ from app.constants import ROLE_STUDENT
 
 
 def require_auth(f: Callable) -> Callable:
-    """Verify JWT and populate g.user_id, g.user_role."""
+    """Verify JWT and populate g.user_id, g.user_role, g.user_token."""
     @functools.wraps(f)
     def decorated(*args: Any, **kwargs: Any) -> Tuple[Response, int] | Response:
         auth_header = request.headers.get("Authorization", "")
@@ -30,6 +30,7 @@ def require_auth(f: Callable) -> Callable:
             return jsonify({"error": "Invalid token"}), 401
 
         g.user_id = payload["sub"]
+        g.user_token = token
         user_metadata = payload.get("user_metadata", {})
         g.user_role = user_metadata.get("role", ROLE_STUDENT)
         return f(*args, **kwargs)
@@ -40,8 +41,8 @@ def require_auth(f: Callable) -> Callable:
 def require_role(role: str) -> Callable:
     """Require the authenticated user to have a specific role."""
     def decorator(f: Callable) -> Callable:
-        @require_auth
         @functools.wraps(f)
+        @require_auth
         def decorated(*args: Any, **kwargs: Any) -> Tuple[Response, int] | Response:
             if g.user_role != role:
                 return jsonify({"error": f"Requires {role} role"}), 403

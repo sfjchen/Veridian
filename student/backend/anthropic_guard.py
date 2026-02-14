@@ -2,9 +2,15 @@ import inspect
 import re
 from typing import Any, Protocol
 
+# Minimum version that supports `thinking` on messages.create().
 MIN_ANTHROPIC_VERSION = (0, 79, 0)
 MIN_ANTHROPIC_VERSION_STR = ".".join(str(part) for part in MIN_ANTHROPIC_VERSION)
 REMEDIATION_COMMAND = 'pip install -U "anthropic>=0.79.0"'
+_VERSION_PATTERN = re.compile(
+    r"^(?P<major>\d+)\.(?P<minor>\d+)\.(?P<micro>\d+)"
+    r"(?:\.post\d+)?"
+    r"(?:\+[A-Za-z0-9][A-Za-z0-9._-]*)?$"
+)
 
 
 class _MessagesClientProtocol(Protocol):
@@ -15,10 +21,14 @@ def _parse_version(version: str) -> tuple[int, int, int]:
     trimmed = version.strip()
     if not trimmed:
         raise ValueError("Anthropic SDK version string is empty.")
-    match = re.match(r"^(\d+)\.(\d+)\.(\d+)$", trimmed)
+    match = _VERSION_PATTERN.match(trimmed)
     if match is None:
         raise ValueError(f"Invalid Anthropic SDK version string: {version!r}")
-    return (int(match.group(1)), int(match.group(2)), int(match.group(3)))
+    return (
+        int(match.group("major")),
+        int(match.group("minor")),
+        int(match.group("micro")),
+    )
 
 
 def _read_installed_anthropic_version() -> str:
@@ -30,12 +40,18 @@ def _read_installed_anthropic_version() -> str:
             f"Run: {REMEDIATION_COMMAND}"
         ) from exc
     version = getattr(anthropic, "__version__", None)
-    if version is None or not str(version).strip():
+    if version is None:
         raise RuntimeError(
             "Anthropic SDK version could not be detected. "
             f"Run: {REMEDIATION_COMMAND}"
         )
-    return str(version).strip()
+    version_str = str(version).strip()
+    if not version_str:
+        raise RuntimeError(
+            "Anthropic SDK version could not be detected. "
+            f"Run: {REMEDIATION_COMMAND}"
+        )
+    return version_str
 
 
 def ensure_supported_anthropic_version(anthropic_version: str | None = None) -> None:

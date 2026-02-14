@@ -25,7 +25,13 @@ from pathlib import Path
 
 from openai import OpenAI
 
-from anthropic_guard import validate_anthropic_thinking_support
+try:
+    from anthropic_guard import validate_anthropic_thinking_support
+except ModuleNotFoundError:
+    import sys
+
+    sys.path.insert(0, str(Path(__file__).resolve().parent.parent))
+    from anthropic_guard import validate_anthropic_thinking_support
 from .constants import TAG_BANK, SEVERITIES, TAG_TO_SEVERITY, ALL_TAGS
 from .prompts import ANALYSIS_SYSTEM_PROMPT, GRADER_SYSTEM_PROMPT, CONTINUATION_SYSTEM_PROMPT
 from .helpers import escape_latex_text, extract_json_from_llm_response, extract_text, find_snippet, in_math_mode as _in_math_mode
@@ -53,6 +59,8 @@ class MistakeAnalyzer:
         self.grader_model = grader_model
         self.continuation_model = continuation_model
         self.use_extended_thinking = use_extended_thinking
+        self.client: anthropic.Anthropic | None
+        self._openai_client: OpenAI | None
         try:
             _cap = int(os.getenv("MISTAKE_ANALYSIS_MAX_TOKENS", "8192").strip())
         except ValueError:
@@ -61,8 +69,6 @@ class MistakeAnalyzer:
 
         backend = (os.getenv("MISTAKE_ANALYSIS_BACKEND", "anthropic") or "anthropic").strip().lower()
         self._backend = "openai" if backend == "openai" else "anthropic"
-        self.client: anthropic.Anthropic | None
-        self._openai_client: OpenAI | None
         if self._backend == "openai":
             self.client = None
             self._openai_client = OpenAI()

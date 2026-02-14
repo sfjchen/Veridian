@@ -1,0 +1,52 @@
+import { supabase } from "./supabase";
+
+const API_URL = process.env.EXPO_PUBLIC_API_URL ?? (__DEV__ ? "http://localhost:5000" : undefined);
+
+if (!API_URL) {
+  throw new Error("EXPO_PUBLIC_API_URL must be set in production");
+}
+
+type HttpMethod = "GET" | "POST" | "PUT" | "DELETE";
+
+interface ApiOptions {
+  method?: HttpMethod;
+  body?: Record<string, unknown>;
+}
+
+export async function api<T = unknown>(
+  path: string,
+  options: ApiOptions = {}
+): Promise<T> {
+  const { method = "GET", body } = options;
+
+  const {
+    data: { session },
+  } = await supabase.auth.getSession();
+
+  const headers: Record<string, string> = {
+    "Content-Type": "application/json",
+  };
+
+  if (session?.access_token) {
+    headers["Authorization"] = `Bearer ${session.access_token}`;
+  }
+
+  const response = await fetch(`${API_URL}${path}`, {
+    method,
+    headers,
+    body: body ? JSON.stringify(body) : undefined,
+  });
+
+  if (!response.ok) {
+    let errorMessage = `HTTP ${response.status}`;
+    try {
+      const errorBody = await response.json();
+      if (errorBody?.error) errorMessage = errorBody.error;
+    } catch {
+      // Non-JSON response body, fall back to HTTP status
+    }
+    throw new Error(errorMessage);
+  }
+
+  return response.json();
+}

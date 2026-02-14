@@ -13,5 +13,7 @@ def create_app() -> Flask:
         ANTHROPIC_API_KEY=config.anthropic_api_key,
         SUPABASE_JWT_SECRET=config.supabase_jwt_secret,
     )
-    # Register blueprints (added in later PRs)
+    from .routes.auth import auth_bp
+    app.register_blueprint(auth_bp)
+
     return app

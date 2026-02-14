@@ -1,15 +1,9 @@
 from typing import Any, Dict, List, Optional
 
+from config_schema import resolve_config, validate_config
 from supabase_service import get_supabase_service_client, unwrap_supabase_data
 
 ASSIGNMENTS_TABLE = "assignments"
-
-DEFAULT_HINT_LEVEL = "guided"
-DEFAULT_REVEAL_MODE = "single-tap"
-DEFAULT_AUTO_ANALYZE = True
-DEFAULT_ANALYSIS_DEBOUNCE_SECONDS = 15
-DEFAULT_NOTIFICATION_LEVEL = "nudge"
-DEFAULT_CHAT_ENABLED = False
 
 
 def get_assignment(assignment_id: str) -> Optional[Dict[str, Any]]:
@@ -43,15 +37,29 @@ def get_problem(assignment_id: str, problem_num: int) -> Dict[str, Any]:
     raise ValueError(f"Problem {problem_num} not found in assignment {assignment_id}")
 
 
-def get_assignment_settings(assignment_id: str) -> Dict[str, Any]:
+def _fetch_classroom_config(classroom_id: str) -> Dict[str, Any]:
+    supabase = get_supabase_service_client()
+    response = (
+        supabase.table("classrooms")
+        .select("config")
+        .eq("id", classroom_id)
+        .limit(1)
+        .execute()
+    )
+    rows = unwrap_supabase_data(response) or []
+    if not isinstance(rows, list) or not rows:
+        return {}
+    config = rows[0].get("config")
+    return config if isinstance(config, dict) else {}
+
+
+def get_resolved_config(assignment_id: str) -> Dict[str, Any]:
     assignment = get_assignment(assignment_id)
     if not assignment:
         raise ValueError(f"Assignment not found: {assignment_id}")
-    return {
-        "hint_level": assignment.get("hint_level", DEFAULT_HINT_LEVEL),
-        "reveal_mode": assignment.get("reveal_mode", DEFAULT_REVEAL_MODE),
-        "auto_analyze": assignment.get("auto_analyze", DEFAULT_AUTO_ANALYZE),
-        "analysis_debounce_seconds": assignment.get("analysis_debounce_seconds", DEFAULT_ANALYSIS_DEBOUNCE_SECONDS),
-        "notification_level": assignment.get("notification_level", DEFAULT_NOTIFICATION_LEVEL),
-        "chat_enabled": assignment.get("chat_enabled", DEFAULT_CHAT_ENABLED),
-    }
+    classroom_id = assignment.get("classroom_id")
+    classroom_config = _fetch_classroom_config(classroom_id) if classroom_id else {}
+    assignment_config = assignment.get("config") or {}
+    if not isinstance(assignment_config, dict):
+        assignment_config = {}
+    return validate_config(resolve_config(classroom_config, assignment_config))

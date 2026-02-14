@@ -57,14 +57,19 @@
     - `stuck_repeat_threshold` (int, optional, default `3`)
     - `mastery_target` (0-1, optional, default `0.70`)
     - `min_topic_events` (int, optional, default `3`)
+    - `low_completion_threshold` (0-100, optional, default `70.0`)
     - `since` (ISO-8601, optional)
-    - `error_limit` / `progress_limit` (int, optional)
+    - `error_limit` (int, optional)
 
 - `GET /assignments/{assignment_id}/students/{student_id}/failure-summary` (teacher or owning student)
   - Returns assignment-specific explanation of failure risk:
     - `failure_reasons`
     - `recommended_actions`
     - evidence (completion, inactivity, repeated errors, dominant categories/topics)
+  - Query:
+    - `low_completion_threshold` (0-100, optional, default `70.0`)
+    - `error_limit` (int, optional, default `500`)
+    - `progress_limit` (int, optional, default `200`)
 
 ## Expected Live Data Tables
 

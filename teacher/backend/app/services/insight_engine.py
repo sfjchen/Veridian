@@ -17,47 +17,36 @@ CONCEPT_CATEGORY = "conceptual_gap"
 INACTIVE_SENTINEL = float("inf")
 
 SYNTAX_HINTS = {
-    "syntax",
-    "token",
-    "parse",
-    "parenthesis",
-    "parentheses",
-    "bracket",
-    "indent",
-    "semicolon",
-    "unterminated",
-    "unexpected",
+    "syntax", "token", "parse", "parenthesis", "parentheses",
+    "bracket", "indent", "semicolon", "unterminated", "unexpected",
 }
 LOGIC_HINTS = {
-    "logic",
-    "wrong answer",
-    "incorrect",
-    "off by one",
-    "edge case",
-    "condition",
-    "branch",
-    "fallacy",
-    "counterexample",
+    "logic", "wrong answer", "incorrect", "off by one", "edge case",
+    "condition", "branch", "fallacy", "counterexample",
 }
 COMPLEXITY_HINTS = {
-    "complexity",
-    "big-o",
-    "time limit",
-    "timeout",
-    "quadratic",
-    "cubic",
-    "n^2",
-    "n log n",
-    "performance",
+    "complexity", "big-o", "time limit", "timeout",
+    "quadratic", "cubic", "n^2", "n log n", "performance",
 }
 RUNTIME_HINTS = {
-    "exception",
-    "runtime",
-    "stack overflow",
-    "nullpointer",
-    "index out of range",
-    "division by zero",
-    "segmentation fault",
+    "exception", "runtime", "stack overflow", "nullpointer",
+    "index out of range", "division by zero", "segmentation fault",
+}
+
+CATEGORY_REASON_MAP = {
+    COMPLEXITY_CATEGORY: "dominant_complexity_issue",
+    LOGIC_CATEGORY: "dominant_logic_issue",
+    SYNTAX_CATEGORY: "dominant_syntax_issue",
+}
+
+RECOMMENDATION_MAP = {
+    "low_completion": "Schedule a short checkpoint to unblock assignment progress.",
+    "inactive": "Re-engage the student with a time-bound mini task.",
+    "repeated_error_pattern": "Review one worked example targeting the repeated error pattern.",
+    "high_error_volume": "Reduce scope temporarily and validate understanding after each step.",
+    "dominant_complexity_issue": "Reinforce algorithmic complexity tradeoffs with simpler benchmarks.",
+    "dominant_logic_issue": "Use trace tables to verify branch logic and edge cases.",
+    "dominant_syntax_issue": "Assign a syntax-focused linting drill before the next attempt.",
 }
 
 
@@ -72,35 +61,60 @@ class InsightSettings:
     low_completion_threshold: float = 70.0
 
     @classmethod
-    def from_query_args(cls, query_args: Any) -> "InsightSettings":
+    def from_query_args(cls, args: Any) -> "InsightSettings":
         return cls(
-            failing_ratio_threshold=_parse_ratio(query_args.get("failing_ratio_threshold"), 0.30),
-            inactivity_minutes=_parse_positive_int(query_args.get("inactivity_minutes"), 30),
-            stuck_minutes=_parse_positive_int(query_args.get("stuck_minutes"), 20),
-            stuck_repeat_threshold=_parse_positive_int(query_args.get("stuck_repeat_threshold"), 3),
-            mastery_target=_parse_ratio(query_args.get("mastery_target"), 0.70),
-            min_topic_events=_parse_positive_int(query_args.get("min_topic_events"), 3),
-            low_completion_threshold=_parse_percentage(
-                query_args.get("low_completion_threshold"), 70.0,
-            ),
+            failing_ratio_threshold=_parse_ratio(args.get("failing_ratio_threshold"), 0.30),
+            inactivity_minutes=_parse_pos_int(args.get("inactivity_minutes"), 30),
+            stuck_minutes=_parse_pos_int(args.get("stuck_minutes"), 20),
+            stuck_repeat_threshold=_parse_pos_int(args.get("stuck_repeat_threshold"), 3),
+            mastery_target=_parse_ratio(args.get("mastery_target"), 0.70),
+            min_topic_events=_parse_pos_int(args.get("min_topic_events"), 3),
+            low_completion_threshold=_parse_pct(args.get("low_completion_threshold"), 70.0),
         )
 
 
-def _parse_ratio(value: Any, default_value: float) -> float:
+@dataclass(frozen=True)
+class InsightContext:
+    enrolled_students: list[str]
+    display_names: dict[str, str]
+    settings: InsightSettings
+
+
+@dataclass(frozen=True)
+class ErrorAgg:
+    by_student: dict[str, list[dict[str, Any]]]
+    part_to_students: dict[str, set[str]]
+    part_to_cats: dict[str, Counter[str]]
+    topic_to_students: dict[str, set[str]]
+    topic_events: Counter[str]
+
+
+@dataclass(frozen=True)
+class FailureEvidence:
+    completion_pct: float
+    minutes_inactive: int | None
+    error_count: int
+    repeated_count: int
+    repeated_minutes: int
+    progress_state: str
+    dominant_category: str | None
+
+
+def _parse_ratio(value: Any, default: float) -> float:
     if value is None:
-        return default_value
+        return default
     try:
         parsed = float(value)
     except (TypeError, ValueError) as exc:
-        raise ValueError("Ratio values must be decimal numbers in the interval (0, 1]") from exc
+        raise ValueError("Ratio must be in (0, 1]") from exc
     if parsed <= 0 or parsed > 1:
-        raise ValueError("Ratio values must be in the interval (0, 1]")
+        raise ValueError("Ratio must be in (0, 1]")
     return parsed
 
 
-def _parse_positive_int(value: Any, default_value: int) -> int:
+def _parse_pos_int(value: Any, default: int) -> int:
     if value is None:
-        return default_value
+        return default
     try:
         parsed = int(value)
     except (TypeError, ValueError) as exc:
@@ -110,32 +124,27 @@ def _parse_positive_int(value: Any, default_value: int) -> int:
     return parsed
 
 
-def _parse_percentage(value: Any, default_value: float) -> float:
+def _parse_pct(value: Any, default: float) -> float:
     if value is None:
-        return default_value
+        return default
     try:
         parsed = float(value)
     except (TypeError, ValueError) as exc:
-        raise ValueError("Percentage must be a number between 0 and 100") from exc
+        raise ValueError("Percentage must be 0-100") from exc
     if not (0 <= parsed <= 100):
-        raise ValueError("Percentage must be a number between 0 and 100")
+        raise ValueError("Percentage must be 0-100")
     return parsed
 
 
-def _normalize_bucket(value: Any, default_value: str = UNKNOWN_BUCKET) -> str:
+def _norm(value: Any, default: str = UNKNOWN_BUCKET) -> str:
     if not isinstance(value, str):
-        return default_value
-    normalized = value.strip()
-    if not normalized:
-        return default_value
-    return normalized
+        return default
+    trimmed = value.strip()
+    return trimmed if trimmed else default
 
 
-def _contains_any(text: str, hints: set[str]) -> bool:
-    for hint in hints:
-        if hint in text:
-            return True
-    return False
+def _has_hint(text: str, hints: set[str]) -> bool:
+    return any(h in text for h in hints)
 
 
 def categorize_error(
@@ -143,83 +152,107 @@ def categorize_error(
     topic: str | None = None,
     metadata: dict[str, Any] | None = None,
 ) -> str:
-    metadata = metadata or {}
-    explicit = metadata.get("category")
+    meta = metadata or {}
+    explicit = meta.get("category")
     if isinstance(explicit, str) and explicit.strip():
         return explicit.strip().lower()
+    combined = error_message.strip().lower() + " " + (topic or "").strip().lower()
+    return _match_category(combined)
 
-    normalized_message = error_message.strip().lower()
-    normalized_topic = (topic or "").strip().lower()
-    combined_text = normalized_message + " " + normalized_topic
 
-    if _contains_any(combined_text, SYNTAX_HINTS):
+def _match_category(text: str) -> str:
+    if _has_hint(text, SYNTAX_HINTS):
         return SYNTAX_CATEGORY
-    if _contains_any(combined_text, COMPLEXITY_HINTS):
+    if _has_hint(text, COMPLEXITY_HINTS):
         return COMPLEXITY_CATEGORY
-    if _contains_any(combined_text, LOGIC_HINTS):
+    if _has_hint(text, LOGIC_HINTS):
         return LOGIC_CATEGORY
-    if _contains_any(combined_text, RUNTIME_HINTS):
+    if _has_hint(text, RUNTIME_HINTS):
         return RUNTIME_CATEGORY
     return CONCEPT_CATEGORY
 
 
-def _minutes_since(now: datetime, timestamp: datetime | None) -> int | None:
-    if timestamp is None:
+def _mins_since(now: datetime, ts: datetime | None) -> int | None:
+    if ts is None:
         return None
-    delta = now - timestamp
-    return max(0, int(delta.total_seconds() // 60))
+    return max(0, int((now - ts).total_seconds() // 60))
 
 
-def _error_group_key(error_log: dict[str, Any]) -> str:
-    fingerprint = error_log.get("error_fingerprint")
-    if isinstance(fingerprint, str) and fingerprint.strip():
-        return fingerprint.strip()
-    category = _normalize_bucket(error_log.get("error_category"))
-    assignment_part = _normalize_bucket(error_log.get("assignment_part"), "unknown_part")
-    return category + ":" + assignment_part
+def _group_key(row: dict[str, Any]) -> str:
+    fp = row.get("error_fingerprint")
+    if isinstance(fp, str) and fp.strip():
+        return fp.strip()
+    return _norm(row.get("error_category")) + ":" + _norm(row.get("assignment_part"), "unknown_part")
 
 
-def _sort_errors_desc(error_logs: list[dict[str, Any]]) -> list[dict[str, Any]]:
-    return sorted(
-        error_logs,
-        key=lambda row: parse_record_timestamp(row, "occurred_at") or datetime.min.replace(tzinfo=timezone.utc),
-        reverse=True,
-    )
+def _sort_desc(logs: list[dict[str, Any]]) -> list[dict[str, Any]]:
+    epoch = datetime.min.replace(tzinfo=timezone.utc)
+    return sorted(logs, key=lambda r: parse_record_timestamp(r, "occurred_at") or epoch, reverse=True)
 
 
-def _latest_error_timestamps(error_logs: list[dict[str, Any]]) -> dict[str, datetime]:
-    latest_by_student: dict[str, datetime] = {}
-    for row in _sort_errors_desc(error_logs):
-        student_id = row.get("student_id")
-        if not student_id or student_id in latest_by_student:
+def _latest_error_ts(logs: list[dict[str, Any]]) -> dict[str, datetime]:
+    out: dict[str, datetime] = {}
+    for row in _sort_desc(logs):
+        sid = row.get("student_id")
+        if not sid or sid in out:
             continue
-        timestamp = parse_record_timestamp(row, "occurred_at")
-        if timestamp is not None:
-            latest_by_student[student_id] = timestamp
-    return latest_by_student
+        ts = parse_record_timestamp(row, "occurred_at")
+        if ts is not None:
+            out[sid] = ts
+    return out
 
 
-def _consecutive_same_error_window(
-    student_error_logs: list[dict[str, Any]],
-) -> tuple[int, int]:
-    if not student_error_logs:
-        return 0, 0
-    sorted_logs = _sort_errors_desc(student_error_logs)
-    first_key = _error_group_key(sorted_logs[0])
+def _count_matching(sorted_logs: list[dict[str, Any]], key: str) -> tuple[int, datetime | None, datetime | None]:
     count = 0
-    oldest_timestamp = parse_record_timestamp(sorted_logs[0], "occurred_at")
-    latest_timestamp = oldest_timestamp
+    oldest = parse_record_timestamp(sorted_logs[0], "occurred_at")
+    latest = oldest
     for row in sorted_logs:
-        if _error_group_key(row) != first_key:
+        if _group_key(row) != key:
             break
         count += 1
-        timestamp = parse_record_timestamp(row, "occurred_at")
-        if timestamp is not None:
-            oldest_timestamp = timestamp
-    if latest_timestamp is None or oldest_timestamp is None:
+        ts = parse_record_timestamp(row, "occurred_at")
+        if ts is not None:
+            oldest = ts
+    return count, oldest, latest
+
+
+def _consec_error_window(logs: list[dict[str, Any]]) -> tuple[int, int]:
+    if not logs:
+        return 0, 0
+    sl = _sort_desc(logs)
+    count, oldest, latest = _count_matching(sl, _group_key(sl[0]))
+    if latest is None or oldest is None:
         return count, 0
-    minutes = max(0, int((latest_timestamp - oldest_timestamp).total_seconds() // 60))
-    return count, minutes
+    return count, max(0, int((latest - oldest).total_seconds() // 60))
+
+
+def _agg_errors(logs: list[dict[str, Any]], enrolled: set[str]) -> ErrorAgg:
+    by_s: dict[str, list[dict[str, Any]]] = defaultdict(list)
+    p_s: dict[str, set[str]] = defaultdict(set)
+    p_c: dict[str, Counter[str]] = defaultdict(Counter)
+    t_s: dict[str, set[str]] = defaultdict(set)
+    t_e: Counter[str] = Counter()
+    for row in logs:
+        sid = row.get("student_id")
+        if sid not in enrolled:
+            continue
+        by_s[sid].append(row)
+        part = _norm(row.get("assignment_part"), "unlabeled_part")
+        p_s[part].add(sid)
+        p_c[part][_norm(row.get("error_category"))] += 1
+        topic = _norm(row.get("topic"))
+        t_s[topic].add(sid)
+        t_e[topic] += 1
+    return ErrorAgg(by_s, p_s, p_c, t_s, t_e)
+
+
+def _empty_insights(aid: str, now: datetime) -> dict[str, Any]:
+    return {
+        "assignment_id": aid, "generated_at": now.isoformat(), "student_count": 0,
+        "common_stumbling_blocks": [],
+        "engagement_metrics": {"inactive_students": [], "stuck_students": []},
+        "concept_mastery": {"mastered": [], "needs_review": [], "insufficient_data": []},
+    }
 
 
 def build_teacher_insights(
@@ -231,264 +264,145 @@ def build_teacher_insights(
     settings: InsightSettings,
 ) -> dict[str, Any]:
     now = datetime.now(timezone.utc)
-    enrolled_students = sorted(set(student_ids))
-    enrolled_student_set = set(enrolled_students)
-    student_count = len(enrolled_students)
-    if student_count == 0:
-        return {
-            "assignment_id": assignment_id,
-            "generated_at": now.isoformat(),
-            "student_count": 0,
-            "common_stumbling_blocks": [],
-            "engagement_metrics": {"inactive_students": [], "stuck_students": []},
-            "concept_mastery": {
-                "mastered": [],
-                "needs_review": [],
-                "insufficient_data": [],
-            },
-        }
-
-    errors_by_student: dict[str, list[dict[str, Any]]] = defaultdict(list)
-    part_to_students: dict[str, set[str]] = defaultdict(set)
-    part_to_category_counts: dict[str, Counter[str]] = defaultdict(Counter)
-    topic_to_students: dict[str, set[str]] = defaultdict(set)
-    topic_events: Counter[str] = Counter()
-
-    for row in error_logs:
-        student_id = row.get("student_id")
-        if student_id not in enrolled_student_set:
-            continue
-        errors_by_student[student_id].append(row)
-        assignment_part = _normalize_bucket(row.get("assignment_part"), "unlabeled_part")
-        part_to_students[assignment_part].add(student_id)
-        category = _normalize_bucket(row.get("error_category"))
-        part_to_category_counts[assignment_part][category] += 1
-        topic = _normalize_bucket(row.get("topic"))
-        topic_to_students[topic].add(student_id)
-        topic_events[topic] += 1
-
-    stumbling_blocks = _build_stumbling_blocks(
-        part_to_students, part_to_category_counts, student_count, settings,
-    )
-
-    engagement = _build_engagement_metrics(
-        enrolled_students, latest_progress_by_student_id,
-        errors_by_student, error_logs, student_display_names, now, settings,
-    )
-
-    concept_mastery = _build_concept_mastery(
-        topic_to_students, topic_events, student_count, settings,
-    )
-
+    enrolled = sorted(set(student_ids))
+    if not enrolled:
+        return _empty_insights(assignment_id, now)
+    ctx = InsightContext(enrolled, student_display_names, settings)
+    agg = _agg_errors(error_logs, set(enrolled))
+    n = len(enrolled)
     return {
         "assignment_id": assignment_id,
         "generated_at": now.isoformat(),
-        "student_count": student_count,
-        "common_stumbling_blocks": stumbling_blocks,
-        "engagement_metrics": engagement,
-        "concept_mastery": concept_mastery,
+        "student_count": n,
+        "common_stumbling_blocks": _stumbling_blocks(agg, n, settings),
+        "engagement_metrics": _engagement(ctx, latest_progress_by_student_id, agg, error_logs, now),
+        "concept_mastery": _concept_mastery(agg, n, settings),
     }
 
 
-def _build_stumbling_blocks(
-    part_to_students: dict[str, set[str]],
-    part_to_category_counts: dict[str, Counter[str]],
-    student_count: int,
-    settings: InsightSettings,
-) -> list[dict[str, Any]]:
+def _stumbling_blocks(agg: ErrorAgg, n: int, s: InsightSettings) -> list[dict[str, Any]]:
     blocks: list[dict[str, Any]] = []
-    for assignment_part, students in part_to_students.items():
-        failing_ratio = len(students) / student_count if student_count > 0 else 0.0
-        if failing_ratio <= settings.failing_ratio_threshold:
+    for part, students in agg.part_to_students.items():
+        ratio = len(students) / n if n > 0 else 0.0
+        if ratio <= s.failing_ratio_threshold:
             continue
-        top_categories = [
-            category for category, _ in part_to_category_counts[assignment_part].most_common(3)
-        ]
+        top = [c for c, _ in agg.part_to_cats[part].most_common(3)]
         blocks.append({
-            "assignment_part": assignment_part,
-            "failing_students": len(students),
-            "failing_ratio": round(failing_ratio, 4),
-            "primary_error_categories": top_categories,
+            "assignment_part": part, "failing_students": len(students),
+            "failing_ratio": round(ratio, 4), "primary_error_categories": top,
             "student_ids": sorted(students),
         })
-    blocks.sort(key=lambda row: row["failing_ratio"], reverse=True)
+    blocks.sort(key=lambda r: r["failing_ratio"], reverse=True)
     return blocks
 
 
-def _inactive_sort_key(row: dict[str, Any]) -> float:
-    val = row["minutes_inactive"]
-    return val if val is not None else INACTIVE_SENTINEL
+def _inactive_key(r: dict[str, Any]) -> float:
+    v = r["minutes_inactive"]
+    return v if v is not None else INACTIVE_SENTINEL
 
 
-def _stuck_sort_key(row: dict[str, Any]) -> tuple[int, int]:
-    return (row["stuck_minutes"], row["repeated_error_count"])
+def _stuck_key(r: dict[str, Any]) -> tuple[int, int]:
+    return (r["stuck_minutes"], r["repeated_error_count"])
 
 
-def _build_engagement_metrics(
-    enrolled_students: list[str],
-    latest_progress_by_student_id: dict[str, dict[str, Any]],
-    errors_by_student: dict[str, list[dict[str, Any]]],
-    error_logs: list[dict[str, Any]],
-    student_display_names: dict[str, str],
-    now: datetime,
-    settings: InsightSettings,
+def _engagement(
+    ctx: InsightContext, pmap: dict[str, dict[str, Any]],
+    agg: ErrorAgg, error_logs: list[dict[str, Any]], now: datetime,
 ) -> dict[str, list[dict[str, Any]]]:
-    latest_error_ts = _latest_error_timestamps(error_logs)
+    ets = _latest_error_ts(error_logs)
     inactive: list[dict[str, Any]] = []
     stuck: list[dict[str, Any]] = []
-
-    for sid in enrolled_students:
-        progress = latest_progress_by_student_id.get(sid, {})
-        _check_inactive(sid, progress, latest_error_ts, student_display_names, now, settings, inactive)
-        _check_stuck(sid, progress, errors_by_student, student_display_names, settings, stuck)
-
+    for sid in ctx.enrolled_students:
+        prog = pmap.get(sid, {})
+        _check_inactive(sid, prog, ets, ctx, now, inactive)
+        _check_stuck(sid, prog, agg.by_student, ctx, stuck)
     return {
-        "inactive_students": sorted(inactive, key=_inactive_sort_key, reverse=True),
-        "stuck_students": sorted(stuck, key=_stuck_sort_key, reverse=True),
+        "inactive_students": sorted(inactive, key=_inactive_key, reverse=True),
+        "stuck_students": sorted(stuck, key=_stuck_key, reverse=True),
     }
 
 
 def _check_inactive(
-    student_id: str,
-    progress: dict[str, Any],
-    latest_error_timestamps: dict[str, datetime],
-    display_names: dict[str, str],
-    now: datetime,
-    settings: InsightSettings,
-    result: list[dict[str, Any]],
+    sid: str, prog: dict[str, Any], ets: dict[str, datetime],
+    ctx: InsightContext, now: datetime, out: list[dict[str, Any]],
 ) -> None:
-    progress_ts = parse_record_timestamp(progress, "last_active_at")
-    error_ts = latest_error_timestamps.get(student_id)
-    last_active = progress_ts or error_ts
-    minutes_inactive = _minutes_since(now, last_active)
-    if minutes_inactive is not None and minutes_inactive < settings.inactivity_minutes:
+    last = parse_record_timestamp(prog, "last_active_at") or ets.get(sid)
+    mins = _mins_since(now, last)
+    if mins is not None and mins < ctx.settings.inactivity_minutes:
         return
-    result.append({
-        "student_id": student_id,
-        "display_name": display_names.get(student_id, ""),
-        "minutes_inactive": minutes_inactive,
-        "last_active_at": last_active.isoformat() if last_active else None,
+    out.append({
+        "student_id": sid, "display_name": ctx.display_names.get(sid, ""),
+        "minutes_inactive": mins, "last_active_at": last.isoformat() if last else None,
     })
 
 
 def _check_stuck(
-    student_id: str,
-    progress: dict[str, Any],
-    errors_by_student: dict[str, list[dict[str, Any]]],
-    display_names: dict[str, str],
-    settings: InsightSettings,
-    result: list[dict[str, Any]],
+    sid: str, prog: dict[str, Any],
+    by_student: dict[str, list[dict[str, Any]]],
+    ctx: InsightContext, out: list[dict[str, Any]],
 ) -> None:
-    recent_errors = errors_by_student.get(student_id, [])
-    repeated_count, stuck_minutes = _consecutive_same_error_window(recent_errors)
-    progress_state = _normalize_bucket(progress.get("state"), "unknown")
-    is_error_stuck = (
-        repeated_count >= settings.stuck_repeat_threshold
-        and stuck_minutes >= settings.stuck_minutes
-    )
-    if not is_error_stuck and progress_state != "stuck":
+    reps, smins = _consec_error_window(by_student.get(sid, []))
+    state = _norm(prog.get("state"), "unknown")
+    stuck = reps >= ctx.settings.stuck_repeat_threshold and smins >= ctx.settings.stuck_minutes
+    if not stuck and state != "stuck":
         return
-    result.append({
-        "student_id": student_id,
-        "display_name": display_names.get(student_id, ""),
-        "repeated_error_count": repeated_count,
-        "stuck_minutes": stuck_minutes,
+    out.append({
+        "student_id": sid, "display_name": ctx.display_names.get(sid, ""),
+        "repeated_error_count": reps, "stuck_minutes": smins,
     })
 
 
-def _build_concept_mastery(
-    topic_to_students: dict[str, set[str]],
-    topic_events: Counter[str],
-    student_count: int,
-    settings: InsightSettings,
-) -> dict[str, list[dict[str, Any]]]:
-    mastered: list[dict[str, Any]] = []
-    needs_review: list[dict[str, Any]] = []
-    insufficient_data: list[dict[str, Any]] = []
-    for topic, students in topic_to_students.items():
+def _concept_mastery(agg: ErrorAgg, n: int, s: InsightSettings) -> dict[str, list[dict[str, Any]]]:
+    m: list[dict[str, Any]] = []
+    nr: list[dict[str, Any]] = []
+    ins: list[dict[str, Any]] = []
+    for topic, students in agg.topic_to_students.items():
         if topic == UNKNOWN_BUCKET:
             continue
-        error_rate = len(students) / student_count if student_count > 0 else 0.0
-        mastery_score = max(0.0, 1.0 - error_rate)
-        entry = {
-            "topic": topic,
-            "error_event_count": int(topic_events[topic]),
-            "error_student_count": len(students),
-            "error_rate": round(error_rate, 4),
-            "mastery_score": round(mastery_score, 4),
-        }
-        if topic_events[topic] < settings.min_topic_events:
-            insufficient_data.append(entry)
-        elif mastery_score >= settings.mastery_target:
-            mastered.append(entry)
-        else:
-            needs_review.append(entry)
+        entry = _mastery_entry(topic, students, n, agg)
+        _classify_mastery(entry, s, m, nr, ins)
+    m.sort(key=lambda r: r["mastery_score"], reverse=True)
+    nr.sort(key=lambda r: r["error_rate"], reverse=True)
+    ins.sort(key=lambda r: r["error_event_count"], reverse=True)
+    return {"mastered": m, "needs_review": nr, "insufficient_data": ins}
 
-    mastered.sort(key=lambda row: row["mastery_score"], reverse=True)
-    needs_review.sort(key=lambda row: row["error_rate"], reverse=True)
-    insufficient_data.sort(key=lambda row: row["error_event_count"], reverse=True)
 
+def _mastery_entry(topic: str, students: set[str], n: int, agg: ErrorAgg) -> dict[str, Any]:
+    rate = len(students) / n if n > 0 else 0.0
     return {
-        "mastered": mastered,
-        "needs_review": needs_review,
-        "insufficient_data": insufficient_data,
+        "topic": topic, "error_event_count": int(agg.topic_events[topic]),
+        "error_student_count": len(students), "error_rate": round(rate, 4),
+        "mastery_score": round(max(0.0, 1.0 - rate), 4),
     }
 
 
-def _dominant_categories(error_logs: list[dict[str, Any]]) -> list[dict[str, Any]]:
-    category_counts = Counter(
-        _normalize_bucket(row.get("error_category"))
-        for row in error_logs
-    )
-    total = sum(category_counts.values())
-    if total == 0:
+def _classify_mastery(e: dict[str, Any], s: InsightSettings, m: list, nr: list, ins: list) -> None:
+    if e["error_event_count"] < s.min_topic_events:
+        ins.append(e)
+    elif e["mastery_score"] >= s.mastery_target:
+        m.append(e)
+    else:
+        nr.append(e)
+
+
+def _dom_categories(logs: list[dict[str, Any]]) -> list[dict[str, Any]]:
+    c = Counter(_norm(r.get("error_category")) for r in logs)
+    t = sum(c.values())
+    if t == 0:
         return []
-    output: list[dict[str, Any]] = []
-    for category, count in category_counts.most_common(3):
-        output.append({
-            "category": category,
-            "count": count,
-            "share": round(count / total, 4),
-        })
-    return output
+    return [{"category": k, "count": v, "share": round(v / t, 4)} for k, v in c.most_common(3)]
 
 
-def _dominant_topics(error_logs: list[dict[str, Any]]) -> list[dict[str, Any]]:
-    topic_counts = Counter(
-        _normalize_bucket(row.get("topic"))
-        for row in error_logs
-        if _normalize_bucket(row.get("topic")) != UNKNOWN_BUCKET
-    )
-    total = sum(topic_counts.values())
-    if total == 0:
+def _dom_topics(logs: list[dict[str, Any]]) -> list[dict[str, Any]]:
+    c = Counter(_norm(r.get("topic")) for r in logs if _norm(r.get("topic")) != UNKNOWN_BUCKET)
+    t = sum(c.values())
+    if t == 0:
         return []
-    output: list[dict[str, Any]] = []
-    for topic, count in topic_counts.most_common(3):
-        output.append({
-            "topic": topic,
-            "count": count,
-            "share": round(count / total, 4),
-        })
-    return output
+    return [{"topic": k, "count": v, "share": round(v / t, 4)} for k, v in c.most_common(3)]
 
 
-def _build_recommendations(reason_codes: list[str]) -> list[str]:
-    recommendations: list[str] = []
-    if "low_completion" in reason_codes:
-        recommendations.append("Schedule a short checkpoint to unblock assignment progress.")
-    if "inactive" in reason_codes:
-        recommendations.append("Re-engage the student with a time-bound mini task.")
-    if "repeated_error_pattern" in reason_codes:
-        recommendations.append("Review one worked example targeting the repeated error pattern.")
-    if "high_error_volume" in reason_codes:
-        recommendations.append("Reduce scope temporarily and validate understanding after each step.")
-    if "dominant_complexity_issue" in reason_codes:
-        recommendations.append("Reinforce algorithmic complexity tradeoffs with simpler benchmarks.")
-    if "dominant_logic_issue" in reason_codes:
-        recommendations.append("Use trace tables to verify branch logic and edge cases.")
-    if "dominant_syntax_issue" in reason_codes:
-        recommendations.append("Assign a syntax-focused linting drill before the next attempt.")
-    return recommendations
+def _recommendations(codes: list[str]) -> list[str]:
+    return [RECOMMENDATION_MAP[c] for c in codes if c in RECOMMENDATION_MAP]
 
 
 def _safe_float(value: Any, default: float = 0.0) -> float:
@@ -500,6 +414,26 @@ def _safe_float(value: Any, default: float = 0.0) -> float:
         return default
 
 
+def _last_active(prog: dict[str, Any], errs: list[dict[str, Any]]) -> datetime | None:
+    la = parse_record_timestamp(prog, "last_active_at")
+    if la is None and errs:
+        la = parse_record_timestamp(errs[0], "occurred_at")
+    return la
+
+
+def _failure_evidence(errs: list[dict[str, Any]], prog: dict[str, Any], now: datetime) -> FailureEvidence:
+    la = _last_active(prog, errs)
+    reps, rmins = _consec_error_window(errs)
+    cats = _dom_categories(errs)
+    return FailureEvidence(
+        completion_pct=_safe_float(prog.get("completion_percentage")),
+        minutes_inactive=_mins_since(now, la),
+        error_count=len(errs), repeated_count=reps, repeated_minutes=rmins,
+        progress_state=_norm(prog.get("state"), "not_started"),
+        dominant_category=cats[0]["category"] if cats else None,
+    )
+
+
 def build_student_failure_summary(
     assignment_id: str,
     student_id: str,
@@ -509,75 +443,49 @@ def build_student_failure_summary(
     settings: InsightSettings,
 ) -> dict[str, Any]:
     now = datetime.now(timezone.utc)
-    sorted_errors = _sort_errors_desc(error_logs)
-    latest_progress = latest_progress or {}
-    completion_percentage = _safe_float(latest_progress.get("completion_percentage"))
-    progress_state = _normalize_bucket(latest_progress.get("state"), "not_started")
-    last_active = parse_record_timestamp(latest_progress, "last_active_at")
-    if last_active is None and sorted_errors:
-        last_active = parse_record_timestamp(sorted_errors[0], "occurred_at")
+    errs = _sort_desc(error_logs)
+    prog = latest_progress or {}
+    ev = _failure_evidence(errs, prog, now)
+    reasons = list(dict.fromkeys(_failure_reasons(ev, settings)))
+    la = _last_active(prog, errs)
+    return _fmt_summary(assignment_id, student_id, display_name, now, reasons, ev, errs, la)
 
-    minutes_since_last_active = _minutes_since(now, last_active)
-    repeated_count, repeated_minutes = _consecutive_same_error_window(sorted_errors)
-    category_breakdown = _dominant_categories(sorted_errors)
-    topic_breakdown = _dominant_topics(sorted_errors)
 
-    reason_codes = _classify_failure_reasons(
-        completion_percentage, minutes_since_last_active,
-        sorted_errors, repeated_count, repeated_minutes,
-        progress_state, category_breakdown, settings,
-    )
-    unique_reason_codes = list(dict.fromkeys(reason_codes))
-
+def _fmt_summary(
+    aid: str, sid: str, name: str, now: datetime,
+    reasons: list[str], ev: FailureEvidence,
+    errs: list[dict[str, Any]], la: datetime | None,
+) -> dict[str, Any]:
     return {
-        "assignment_id": assignment_id,
-        "student_id": student_id,
-        "display_name": display_name,
-        "generated_at": now.isoformat(),
-        "is_failing": bool(unique_reason_codes),
-        "failure_reasons": unique_reason_codes,
-        "recommended_actions": _build_recommendations(unique_reason_codes),
+        "assignment_id": aid, "student_id": sid, "display_name": name,
+        "generated_at": now.isoformat(), "is_failing": bool(reasons),
+        "failure_reasons": reasons, "recommended_actions": _recommendations(reasons),
         "evidence": {
-            "completion_percentage": round(completion_percentage, 2),
-            "progress_state": progress_state,
-            "minutes_since_last_active": minutes_since_last_active,
-            "last_active_at": last_active.isoformat() if last_active is not None else None,
-            "recent_error_count": len(sorted_errors),
-            "repeated_error_count": repeated_count,
-            "repeated_error_minutes": repeated_minutes,
-            "dominant_error_categories": category_breakdown,
-            "dominant_topics": topic_breakdown,
+            "completion_percentage": round(ev.completion_pct, 2),
+            "progress_state": ev.progress_state,
+            "minutes_since_last_active": ev.minutes_inactive,
+            "last_active_at": la.isoformat() if la else None,
+            "recent_error_count": ev.error_count,
+            "repeated_error_count": ev.repeated_count,
+            "repeated_error_minutes": ev.repeated_minutes,
+            "dominant_error_categories": _dom_categories(errs),
+            "dominant_topics": _dom_topics(errs),
         },
     }
 
 
-def _classify_failure_reasons(
-    completion_pct: float,
-    minutes_inactive: int | None,
-    sorted_errors: list[dict[str, Any]],
-    repeated_count: int,
-    repeated_minutes: int,
-    progress_state: str,
-    category_breakdown: list[dict[str, Any]],
-    settings: InsightSettings,
-) -> list[str]:
-    reasons: list[str] = []
-    if completion_pct < settings.low_completion_threshold:
-        reasons.append("low_completion")
-    if minutes_inactive is None or minutes_inactive >= settings.inactivity_minutes:
-        reasons.append("inactive")
-    if len(sorted_errors) >= 3:
-        reasons.append("high_error_volume")
-    if repeated_count >= settings.stuck_repeat_threshold and repeated_minutes >= settings.stuck_minutes:
-        reasons.append("repeated_error_pattern")
-    if progress_state == "stuck":
-        reasons.append("progress_marked_stuck")
-    if category_breakdown:
-        dominant_category = category_breakdown[0]["category"]
-        if dominant_category == COMPLEXITY_CATEGORY:
-            reasons.append("dominant_complexity_issue")
-        elif dominant_category == LOGIC_CATEGORY:
-            reasons.append("dominant_logic_issue")
-        elif dominant_category == SYNTAX_CATEGORY:
-            reasons.append("dominant_syntax_issue")
-    return reasons
+def _failure_reasons(ev: FailureEvidence, s: InsightSettings) -> list[str]:
+    r: list[str] = []
+    if ev.completion_pct < s.low_completion_threshold:
+        r.append("low_completion")
+    if ev.minutes_inactive is None or ev.minutes_inactive >= s.inactivity_minutes:
+        r.append("inactive")
+    if ev.error_count >= 3:
+        r.append("high_error_volume")
+    if ev.repeated_count >= s.stuck_repeat_threshold and ev.repeated_minutes >= s.stuck_minutes:
+        r.append("repeated_error_pattern")
+    if ev.progress_state == "stuck":
+        r.append("progress_marked_stuck")
+    if ev.dominant_category in CATEGORY_REASON_MAP:
+        r.append(CATEGORY_REASON_MAP[ev.dominant_category])
+    return r

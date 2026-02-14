@@ -28,4 +28,10 @@ def create_app() -> Flask:
     from .routes.assignments import assignments_bp
     app.register_blueprint(assignments_bp)
 
+    from .routes.live_monitoring import live_monitoring_bp
+    app.register_blueprint(live_monitoring_bp)
+
+    from .routes.api_docs import api_docs_bp
+    app.register_blueprint(api_docs_bp)
+
     return app

@@ -216,7 +216,7 @@ function FieldCard({ fieldKey, active, mode, overridden, onToggle, displayValue,
 }
 
 export function ConfigEditor({ config, inheritedConfig, onChange, mode }: Props) {
-  const resolved = inheritedConfig ?? DEFAULTS;
+  const resolved = { ...DEFAULTS, ...inheritedConfig };
   const isOverridden = (key: string) => key in config;
 
   const toggleOverride = (key: string) => {

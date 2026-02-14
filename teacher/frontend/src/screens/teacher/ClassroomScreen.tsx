@@ -78,7 +78,7 @@ export function TeacherClassroomScreen({ route, navigation }: { route: any; navi
         <View style={styles.content}>
           <TouchableOpacity
             style={styles.addButton}
-            onPress={() => navigation.navigate("CreateAssignment", { classroomId: classroom.id })}
+            onPress={() => navigation.navigate("CreateAssignment", { classroomId: classroom.id, classroomConfig: classroom.config })}
           >
             <Text style={styles.addButtonText}>+ New Assignment</Text>
           </TouchableOpacity>

@@ -301,14 +301,14 @@ export function TeacherAssignmentScreen({ route, navigation }: { route: any; nav
                 onChangeText={setEditDueDate}
               />
               <Text style={styles.sectionTitle}>Config Overrides</Text>
-              {!assignment.resolved_config && (
+              {!assignment.classroom_config && (
                 <Text style={styles.configFallbackHint}>
                   Classroom config unavailable; showing platform defaults.
                 </Text>
               )}
               <ConfigEditor
                 config={editConfig}
-                inheritedConfig={assignment.resolved_config}
+                inheritedConfig={assignment.classroom_config}
                 onChange={setEditConfig}
                 mode="assignment"
               />

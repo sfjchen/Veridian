@@ -63,6 +63,7 @@ export interface AssignmentDetail extends Assignment {
   assignment_file_download_url?: string;
   answer_key_download_url?: string;
   resolved_config?: AssignmentConfig;
+  classroom_config?: Partial<AssignmentConfig>;
 }
 
 export interface ClassroomStudent {

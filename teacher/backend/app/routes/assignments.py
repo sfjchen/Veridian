@@ -186,6 +186,7 @@ def get_assignment(assignment_id: str) -> Tuple[Response, int]:
     result = dict(record)
     classroom_config = classroom.data[0].get("config") or {}
     assignment_config = record.get("config") or {}
+    result["classroom_config"] = resolve_config(classroom_config, {})
     result["resolved_config"] = resolve_config(classroom_config, assignment_config)
 
     if record.get("prompt_storage_path"):

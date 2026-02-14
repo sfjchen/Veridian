@@ -6,9 +6,10 @@ import {
 import * as Linking from "expo-linking";
 import { supabase } from "../../lib/supabase";
 import { api } from "../../lib/api";
+import { useSubmissions } from "../../hooks/useSubmissions";
 import { LatexRenderer } from "../../components/LatexRenderer";
 import { FileUploader } from "../../components/FileUploader";
-import { AssignmentDetail } from "../../types";
+import { AssignmentDetail, Submission } from "../../types";
 
 const MAX_CONTENT_LENGTH = 100_000;
 const DATE_PATTERN = /^\d{4}-\d{2}-\d{2}$/;
@@ -57,6 +58,12 @@ export function TeacherAssignmentScreen({ route, navigation }: { route: any; nav
     answer_key_upload_url?: string;
   } | null>(null);
   const [reuploading, setReuploading] = useState(false);
+  const {
+    submissions,
+    loading: submissionsLoading,
+    error: submissionsError,
+    refresh: refreshSubmissions,
+  } = useSubmissions(assignmentId);
 
   const fetchAssignment = useCallback(async () => {
     try {
@@ -65,6 +72,8 @@ export function TeacherAssignmentScreen({ route, navigation }: { route: any; nav
       setAssignment(data);
       setEditTitle(data.title);
       setEditDueDate(data.due_date ? data.due_date.split("T")[0] : "");
+      setAssignmentContent(null);
+      setIsPdf(false);
 
       if (data.assignment_file_download_url) {
         const resp = await fetch(data.assignment_file_download_url);
@@ -131,7 +140,8 @@ export function TeacherAssignmentScreen({ route, navigation }: { route: any; nav
 
   useEffect(() => {
     fetchAssignment();
-  }, [fetchAssignment]);
+    refreshSubmissions();
+  }, [fetchAssignment, refreshSubmissions]);
 
   const handleSave = async () => {
     if (!editTitle.trim()) {
@@ -392,6 +402,45 @@ export function TeacherAssignmentScreen({ route, navigation }: { route: any; nav
             </View>
           )}
 
+          <Text style={[styles.sectionTitle, { marginTop: 24 }]}>Student Submissions</Text>
+          {submissionsLoading ? (
+            <ActivityIndicator />
+          ) : submissionsError ? (
+            <Text style={styles.errorText}>{submissionsError}</Text>
+          ) : submissions.length === 0 ? (
+            <Text style={styles.noContent}>No submissions yet</Text>
+          ) : (
+            submissions.map((submission: Submission) => (
+              <View key={submission.id} style={styles.submissionCard}>
+                <View style={styles.listItemContent}>
+                  <Text style={styles.itemTitle}>
+                    {submission.student_display_name ?? `Student ${submission.student_id.slice(0, 8)}`}
+                  </Text>
+                  <Text style={styles.itemSub}>
+                    Submitted {new Date(submission.submitted_at).toLocaleString("en-US", {
+                      year: "numeric",
+                      month: "short",
+                      day: "numeric",
+                      hour: "numeric",
+                      minute: "2-digit",
+                      timeZone: "UTC",
+                    })}
+                  </Text>
+                </View>
+                {submission.download_url ? (
+                  <TouchableOpacity
+                    style={styles.downloadButton}
+                    onPress={() => handleOpenFile(submission.download_url!)}
+                  >
+                    <Text style={styles.downloadButtonText}>Open</Text>
+                  </TouchableOpacity>
+                ) : (
+                  <Text style={styles.noFile}>Unavailable</Text>
+                )}
+              </View>
+            ))
+          )}
+
           {/* Content Preview */}
           {assignmentContent && (
             <View style={styles.contentPreview}>
@@ -411,6 +460,7 @@ const styles = StyleSheet.create({
   due: { fontSize: 14, color: "#6B7280", marginTop: 4, marginBottom: 16 },
   sectionTitle: { fontSize: 16, fontWeight: "600", marginBottom: 8 },
   error: { textAlign: "center", color: "#EF4444", marginTop: 40 },
+  errorText: { textAlign: "center", color: "#EF4444", marginTop: 8 },
 
   modeToggle: { flexDirection: "row", marginBottom: 16, gap: 8 },
   modeButton: {
@@ -471,6 +521,16 @@ const styles = StyleSheet.create({
     alignItems: "center",
   },
   convertButtonText: { color: "#fff", fontSize: 16, fontWeight: "600" },
+
+  submissionCard: {
+    backgroundColor: "#F9FAFB",
+    borderRadius: 8,
+    padding: 14,
+    marginBottom: 8,
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "space-between",
+  },
 
   contentPreview: { marginTop: 24, flex: 1, minHeight: 300 },
   noContent: { color: "#9CA3AF", textAlign: "center", marginTop: 16 },

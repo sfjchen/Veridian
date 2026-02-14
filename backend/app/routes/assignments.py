@@ -268,18 +268,59 @@ def list_submissions(assignment_id: str) -> Tuple[Response, int]:
     classroom = client.table("classrooms").select("teacher_id").eq(
         "id", classroom_id
     ).execute()
-    is_teacher = classroom.data and g.user_id == classroom.data[0]["teacher_id"]
+    is_teacher = bool(classroom.data and g.user_id == classroom.data[0]["teacher_id"])
 
     if is_teacher:
         submissions = client.table("submissions").select("*").eq(
             "assignment_id", assignment_id
         ).order("submitted_at", desc=True).execute()
     else:
+        membership = client.table("classroom_memberships").select("student_id").eq(
+            "classroom_id", classroom_id
+        ).eq("student_id", g.user_id).execute()
+        if not membership.data:
+            return jsonify({"error": "Access denied"}), 403
+
         submissions = client.table("submissions").select("*").eq(
             "assignment_id", assignment_id
-        ).eq("student_id", g.user_id).execute()
+        ).eq("student_id", g.user_id).order("submitted_at", desc=True).execute()
 
-    return jsonify(submissions.data), 200
+    records = [dict(submission) for submission in submissions.data]
+    student_names: dict[str, str] = {}
+
+    if is_teacher and records:
+        student_ids = sorted({record["student_id"] for record in records if record.get("student_id")})
+        if student_ids:
+            profiles = client.table("profiles").select("id, display_name").in_(
+                "id", student_ids
+            ).execute()
+            student_names = {
+                profile["id"]: profile["display_name"]
+                for profile in profiles.data
+                if profile.get("id")
+            }
+
+    result = []
+    for record in records:
+        item = dict(record)
+        if is_teacher:
+            item["student_display_name"] = student_names.get(item.get("student_id"))
+
+        storage_path = item.get("storage_path")
+        if storage_path:
+            try:
+                item["download_url"] = generate_download_url(SUBMISSIONS_BUCKET, storage_path)
+            except ValueError as e:
+                print(
+                    f"Failed to generate submission download URL for {item.get('id')}: {e}",
+                    file=sys.stderr,
+                )
+                item["download_url"] = None
+        else:
+            item["download_url"] = None
+        result.append(item)
+
+    return jsonify(result), 200
 
 
 @assignments_bp.route("/assignments/<assignment_id>/submissions", methods=["POST"])
@@ -300,6 +341,12 @@ def create_submission(assignment_id: str) -> Tuple[Response, int]:
     ).eq("student_id", g.user_id).execute()
     if not membership.data:
         return jsonify({"error": "Access denied"}), 403
+
+    existing_submission = client.table("submissions").select("id").eq(
+        "assignment_id", assignment_id
+    ).eq("student_id", g.user_id).limit(1).execute()
+    if existing_submission.data:
+        return jsonify({"error": "Submission already exists for this assignment"}), 409
 
     submission_id = str(uuid.uuid4())
     storage_path = f"{classroom_id}/{g.user_id}/{submission_id}"

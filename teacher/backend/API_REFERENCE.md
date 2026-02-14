@@ -22,6 +22,7 @@
     - `student_id` (teacher only, optional)
     - `since` (ISO-8601, optional)
     - `limit` (int, optional)
+  - Response note: When the requester is a teacher, each log entry includes a `student_display_name` field (string). This field is absent for student requests.
 
 - `POST /assignments/{assignment_id}/live/progress` (student)
   - Ingests a progress event.
@@ -40,6 +41,7 @@
     - `since` (ISO-8601, optional)
     - `limit` (int, optional)
     - `include_events` (`true|false`, optional)
+  - Response note: When the requester is a teacher, each progress record includes a `student_display_name` field (string). This field is absent for student requests.
 
 ## Pedagogical Insights
 

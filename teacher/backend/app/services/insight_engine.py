@@ -315,6 +315,15 @@ def _build_stumbling_blocks(
     return blocks
 
 
+def _inactive_sort_key(row: dict[str, Any]) -> float:
+    val = row["minutes_inactive"]
+    return val if val is not None else INACTIVE_SENTINEL
+
+
+def _stuck_sort_key(row: dict[str, Any]) -> tuple[int, int]:
+    return (row["stuck_minutes"], row["repeated_error_count"])
+
+
 def _build_engagement_metrics(
     enrolled_students: list[str],
     latest_progress_by_student_id: dict[str, dict[str, Any]],
@@ -324,32 +333,18 @@ def _build_engagement_metrics(
     now: datetime,
     settings: InsightSettings,
 ) -> dict[str, list[dict[str, Any]]]:
-    latest_error_timestamps = _latest_error_timestamps(error_logs)
-    inactive_students: list[dict[str, Any]] = []
-    stuck_students: list[dict[str, Any]] = []
+    latest_error_ts = _latest_error_timestamps(error_logs)
+    inactive: list[dict[str, Any]] = []
+    stuck: list[dict[str, Any]] = []
 
-    for student_id in enrolled_students:
-        progress = latest_progress_by_student_id.get(student_id, {})
-        _check_inactive(
-            student_id, progress, latest_error_timestamps,
-            student_display_names, now, settings, inactive_students,
-        )
-        _check_stuck(
-            student_id, progress, errors_by_student,
-            student_display_names, settings, stuck_students,
-        )
+    for sid in enrolled_students:
+        progress = latest_progress_by_student_id.get(sid, {})
+        _check_inactive(sid, progress, latest_error_ts, student_display_names, now, settings, inactive)
+        _check_stuck(sid, progress, errors_by_student, student_display_names, settings, stuck)
 
     return {
-        "inactive_students": sorted(
-            inactive_students,
-            key=lambda row: row["minutes_inactive"] if row["minutes_inactive"] is not None else INACTIVE_SENTINEL,
-            reverse=True,
-        ),
-        "stuck_students": sorted(
-            stuck_students,
-            key=lambda row: (row["stuck_minutes"], row["repeated_error_count"]),
-            reverse=True,
-        ),
+        "inactive_students": sorted(inactive, key=_inactive_sort_key, reverse=True),
+        "stuck_students": sorted(stuck, key=_stuck_sort_key, reverse=True),
     }
 
 

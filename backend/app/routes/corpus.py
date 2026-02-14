@@ -104,7 +104,8 @@ def list_corpus_files(classroom_id: str) -> tuple[Response, int]:
     for f in files.data:
         try:
             download_url = generate_download_url("corpus", f["storage_path"])
-        except Exception:
+        except Exception as e:
+            print(f"Failed to generate download URL for {f['storage_path']}: {e}", file=sys.stderr)
             download_url = None
         result.append({**f, "download_url": download_url})
 

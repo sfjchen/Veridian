@@ -343,6 +343,28 @@ def list_submissions(assignment_id: str) -> Tuple[Response, int]:
 def create_submission(assignment_id: str) -> Tuple[Response, int]:
     client = get_supabase_admin_client()
 
+    def _resume_or_reject_existing_submission(existing_record: dict) -> Tuple[Response, int]:
+        storage_path = existing_record.get("storage_path")
+        if not storage_path:
+            return jsonify({"error": "Existing submission is missing storage path"}), 500
+
+        try:
+            download_url = generate_download_url(SUBMISSIONS_BUCKET, storage_path)
+            return jsonify({
+                "error": "Submission already exists for this assignment",
+                "submission_id": existing_record.get("id"),
+                "download_url": download_url,
+            }), 409
+        except ValueError:
+            try:
+                upload_url = generate_upload_url(SUBMISSIONS_BUCKET, storage_path)
+            except ValueError:
+                return jsonify({"error": "Failed to generate upload URL"}), 500
+            return jsonify({
+                **existing_record,
+                "upload_url": upload_url,
+            }), 200
+
     assignment = client.table("assignments").select("id, classroom_id").eq(
         "id", assignment_id
     ).execute()
@@ -357,11 +379,11 @@ def create_submission(assignment_id: str) -> Tuple[Response, int]:
     if not membership.data:
         return jsonify({"error": "Access denied"}), 403
 
-    existing_submission = client.table("submissions").select("id").eq(
+    existing_submission = client.table("submissions").select("*").eq(
         "assignment_id", assignment_id
     ).eq("student_id", g.user_id).limit(1).execute()
     if existing_submission.data:
-        return jsonify({"error": "Submission already exists for this assignment"}), 409
+        return _resume_or_reject_existing_submission(existing_submission.data[0])
 
     submission_id = str(uuid.uuid4())
     storage_path = f"{classroom_id}/{g.user_id}/{submission_id}"
@@ -375,6 +397,11 @@ def create_submission(assignment_id: str) -> Tuple[Response, int]:
         }).execute()
     except APIError as e:
         if e.code == POSTGRES_UNIQUE_VIOLATION:
+            existing = client.table("submissions").select("*").eq(
+                "assignment_id", assignment_id
+            ).eq("student_id", g.user_id).limit(1).execute()
+            if existing.data:
+                return _resume_or_reject_existing_submission(existing.data[0])
             return jsonify({"error": "Submission already exists for this assignment"}), 409
         print(f"Failed to insert submission: {e}", file=sys.stderr)
         return jsonify({"error": "Failed to create submission"}), 500

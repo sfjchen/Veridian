@@ -110,7 +110,8 @@ export function AssignmentScreen({ route }: { route: any }) {
 
   if (loading) return <ActivityIndicator size="large" style={{ marginTop: 40 }} />;
   if (!assignment) return <Text style={styles.error}>Assignment not found</Text>;
-  const hasSubmitted = submissions.length > 0;
+  const hasCompletedSubmission = submissions.some((submission) => Boolean(submission.download_url));
+  const hasIncompleteSubmission = submissions.some((submission) => !submission.download_url);
 
   return (
     <ScrollView style={styles.container}>
@@ -146,13 +147,19 @@ export function AssignmentScreen({ route }: { route: any }) {
         </View>
       ) : null}
       {!submissionUrl ? (
-        hasSubmitted ? (
+        hasCompletedSubmission ? (
           <View style={styles.alreadySubmitted}>
             <Text style={styles.alreadySubmittedText}>Submission received for this assignment.</Text>
           </View>
         ) : (
           <TouchableOpacity style={styles.submitButton} onPress={handleSubmit} disabled={submitting}>
-            <Text style={styles.submitButtonText}>{submitting ? "Submitting..." : "Submit Solution"}</Text>
+            <Text style={styles.submitButtonText}>
+              {submitting
+                ? "Submitting..."
+                : hasIncompleteSubmission
+                  ? "Resume Submission Upload"
+                  : "Submit Solution"}
+            </Text>
           </TouchableOpacity>
         )
       ) : (

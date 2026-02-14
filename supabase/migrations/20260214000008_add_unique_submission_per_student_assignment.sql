@@ -1,13 +1,19 @@
 -- Ensure one submission record per (assignment, student).
--- Keep the most recent row if duplicates already exist.
+-- Prefer rows with actual uploaded storage objects, then newest timestamp.
 with ranked_submissions as (
     select
-        id,
+        s.id,
         row_number() over (
-            partition by assignment_id, student_id
-            order by submitted_at desc, id desc
+            partition by s.assignment_id, s.student_id
+            order by
+                case when so.id is null then 0 else 1 end desc,
+                s.submitted_at desc,
+                s.id desc
         ) as row_num
-    from public.submissions
+    from public.submissions s
+    left join storage.objects so
+        on so.bucket_id = 'submissions'
+        and so.name = s.storage_path
 )
 delete from public.submissions
 where id in (

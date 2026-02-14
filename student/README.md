@@ -170,7 +170,7 @@ Auth = Supabase JWT Bearer token in `Authorization` header.
 
 See `AGENTS.md` and `CLAUDE.md` for development conventions and code review process.
 
-**Running docs**: `AGENTS.md`, `CLAUDE.md`, `README.md`, and `PLAN.md` are the project's living documentation. Update them in the same PR when you add features, change architecture, or modify conventions. Follow best industry coding standards for streamlined, efficient code; comprehensive testing and documentation are not required.
+**Running docs**: `AGENTS.md`, `CLAUDE.md`, `README.md`, `PLAN.md`. Update when features, architecture, or conventions change.
 
 ## Faster / cheaper
 

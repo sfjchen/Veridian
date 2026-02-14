@@ -20,8 +20,7 @@ Testing advocate (edge cases, failure modes, test coverage)
 Devil's advocate (challenge approach, propose alternatives)
 Senior quantitative researcher (industry experience from tier-1 funds — challenges assumptions, checks for look-ahead bias, validates statistical methodology, reviews risk management, ensures production readiness). ALWAYS include this role.
 Let them debate findings, then revise plan based on consensus
-This catches issues before David sees the plan
- Wait for David to approve the plan before proceeding
+Wait for plan approval before proceeding
  Create a feature branch from main
  Spawn sub-agents to do the actual coding (Codex orchestrates, doesn't code directly)
  Review sub-agent output for correctness, logic, integration, and style (see review checklist below)
@@ -31,7 +30,7 @@ This catches issues before David sees the plan
  Update this file's roadmap checkboxes when work completes
 
  Integrate the updates and relevant documentation you made here into PLAN.md, then delete the now redundant plans/feature made in this process.
- **Running docs**: Keep `AGENTS.md`, `CLAUDE.md`, `README.md`, `PLAN.md`, `MIGRATION_GUIDE.md` in sync with the codebase. Update them in the same PR when features, architecture, or conventions change.
+ **Running docs**: Keep `AGENTS.md`, `CLAUDE.md`, `README.md`, `PLAN.md` in sync with the codebase. Update them in the same PR when features, architecture, or conventions change.
 
 ## For Bug Fixes / Small Changes
 
@@ -41,7 +40,7 @@ Still use sub-agents for code changes
 ## After Completing Work
 
  Document any decisions or dead ends in PR description
- **Update running docs when applicable** — `AGENTS.md`, `CLAUDE.md`, `README.md`, `PLAN.md`, `MIGRATION_GUIDE.md`. When you add features, change architecture, or modify conventions, update the relevant doc(s). Include doc updates in the same PR as the code change.
+ **Update running docs when applicable** — `AGENTS.md`, `CLAUDE.md`, `README.md`, `PLAN.md`. When you add features, change architecture, or modify conventions, update the relevant doc(s). Include doc updates in the same PR as the code change.
 
 ## Code Style Rules
 
@@ -52,9 +51,8 @@ Always review code and architecture high-level, then try to streamline and optim
 Type hints on all function signatures
 Minimal comments — code should be self-documenting
 No verbose logging — code runs quietly unless there's an error (errors to stderr)
-Precision over generalization — no aliases, wrappers, or flexibility that isn't needed. Use exact formats (e.g., Tardis expects SOLUSDT, not SOL-PERP)
+Precision over generalization — no aliases, wrappers, or flexibility that isn't needed. Use exact formats.
 Smart file splitting — driver files orchestrate, modules do one thing
-Numpy for vectorized ops where possible
 
 ## Code Philosophy
 

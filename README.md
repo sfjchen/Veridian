@@ -18,7 +18,7 @@ Full EdTech platform: teacher side (classrooms, assignments, corpus, submissions
 
 ## Prerequisites
 
-Python 3.11+, Node 18+, Expo CLI. One Supabase project (migrations run once — see `MIGRATION_GUIDE.md`).
+Python 3.11+, Node 18+, Expo CLI. One Supabase project (migrations run once — see Supabase Migrations below).
 
 ## Quick run (from repo root)
 
@@ -35,6 +35,16 @@ See `scripts/README.md` for all script options.
 2. Install deps: `pip install -r requirements.txt` in `teacher/backend/` and `student/backend/`; `npm install` in `teacher/frontend/` and `student/frontend/`
 
 (Migrations: run once per project via `./scripts/apply_migrations.sh` if needed.)
+
+## Supabase Migrations
+
+Run in this order (fresh DB):
+
+1. Teacher: `supabase/all_migrations.sql`
+2. Teacher: `supabase/migrations/20260214000008_*.sql`, `20260214000009_*.sql`
+3. Student: `student/supabase/migrations/202602140001_*.sql`, `202602140003_*.sql`, `20260214153135_*.sql`, `20260214153124_*.sql`
+
+**Script:** `./scripts/apply_migrations.sh` — set `SUPABASE_DB_URL`, requires `psql`. If teacher tables exist, run steps 2-3 only.
 
 ## Full Flows (Repeat Testing)
 
@@ -69,4 +79,4 @@ cd student/frontend && npx expo start
 
 ## Development
 
-See `AGENTS.md`, `CLAUDE.md` for workflow and conventions. Running docs: `AGENTS.md`, `CLAUDE.md`, `README.md`, `PLAN.md`, `MIGRATION_GUIDE.md`.
+See `AGENTS.md`, `CLAUDE.md` for workflow and conventions. Running docs: `AGENTS.md`, `CLAUDE.md`, `README.md`, `PLAN.md`.

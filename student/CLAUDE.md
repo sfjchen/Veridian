@@ -1,34 +1,18 @@
-# CLAUDE.md
+# CLAUDE.md (Student)
 
-**Running docs**: Root `AGENTS.md`, `CLAUDE.md`, `README.md`, `PLAN.md`, `MIGRATION_GUIDE.md`; student: this file, `AGENTS.md`, `README.md`, `PLAN.md`. Update them when features, architecture, or conventions change.
+**Running docs**: `AGENTS.md`, `CLAUDE.md`, `README.md`, `PLAN.md`. See root docs for full platform context.
 
 ## Project Overview
 
 Student platform — AI-powered math tutoring pipeline. Backend (`backend/`) for mistake analysis, math OCR, coordinate detection. Frontend (`frontend/`) — React Native/Expo.
 
-## Code Review Process
-
-PRs receive reviews from two automated reviewers:
-
-- **Claude (`claude[bot]` / @claude)**: Leaves feedback as issue comments via MCP. Check via `gh api repos/{owner}/{repo}/issues/{n}/comments` — look for comments from `claude[bot]`.
-- Codex (@codex)
-
-Address both reviewers' feedback before merging. **Always tag `@claude` and @codex in PR comments when requesting re-review.**
-
 ## Key Directories
 
-- `mistake_analysis/` — Python package: LLM-based mistake detection, annotation, and continuation
-- `src/math_screenshot_to_latex/` — OpenAI-based math OCR (screenshot → LaTeX); MATH_OCR_MODEL, MATH_OCR_IMAGE_DETAIL, MATH_OCR_MAX_IMAGE_SIDE in env
 - `get_coords.py` — Flask server: mistake bounding box detection via Claude vision
+- `mistake_analysis/` — LLM-based mistake detection, annotation, and continuation
+- `src/math_screenshot_to_latex/` — OpenAI-based math OCR (screenshot -> LaTeX)
 - `frontend/` — React Native/Expo app (run from `student/` root)
-- `scripts/` — Backend capture servers (Claude, Gemini, OpenRouter)
 
-## Conventions (from AGENTS.md)
+## Conventions
 
-- Follow best industry standards: streamlined, efficient code; no comprehensive testing/docs required
-- Type hints on all Python function signatures
-- ~20 line max per function
-- Flat over nested — early returns, guard clauses
-- Max 3 parameters per function
-- No premature abstraction
-- Minimal comments — code should be self-documenting
+See root `CLAUDE.md` and `AGENTS.md` for all code style rules, review process, and workflow conventions.

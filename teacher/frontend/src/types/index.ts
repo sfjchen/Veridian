@@ -7,12 +7,24 @@ export interface UserProfile {
   display_name: string;
 }
 
+export interface AssignmentConfig {
+  check_button_visible: boolean;
+  dot_threshold: "notational" | "mechanical" | "procedural" | "conceptual";
+  max_dots_shown: number;
+  analysis_trigger: "auto_idle" | "manual_only" | "passive";
+  analysis_debounce_seconds: number;
+  notification_style: "silent" | "toast" | "badge";
+  chat_enabled: boolean;
+  hint_level: "guided" | "minimal" | "detailed";
+}
+
 export interface Classroom {
   id: string;
   teacher_id: string;
   name: string;
   class_code: string;
   created_at: string;
+  config: Partial<AssignmentConfig>;
 }
 
 export interface Assignment {
@@ -24,6 +36,7 @@ export interface Assignment {
   context_file_ids: string[];
   due_date: string | null;
   created_at: string;
+  config: Partial<AssignmentConfig>;
 }
 
 export interface Submission {
@@ -49,6 +62,7 @@ export interface CorpusFile {
 export interface AssignmentDetail extends Assignment {
   assignment_file_download_url?: string;
   answer_key_download_url?: string;
+  resolved_config?: AssignmentConfig;
 }
 
 export interface ClassroomStudent {

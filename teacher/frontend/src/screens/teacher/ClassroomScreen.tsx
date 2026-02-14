@@ -1,17 +1,22 @@
 import React, { useState, useCallback } from "react";
-import { View, Text, FlatList, TouchableOpacity, StyleSheet, ActivityIndicator } from "react-native";
+import { View, Text, FlatList, TouchableOpacity, StyleSheet, ActivityIndicator, ScrollView } from "react-native";
 import { useFocusEffect } from "@react-navigation/native";
 import * as Linking from "expo-linking";
 import { useCorpus } from "../../hooks/useCorpus";
 import { useAssignments } from "../../hooks/useAssignments";
 import { useClassroomStudents } from "../../hooks/useClassroomStudents";
-import { Classroom, CorpusFile } from "../../types";
+import { ConfigEditor } from "../../components/ConfigEditor";
+import { api } from "../../lib/api";
+import { alert } from "../../lib/alert";
+import { AssignmentConfig, Classroom, CorpusFile } from "../../types";
 
-type Tab = "assignments" | "corpus" | "students";
+type Tab = "assignments" | "corpus" | "students" | "settings";
 
 export function TeacherClassroomScreen({ route, navigation }: { route: any; navigation: any }) {
   const classroom: Classroom = route.params.classroom;
   const [activeTab, setActiveTab] = useState<Tab>("assignments");
+  const [configDraft, setConfigDraft] = useState<Partial<AssignmentConfig>>(classroom.config ?? {});
+  const [savingConfig, setSavingConfig] = useState(false);
   const { files, loading: corpusLoading, error: corpusError, refresh: refreshCorpus } = useCorpus(classroom.id);
   const { assignments, loading: assignmentsLoading, error: assignmentsError, refresh: refreshAssignments } = useAssignments(classroom.id);
   const {
@@ -29,6 +34,21 @@ export function TeacherClassroomScreen({ route, navigation }: { route: any; navi
     }, [refreshAssignments, refreshCorpus, refreshStudents])
   );
 
+  const handleSaveConfig = async () => {
+    setSavingConfig(true);
+    try {
+      await api(`/classrooms/${classroom.id}`, {
+        method: "PATCH",
+        body: { config: configDraft },
+      });
+      alert("Success", "Settings saved");
+    } catch (e: any) {
+      alert("Error", e instanceof Error ? e.message : "Failed to save settings");
+    } finally {
+      setSavingConfig(false);
+    }
+  };
+
   const handleOpenCorpusFile = (file: CorpusFile) => {
     if (file.download_url) {
       Linking.openURL(file.download_url);
@@ -41,7 +61,7 @@ export function TeacherClassroomScreen({ route, navigation }: { route: any; navi
       <Text style={styles.code}>Class Code: {classroom.class_code}</Text>
 
       <View style={styles.tabs}>
-        {(["assignments", "corpus", "students"] as Tab[]).map((tab) => (
+        {(["assignments", "corpus", "students", "settings"] as Tab[]).map((tab) => (
           <TouchableOpacity
             key={tab}
             style={[styles.tab, activeTab === tab && styles.tabActive]}
@@ -156,6 +176,29 @@ export function TeacherClassroomScreen({ route, navigation }: { route: any; navi
           )}
         </View>
       )}
+
+      {activeTab === "settings" && (
+        <ScrollView style={styles.content}>
+          <Text style={styles.settingsHint}>
+            Default settings for all assignments in this classroom.
+            Individual assignments can override these.
+          </Text>
+          <ConfigEditor
+            config={configDraft}
+            onChange={setConfigDraft}
+            mode="classroom"
+          />
+          <TouchableOpacity
+            style={[styles.addButton, savingConfig && { opacity: 0.7 }]}
+            onPress={handleSaveConfig}
+            disabled={savingConfig}
+          >
+            <Text style={styles.addButtonText}>
+              {savingConfig ? "Saving..." : "Save Settings"}
+            </Text>
+          </TouchableOpacity>
+        </ScrollView>
+      )}
     </View>
   );
 }
@@ -186,4 +229,5 @@ const styles = StyleSheet.create({
   downloadHint: { fontSize: 13, color: "#4F46E5", fontWeight: "600", marginLeft: 8 },
   empty: { textAlign: "center", color: "#9CA3AF", marginTop: 20 },
   errorText: { textAlign: "center", color: "#EF4444", marginTop: 20 },
+  settingsHint: { fontSize: 13, color: "#6B7280", marginBottom: 16, lineHeight: 18 },
 });

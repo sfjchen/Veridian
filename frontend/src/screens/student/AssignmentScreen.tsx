@@ -3,7 +3,6 @@ import {
   View,
   Text,
   StyleSheet,
-  Alert,
   ActivityIndicator,
   TouchableOpacity,
   ScrollView,
@@ -16,6 +15,7 @@ import { useSubmissions } from "../../hooks/useSubmissions";
 import { LatexRenderer } from "../../components/LatexRenderer";
 import { FileUploader } from "../../components/FileUploader";
 import { AssignmentDetail, Submission } from "../../types";
+import { alert } from "../../lib/alert";
 
 const MAX_ASSIGNMENT_FILE_LENGTH = 100_000;
 
@@ -83,7 +83,7 @@ export function AssignmentScreen({ route }: { route: any }) {
           }
         }
       } catch (e: any) {
-        if (!cancelled) Alert.alert("Error", e.message);
+        if (!cancelled) alert("Error", e.message);
       } finally {
         if (!cancelled) setLoading(false);
       }
@@ -99,7 +99,7 @@ export function AssignmentScreen({ route }: { route: any }) {
       });
       setSubmissionUrl(result.upload_url);
     } catch (e: any) {
-      Alert.alert("Error", e.message);
+      alert("Error", e.message);
       if (e instanceof Error && e.message.includes("already exists")) {
         refreshSubmissions();
       }
@@ -169,7 +169,7 @@ export function AssignmentScreen({ route }: { route: any }) {
           onUploadComplete={() => {
             setSubmissionUrl(null);
             refreshSubmissions();
-            Alert.alert("Success", "Solution submitted!");
+            alert("Success", "Solution submitted!");
           }}
         />
       )}

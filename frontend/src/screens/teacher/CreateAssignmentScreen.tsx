@@ -1,11 +1,12 @@
 import React, { useState } from "react";
 import {
   View, Text, TextInput, TouchableOpacity, StyleSheet,
-  Alert, ScrollView, ActivityIndicator,
+  ScrollView, ActivityIndicator,
 } from "react-native";
 import * as DocumentPicker from "expo-document-picker";
-import * as FileSystem from "expo-file-system";
 import { api } from "../../lib/api";
+import { alert } from "../../lib/alert";
+import { uploadFile } from "../../lib/upload";
 
 const DATE_PATTERN = /^\d{4}-\d{2}-\d{2}$/;
 
@@ -13,6 +14,7 @@ interface PickedFile {
   name: string;
   uri: string;
   mimeType: string;
+  file?: File;
 }
 
 export function CreateAssignmentScreen({ route, navigation }: { route: any; navigation: any }) {
@@ -29,40 +31,30 @@ export function CreateAssignmentScreen({ route, navigation }: { route: any; navi
       copyToCacheDirectory: true,
     });
     if (result.canceled) return;
-    const file = result.assets[0];
+    const picked = result.assets[0];
     setter({
-      name: file.name,
-      uri: file.uri,
-      mimeType: file.mimeType ?? "application/octet-stream",
+      name: picked.name,
+      uri: picked.uri,
+      mimeType: picked.mimeType ?? "application/octet-stream",
+      file: picked.file,
     });
-  };
-
-  const uploadFile = async (uri: string, uploadUrl: string, mimeType: string) => {
-    const response = await FileSystem.uploadAsync(uploadUrl, uri, {
-      httpMethod: "PUT",
-      uploadType: FileSystem.FileSystemUploadType.BINARY_CONTENT,
-      headers: { "Content-Type": mimeType },
-    });
-    if (response.status < 200 || response.status >= 300) {
-      throw new Error(`Upload failed with status ${response.status}`);
-    }
   };
 
   const handleCreate = async () => {
     if (!title.trim()) {
-      Alert.alert("Error", "Title is required");
+      alert("Error", "Title is required");
       return;
     }
 
     let dueDateValue: string | undefined;
     if (dueDate.trim()) {
       if (!DATE_PATTERN.test(dueDate.trim())) {
-        Alert.alert("Error", "Due date must be in YYYY-MM-DD format");
+        alert("Error", "Due date must be in YYYY-MM-DD format");
         return;
       }
       const parsed = new Date(dueDate.trim());
       if (isNaN(parsed.getTime())) {
-        Alert.alert("Error", "Invalid date");
+        alert("Error", "Invalid date");
         return;
       }
       dueDateValue = dueDate.trim();
@@ -80,21 +72,21 @@ export function CreateAssignmentScreen({ route, navigation }: { route: any; navi
 
       const uploads: Promise<void>[] = [];
       if (assignmentFile) {
-        uploads.push(uploadFile(assignmentFile.uri, result.assignment_file_upload_url, assignmentFile.mimeType));
+        uploads.push(uploadFile({ uri: assignmentFile.uri, uploadUrl: result.assignment_file_upload_url, mimeType: assignmentFile.mimeType, file: assignmentFile.file }));
       }
       if (answerKeyFile) {
-        uploads.push(uploadFile(answerKeyFile.uri, result.answer_key_upload_url, answerKeyFile.mimeType));
+        uploads.push(uploadFile({ uri: answerKeyFile.uri, uploadUrl: result.answer_key_upload_url, mimeType: answerKeyFile.mimeType, file: answerKeyFile.file }));
       }
 
       if (uploads.length > 0) {
         await Promise.all(uploads);
       }
 
-      Alert.alert("Success", "Assignment created!", [
+      alert("Success", "Assignment created!", [
         { text: "OK", onPress: () => navigation.goBack() },
       ]);
     } catch (e: any) {
-      Alert.alert("Error", e instanceof Error ? e.message : "Failed to create assignment");
+      alert("Error", e instanceof Error ? e.message : "Failed to create assignment");
     } finally {
       setCreating(false);
     }

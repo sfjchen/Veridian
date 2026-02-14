@@ -1,7 +1,7 @@
 import React, { useState, useEffect, useCallback, useRef } from "react";
 import {
   View, Text, TextInput, TouchableOpacity, StyleSheet, Image,
-  Alert, ScrollView, ActivityIndicator,
+  ScrollView, ActivityIndicator,
 } from "react-native";
 import * as Linking from "expo-linking";
 import { supabase } from "../../lib/supabase";
@@ -11,6 +11,7 @@ import { useSubmissions } from "../../hooks/useSubmissions";
 import { LatexRenderer } from "../../components/LatexRenderer";
 import { FileUploader } from "../../components/FileUploader";
 import { AssignmentDetail, Submission } from "../../types";
+import { alert } from "../../lib/alert";
 
 const MAX_CONTENT_LENGTH = 100_000;
 const DATE_PATTERN = /^\d{4}-\d{2}-\d{2}$/;
@@ -102,7 +103,7 @@ export function TeacherAssignmentScreen({ route, navigation }: { route: any; nav
         }
       }
     } catch (e: any) {
-      if (mountedRef.current) Alert.alert("Error", e.message);
+      if (mountedRef.current) alert("Error", e.message);
     } finally {
       if (mountedRef.current) setLoading(false);
     }
@@ -137,7 +138,7 @@ export function TeacherAssignmentScreen({ route, navigation }: { route: any; nav
       setAssignmentContent(sanitizeContent(latex));
       setIsPdf(false);
     } catch (e: any) {
-      Alert.alert("Conversion Error", e.message);
+      alert("Conversion Error", e.message);
     } finally {
       setConverting(false);
     }
@@ -150,11 +151,11 @@ export function TeacherAssignmentScreen({ route, navigation }: { route: any; nav
 
   const handleSave = async () => {
     if (!editTitle.trim()) {
-      Alert.alert("Error", "Title required");
+      alert("Error", "Title required");
       return;
     }
     if (editDueDate.trim() && !DATE_PATTERN.test(editDueDate.trim())) {
-      Alert.alert("Error", "Due date must be YYYY-MM-DD");
+      alert("Error", "Due date must be YYYY-MM-DD");
       return;
     }
 
@@ -171,7 +172,7 @@ export function TeacherAssignmentScreen({ route, navigation }: { route: any; nav
       setEditing(false);
       navigation.setOptions({ title: updated.title });
     } catch (e: any) {
-      Alert.alert("Error", e.message);
+      alert("Error", e.message);
     } finally {
       setSaving(false);
     }
@@ -186,7 +187,7 @@ export function TeacherAssignmentScreen({ route, navigation }: { route: any; nav
       }>(`/assignments/${assignmentId}/reupload`, { method: "POST" });
       setReuploadUrls(urls);
     } catch (e: any) {
-      Alert.alert("Error", e.message);
+      alert("Error", e.message);
     } finally {
       setReuploading(false);
     }
@@ -359,7 +360,7 @@ export function TeacherAssignmentScreen({ route, navigation }: { route: any; nav
                     uploadUrl={reuploadUrls.assignment_file_upload_url}
                     label="Select New Assignment File"
                     onUploadComplete={() => {
-                      Alert.alert("Success", "Assignment file replaced");
+                      alert("Success", "Assignment file replaced");
                       setReuploadUrls(null);
                       setLoading(true);
                       fetchAssignment();
@@ -374,7 +375,7 @@ export function TeacherAssignmentScreen({ route, navigation }: { route: any; nav
                     uploadUrl={reuploadUrls.answer_key_upload_url}
                     label="Select New Answer Key"
                     onUploadComplete={() => {
-                      Alert.alert("Success", "Answer key replaced");
+                      alert("Success", "Answer key replaced");
                       setReuploadUrls(null);
                       setLoading(true);
                       fetchAssignment();

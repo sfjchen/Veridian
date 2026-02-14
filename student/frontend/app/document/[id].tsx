@@ -223,7 +223,11 @@ export default function DocumentScreen() {
         }
       } catch (e) {
         if (!cancelled) {
-          setStrokeLoadError(e instanceof Error ? e.message : 'Failed to load saved strokes');
+          const msg = e instanceof Error ? e.message : 'Failed to load saved strokes';
+          setStrokeLoadError(msg);
+          // #region agent log
+          fetch('http://127.0.0.1:7243/ingest/b95751e3-13de-4370-a43a-9eeabde26151', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ location: 'document/[id].tsx:stroke load', message: 'stroke load error', data: { msg }, hypothesisId: 'H5a', timestamp: Date.now() }) }).catch(() => {});
+          // #endregion
         }
       } finally {
         if (!cancelled) setStrokesLoaded(true);
@@ -239,6 +243,9 @@ export default function DocumentScreen() {
       const done = () => { saveTimeoutRef.current = null; };
       AsyncStorage.setItem(STROKES_KEY, JSON.stringify(strokesByPage)).catch(() => {
         setStrokeSaveError(true);
+        // #region agent log
+        fetch('http://127.0.0.1:7243/ingest/b95751e3-13de-4370-a43a-9eeabde26151', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ location: 'document/[id].tsx:stroke save', message: 'stroke save error', data: {}, hypothesisId: 'H5b', timestamp: Date.now() }) }).catch(() => {});
+        // #endregion
       }).finally(done);
     }, 500);
     return () => { if (saveTimeoutRef.current) clearTimeout(saveTimeoutRef.current); };
@@ -304,21 +311,42 @@ export default function DocumentScreen() {
   // --- Screenshot capture ---
   const captureScreenshot = useCallback(async (): Promise<CaptureResult> => {
     if (Platform.OS === 'web') {
-      if (!canvasDims) return { error: 'unavailable' };
+      if (!canvasDims) {
+        // #region agent log
+        fetch('http://127.0.0.1:7243/ingest/b95751e3-13de-4370-a43a-9eeabde26151', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ location: 'document/[id].tsx:captureScreenshot', message: 'capture error', data: { error: 'unavailable', reason: 'no canvasDims' }, hypothesisId: 'H5c', timestamp: Date.now() }) }).catch(() => {});
+        // #endregion
+        return { error: 'unavailable' };
+      }
       try {
         const uri = captureStrokesAsDataUri(currentStrokes, canvasDims.w, canvasDims.h);
         return { uri };
       } catch {
+        // #region agent log
+        fetch('http://127.0.0.1:7243/ingest/b95751e3-13de-4370-a43a-9eeabde26151', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ location: 'document/[id].tsx:captureScreenshot', message: 'capture error', data: { error: 'failed', reason: 'web catch' }, hypothesisId: 'H5c', timestamp: Date.now() }) }).catch(() => {});
+        // #endregion
         return { error: 'failed' };
       }
     }
     const viewShot = viewShotRef.current;
-    if (!viewShot || typeof viewShot.capture !== 'function') return { error: 'unavailable' };
+    if (!viewShot || typeof viewShot.capture !== 'function') {
+      // #region agent log
+      fetch('http://127.0.0.1:7243/ingest/b95751e3-13de-4370-a43a-9eeabde26151', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ location: 'document/[id].tsx:captureScreenshot', message: 'capture error', data: { error: 'unavailable', reason: 'no viewShot ref' }, hypothesisId: 'H5c', timestamp: Date.now() }) }).catch(() => {});
+      // #endregion
+      return { error: 'unavailable' };
+    }
     try {
       const uri = await viewShot.capture();
-      if (!uri) return { error: 'failed' };
+      if (!uri) {
+        // #region agent log
+        fetch('http://127.0.0.1:7243/ingest/b95751e3-13de-4370-a43a-9eeabde26151', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ location: 'document/[id].tsx:captureScreenshot', message: 'capture error', data: { error: 'failed', reason: 'uri empty' }, hypothesisId: 'H5c', timestamp: Date.now() }) }).catch(() => {});
+        // #endregion
+        return { error: 'failed' };
+      }
       return { uri };
     } catch {
+      // #region agent log
+      fetch('http://127.0.0.1:7243/ingest/b95751e3-13de-4370-a43a-9eeabde26151', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ location: 'document/[id].tsx:captureScreenshot', message: 'capture error', data: { error: 'failed', reason: 'native catch' }, hypothesisId: 'H5c', timestamp: Date.now() }) }).catch(() => {});
+      // #endregion
       return { error: 'failed' };
     }
   }, [canvasDims, currentStrokes]);

@@ -6,8 +6,12 @@ set -e
 REPO_ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
 STUDENT_BACKEND="$REPO_ROOT/student/backend"
 
-if [[ ! -d "$STUDENT_BACKEND/venv" ]] || [[ ! -f "$STUDENT_BACKEND/.env" ]]; then
+if [[ ! -d "$STUDENT_BACKEND/venv" ]]; then
   echo "Run ./scripts/setup-student.sh first."
+  exit 1
+fi
+if [[ ! -f "$STUDENT_BACKEND/.env" ]] && [[ ! -f "$REPO_ROOT/environment/.env" ]]; then
+  echo "Add a .env with ANTHROPIC_API_KEY and CLAUDE_MODEL in student/backend/ or environment/."
   exit 1
 fi
 

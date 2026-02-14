@@ -50,7 +50,7 @@ export type Mistake = {
   y_min: number;
   x_max: number;
   y_max: number;
-  dot: MistakeDot;
+  dot?: MistakeDot;
 };
 
 export type AnalysisResult = {
@@ -84,11 +84,18 @@ export async function fetchClassrooms(token?: string): Promise<Classroom[]> {
   });
   if (!res.ok) {
     const body = await res.json().catch(() => ({}));
+    // #region agent log
+    fetch('http://127.0.0.1:7243/ingest/b95751e3-13de-4370-a43a-9eeabde26151', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ location: 'api.ts:fetchClassrooms', message: 'classrooms fetch not ok', data: { status: res.status, error: body.error }, hypothesisId: 'H2a', timestamp: Date.now() }) }).catch(() => {});
+    // #endregion
     throw new Error(body.error ?? `Failed to fetch classrooms (${res.status})`);
   }
   const data = await res.json();
   const list = data.classrooms ?? data;
-  return Array.isArray(list) ? list : [];
+  const result = Array.isArray(list) ? list : [];
+  // #region agent log
+  fetch('http://127.0.0.1:7243/ingest/b95751e3-13de-4370-a43a-9eeabde26151', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ location: 'api.ts:fetchClassrooms', message: 'classrooms fetch ok', data: { count: result.length, hasClassroomsKey: 'classrooms' in (data as object) }, hypothesisId: 'H2d', timestamp: Date.now() }) }).catch(() => {});
+  // #endregion
+  return result;
 }
 
 export async function fetchAssignments(
@@ -100,11 +107,18 @@ export async function fetchAssignments(
   });
   if (!res.ok) {
     const body = await res.json().catch(() => ({}));
+    // #region agent log
+    fetch('http://127.0.0.1:7243/ingest/b95751e3-13de-4370-a43a-9eeabde26151', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ location: 'api.ts:fetchAssignments', message: 'assignments fetch not ok', data: { status: res.status, classroomId, error: body.error }, hypothesisId: 'H2b', timestamp: Date.now() }) }).catch(() => {});
+    // #endregion
     throw new Error(body.error ?? `Failed to fetch assignments (${res.status})`);
   }
   const data = await res.json();
   const list = data.assignments ?? data;
-  return Array.isArray(list) ? list : [];
+  const result = Array.isArray(list) ? list : [];
+  // #region agent log
+  fetch('http://127.0.0.1:7243/ingest/b95751e3-13de-4370-a43a-9eeabde26151', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ location: 'api.ts:fetchAssignments', message: 'assignments fetch ok', data: { count: result.length, classroomId, hasAssignmentsKey: 'assignments' in (data as object) }, hypothesisId: 'H2d', timestamp: Date.now() }) }).catch(() => {});
+  // #endregion
+  return result;
 }
 
 export async function fetchAssignment(assignmentId: string): Promise<Assignment> {

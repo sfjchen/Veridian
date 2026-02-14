@@ -1,8 +1,10 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
 
+import { useAccessToken } from '@/hooks/useAccessToken';
 import { fetchClassrooms, type Classroom } from '@/lib/api';
 
 export function useClassrooms() {
+  const token = useAccessToken();
   const [classrooms, setClassrooms] = useState<Classroom[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
@@ -19,7 +21,7 @@ export function useClassrooms() {
     setLoading(true);
     setError(null);
     try {
-      const data = await fetchClassrooms();
+      const data = await fetchClassrooms(token ?? undefined);
       if (mountedRef.current) setClassrooms(data);
     } catch (e) {
       if (mountedRef.current) {
@@ -28,7 +30,7 @@ export function useClassrooms() {
     } finally {
       if (mountedRef.current) setLoading(false);
     }
-  }, []);
+  }, [token]);
 
   useEffect(() => {
     refresh();

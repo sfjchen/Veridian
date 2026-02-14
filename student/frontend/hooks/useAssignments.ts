@@ -1,8 +1,10 @@
 import { useEffect, useState } from 'react';
 
+import { useAccessToken } from '@/hooks/useAccessToken';
 import { fetchAssignments, type AssignmentListItem } from '@/lib/api';
 
 export function useAssignments(classroomId: string | null) {
+  const token = useAccessToken();
   const [assignments, setAssignments] = useState<AssignmentListItem[]>([]);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -15,7 +17,7 @@ export function useAssignments(classroomId: string | null) {
     let cancelled = false;
     setLoading(true);
     setError(null);
-    fetchAssignments(classroomId)
+    fetchAssignments(classroomId, token ?? undefined)
       .then((list) => {
         if (!cancelled) setAssignments(list);
       })
@@ -26,7 +28,7 @@ export function useAssignments(classroomId: string | null) {
         if (!cancelled) setLoading(false);
       });
     return () => { cancelled = true; };
-  }, [classroomId]);
+  }, [classroomId, token]);
 
   return { assignments, loading, error };
 }

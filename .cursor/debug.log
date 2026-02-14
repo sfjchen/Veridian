@@ -1,0 +1,8 @@
+{"location":"api.ts:fetchClassrooms","message":"classrooms fetch not ok","data":{"status":401,"error":"Missing bearer token."},"hypothesisId":"H2a","timestamp":1771109704860}
+{"location":"api.ts:fetchClassrooms","message":"classrooms fetch not ok","data":{"status":401,"error":"Missing bearer token."},"hypothesisId":"H2a","timestamp":1771109863436}
+{"location":"api.ts:fetchClassrooms","message":"classrooms fetch not ok","data":{"status":401,"error":"Missing bearer token."},"hypothesisId":"H2a","timestamp":1771110049930}
+{"location":"api.ts:fetchClassrooms","message":"classrooms fetch not ok","data":{"status":401,"error":"Missing bearer token."},"hypothesisId":"H2a","timestamp":1771110128136}
+{"location":"api.ts:fetchClassrooms","message":"classrooms fetch not ok","data":{"status":401,"error":"Missing bearer token."},"hypothesisId":"H2a","timestamp":1771110177250}
+{"location":"api.ts:fetchClassrooms","message":"classrooms fetch not ok","data":{"status":401,"error":"Missing bearer token."},"hypothesisId":"H2a","timestamp":1771110406880}
+{"location":"api.ts:fetchClassrooms","message":"classrooms fetch not ok","data":{"status":401,"error":"Missing bearer token."},"hypothesisId":"H2a","timestamp":1771111577905}
+{"location":"api.ts:fetchClassrooms","message":"classrooms fetch not ok","data":{"status":401,"error":"Missing bearer token."},"hypothesisId":"H2a","timestamp":1771112147703}

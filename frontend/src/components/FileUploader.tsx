@@ -36,6 +36,7 @@ export function FileUploader({ onUploadComplete, uploadUrl, label = "Upload File
 
       const response = await FileSystem.uploadAsync(uploadUrl, file.uri, {
         httpMethod: "PUT",
+        uploadType: FileSystem.FileSystemUploadType.BINARY_CONTENT,
         headers: { "Content-Type": contentType },
       });
 

@@ -10,13 +10,13 @@ REPO_ROOT="$(cd "$(dirname "$0")/.." && pwd)"
 TEACHER="$REPO_ROOT/teacher/backend/app/services/config_schema.py"
 STUDENT="$REPO_ROOT/student/backend/config_schema.py"
 
-if [ ! -f "$TEACHER" ]; then
-  echo "FAIL: teacher config_schema.py not found at $TEACHER"
+if [ ! -f "$TEACHER" ] || [ ! -r "$TEACHER" ]; then
+  echo "FAIL: teacher config_schema.py not found or not readable at $TEACHER"
   exit 1
 fi
 
-if [ ! -f "$STUDENT" ]; then
-  echo "FAIL: student config_schema.py not found at $STUDENT"
+if [ ! -f "$STUDENT" ] || [ ! -r "$STUDENT" ]; then
+  echo "FAIL: student config_schema.py not found or not readable at $STUDENT"
   exit 1
 fi
 

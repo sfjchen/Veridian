@@ -610,6 +610,9 @@ const styles = StyleSheet.create({
     alignItems: "center",
     justifyContent: "space-between",
   },
+  listItemContent: { flex: 1 },
+  itemTitle: { fontSize: 16, fontWeight: "500" },
+  itemSub: { fontSize: 13, color: "#6B7280", marginTop: 4 },
 
   contentPreview: { marginTop: 24, flex: 1, minHeight: 300 },
   noContent: { color: "#9CA3AF", textAlign: "center", marginTop: 16 },

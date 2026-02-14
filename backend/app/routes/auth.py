@@ -4,7 +4,7 @@ from typing import Tuple
 from flask import Blueprint, Response, request, jsonify
 
 from app.constants import EMAIL_REGEX, MIN_PASSWORD_LENGTH, ROLE_STUDENT, VALID_ROLES
-from app.services.supabase_client import get_supabase_client
+from app.services.supabase_client import get_supabase_admin_client, get_supabase_client
 
 auth_bp = Blueprint("auth", __name__, url_prefix="/auth")
 
@@ -54,7 +54,7 @@ def signup() -> Tuple[Response, int]:
     if role not in VALID_ROLES:
         return jsonify({"error": "role must be 'teacher' or 'student'"}), 400
 
-    client = get_supabase_client()
+    client = get_supabase_admin_client()
     try:
         result = client.auth.admin.create_user({
             "email": email,

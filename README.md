@@ -27,6 +27,9 @@ SUPABASE_JWT_SECRET=your-jwt-secret
 
 **frontend/.env**
 ```
+# Optional in local dev; if omitted, the app auto-detects your Expo host and uses port 5000.
+# On real devices, set this explicitly if auto-detection does not work.
+# Example: EXPO_PUBLIC_API_URL=http://192.168.1.25:5000
 EXPO_PUBLIC_API_URL=http://localhost:5000
 EXPO_PUBLIC_SUPABASE_URL=https://your-project.supabase.co
 EXPO_PUBLIC_SUPABASE_ANON_KEY=your-anon-key

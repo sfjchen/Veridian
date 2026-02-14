@@ -6,6 +6,7 @@ import {
 import * as Linking from "expo-linking";
 import { supabase } from "../../lib/supabase";
 import { api } from "../../lib/api";
+import { API_URL } from "../../lib/apiBaseUrl";
 import { createPdfPreviewDataUri, looksLikeImage, looksLikePdf, looksLikeText } from "../../lib/pdfPreview";
 import { useSubmissions } from "../../hooks/useSubmissions";
 import { LatexRenderer } from "../../components/LatexRenderer";
@@ -15,9 +16,6 @@ import { alert } from "../../lib/alert";
 
 const MAX_CONTENT_LENGTH = 100_000;
 const DATE_PATTERN = /^\d{4}-\d{2}-\d{2}$/;
-const API_URL = process.env.EXPO_PUBLIC_API_URL ??
-  (process.env.NODE_ENV !== "production" ? "http://localhost:5000" : "");
-
 function sanitizeContent(raw: string): string {
   if (raw.length > MAX_CONTENT_LENGTH) throw new Error("File too large to preview");
   return raw

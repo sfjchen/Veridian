@@ -5,6 +5,13 @@ import { ActivityIndicator, View, Text, TouchableOpacity, StyleSheet } from "rea
 import { useAuth } from "../stores/auth";
 import { LoginScreen } from "../screens/auth/LoginScreen";
 import { SignupScreen } from "../screens/auth/SignupScreen";
+import { TeacherDashboardScreen } from "../screens/teacher/DashboardScreen";
+import { TeacherClassroomScreen } from "../screens/teacher/ClassroomScreen";
+import { CorpusUploadScreen } from "../screens/teacher/CorpusUploadScreen";
+import { CreateAssignmentScreen } from "../screens/teacher/CreateAssignmentScreen";
+import { StudentDashboardScreen } from "../screens/student/DashboardScreen";
+import { StudentClassroomScreen } from "../screens/student/ClassroomScreen";
+import { AssignmentScreen } from "../screens/student/AssignmentScreen";
 
 const AuthStack = createNativeStackNavigator();
 const TeacherStack = createNativeStackNavigator();
@@ -19,26 +26,13 @@ function AuthNavigator() {
   );
 }
 
-function TeacherPlaceholder() {
-  return (
-    <View style={styles.center}>
-      <ActivityIndicator size="large" />
-    </View>
-  );
-}
-
-function StudentPlaceholder() {
-  return (
-    <View style={styles.center}>
-      <ActivityIndicator size="large" />
-    </View>
-  );
-}
-
 function TeacherNavigator() {
   return (
     <TeacherStack.Navigator>
-      <TeacherStack.Screen name="TeacherDashboard" component={TeacherPlaceholder} options={{ title: "Dashboard" }} />
+      <TeacherStack.Screen name="TeacherDashboard" component={TeacherDashboardScreen} options={{ title: "Dashboard" }} />
+      <TeacherStack.Screen name="Classroom" component={TeacherClassroomScreen} options={{ title: "Classroom" }} />
+      <TeacherStack.Screen name="CorpusUpload" component={CorpusUploadScreen} options={{ title: "Upload File" }} />
+      <TeacherStack.Screen name="CreateAssignment" component={CreateAssignmentScreen} options={{ title: "New Assignment" }} />
     </TeacherStack.Navigator>
   );
 }
@@ -46,7 +40,9 @@ function TeacherNavigator() {
 function StudentNavigator() {
   return (
     <StudentStack.Navigator>
-      <StudentStack.Screen name="StudentDashboard" component={StudentPlaceholder} options={{ title: "Dashboard" }} />
+      <StudentStack.Screen name="StudentDashboard" component={StudentDashboardScreen} options={{ title: "My Classes" }} />
+      <StudentStack.Screen name="StudentClassroom" component={StudentClassroomScreen} options={{ title: "Classroom" }} />
+      <StudentStack.Screen name="Assignment" component={AssignmentScreen} options={{ title: "Assignment" }} />
     </StudentStack.Navigator>
   );
 }

@@ -183,4 +183,4 @@ try {
 - Per-problem result history in Supabase
 - Shared Supabase between student and teacher backends
 - Persistent chat per-problem, never exposes transcripts to teachers
-- Frontend directory: `frontend/`
+- Frontend directory: `frontend/` (renamed from `veridian-learning/`)

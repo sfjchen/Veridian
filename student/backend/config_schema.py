@@ -1,6 +1,14 @@
 # Canonical copy: teacher/backend/app/services/config_schema.py
 # Keep in sync manually — no shared package exists.
-"""Assignment/classroom config validation and resolution."""
+# To verify sync: diff this file against the canonical copy (ignoring these comments).
+"""Assignment/classroom config validation and resolution.
+
+Single source of truth for config field definitions, validation rules,
+and the resolution algorithm (hardcoded defaults < classroom < assignment).
+
+All config writes MUST go through validate_config() before persisting to
+the database. The DB stores raw JSONB with no schema constraint.
+"""
 
 from typing import Any
 
@@ -32,6 +40,24 @@ _INT_RANGES: dict[str, tuple[int, int]] = {
 }
 
 
+def _validate_bool_field(key: str, value: Any) -> None:
+    if not isinstance(value, bool):
+        raise ValueError(f"{key} must be a boolean")
+
+
+def _validate_int_field(key: str, value: Any) -> None:
+    if not isinstance(value, int) or isinstance(value, bool):
+        raise ValueError(f"{key} must be an integer")
+    lo, hi = _INT_RANGES[key]
+    if value < lo or value > hi:
+        raise ValueError(f"{key} must be between {lo} and {hi}")
+
+
+def _validate_enum_field(key: str, value: Any) -> None:
+    if not isinstance(value, str) or value not in VALID_VALUES[key]:
+        raise ValueError(f"{key} must be one of {VALID_VALUES[key]}")
+
+
 def validate_config(config: dict[str, Any]) -> dict[str, Any]:
     """Validate and return a cleaned sparse config dict.
 
@@ -42,24 +68,21 @@ def validate_config(config: dict[str, Any]) -> dict[str, Any]:
         if key not in HARDCODED_DEFAULTS:
             raise ValueError(f"Unknown config field: {key}")
         if key in _BOOL_FIELDS:
-            if not isinstance(value, bool):
-                raise ValueError(f"{key} must be a boolean")
+            _validate_bool_field(key, value)
         elif key in _INT_FIELDS:
-            if not isinstance(value, int) or isinstance(value, bool):
-                raise ValueError(f"{key} must be an integer")
-            lo, hi = _INT_RANGES[key]
-            if value < lo or value > hi:
-                raise ValueError(f"{key} must be between {lo} and {hi}")
+            _validate_int_field(key, value)
         elif key in _ENUM_FIELDS:
-            if not isinstance(value, str) or value not in VALID_VALUES[key]:
-                raise ValueError(f"{key} must be one of {VALID_VALUES[key]}")
+            _validate_enum_field(key, value)
         cleaned[key] = value
     return cleaned
 
 
 def resolve_config(classroom_config: dict[str, Any], assignment_config: dict[str, Any]) -> dict[str, Any]:
-    """Merge config layers: hardcoded defaults < classroom < assignment."""
+    """Merge config layers: hardcoded defaults < classroom < assignment.
+
+    Both inputs are validated before merging.
+    """
     resolved = dict(HARDCODED_DEFAULTS)
-    resolved.update(classroom_config)
-    resolved.update(assignment_config)
+    resolved.update(validate_config(classroom_config))
+    resolved.update(validate_config(assignment_config))
     return resolved

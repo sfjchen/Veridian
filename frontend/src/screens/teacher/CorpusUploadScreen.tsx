@@ -13,12 +13,14 @@ interface PickedFile {
   mimeType: string;
 }
 
-function inferFileType(name: string, mimeType: string): string {
+const ALLOWED_FILE_TYPES = ["pdf", "txt", "docx", "doc", "md", "tex", "rtf"];
+
+function inferFileType(name: string, mimeType: string): string | null {
   const ext = name.split(".").pop()?.toLowerCase();
-  if (ext && ["pdf", "txt", "docx", "doc", "md", "tex", "rtf"].includes(ext)) return ext;
+  if (ext && ALLOWED_FILE_TYPES.includes(ext)) return ext;
   if (mimeType.includes("pdf")) return "pdf";
   if (mimeType.includes("text")) return "txt";
-  return "pdf";
+  return null;
 }
 
 export function CorpusUploadScreen({ route, navigation }: { route: any; navigation: any }) {
@@ -29,7 +31,15 @@ export function CorpusUploadScreen({ route, navigation }: { route: any; navigati
 
   const pickFile = async () => {
     const result = await DocumentPicker.getDocumentAsync({
-      type: ["application/pdf", "text/*", "image/*"],
+      type: [
+        "application/pdf",
+        "text/plain",
+        "text/markdown",
+        "application/vnd.openxmlformats-officedocument.wordprocessingml.document",
+        "application/msword",
+        "application/x-tex",
+        "application/rtf",
+      ],
       copyToCacheDirectory: true,
     });
     if (result.canceled) return;
@@ -57,6 +67,10 @@ export function CorpusUploadScreen({ route, navigation }: { route: any; navigati
     setUploading(true);
     try {
       const fileType = inferFileType(file.name, file.mimeType);
+      if (!fileType) {
+        Alert.alert("Error", "Unsupported file type. Allowed: pdf, txt, docx, doc, md, tex, rtf");
+        return;
+      }
       const result = await api<{ upload_url: string }>(`/classrooms/${classroomId}/corpus`, {
         method: "POST",
         body: { display_name: displayName.trim(), file_type: fileType },

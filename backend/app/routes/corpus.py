@@ -1,6 +1,7 @@
 import sys
 import uuid
 from flask import Blueprint, Response, request, jsonify, g
+from postgrest.exceptions import APIError
 from app.middleware.auth import require_role, require_auth
 from app.services.supabase_client import get_supabase_admin_client
 from app.services.storage import generate_upload_url, generate_download_url
@@ -57,7 +58,7 @@ def create_corpus_file(classroom_id: str) -> tuple[Response, int]:
             "storage_path": storage_path,
             "file_type": file_type,
         }).execute()
-    except Exception as e:
+    except APIError as e:
         print(f"Failed to insert corpus file: {e}", file=sys.stderr)
         return jsonify({"error": "Failed to create corpus file"}), 500
 
@@ -70,8 +71,8 @@ def create_corpus_file(classroom_id: str) -> tuple[Response, int]:
         print(f"Failed to generate upload URL: {e}", file=sys.stderr)
         try:
             client.table("corpus_files").delete().eq("id", file_id).execute()
-        except Exception:
-            print(f"Failed to clean up orphaned corpus_file {file_id}", file=sys.stderr)
+        except Exception as cleanup_err:
+            print(f"Failed to clean up orphaned corpus_file {file_id}: {cleanup_err}", file=sys.stderr)
         return jsonify({"error": "Failed to generate upload URL"}), 500
 
     return jsonify({

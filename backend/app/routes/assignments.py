@@ -14,6 +14,7 @@ assignments_bp = Blueprint("assignments", __name__)
 ASSIGNMENTS_BUCKET = "assignments"
 SUBMISSIONS_BUCKET = "submissions"
 MAX_TITLE_LENGTH = 500
+POSTGRES_UNIQUE_VIOLATION = "23505"
 
 
 def _verify_classroom_access(
@@ -84,11 +85,12 @@ def create_assignment(classroom_id: str) -> Tuple[Response, int]:
     try:
         assignment_file_upload_url = generate_upload_url(ASSIGNMENTS_BUCKET, assignment_file_path)
         answer_key_upload_url = generate_upload_url(ASSIGNMENTS_BUCKET, answer_key_path)
-    except Exception:
+    except Exception as e:
+        print(f"Failed to generate upload URLs for assignment {assignment_id}: {e}", file=sys.stderr)
         try:
             client.table("assignments").delete().eq("id", assignment_id).execute()
-        except Exception:
-            pass
+        except Exception as cleanup_err:
+            print(f"Failed to clean up orphaned assignment {assignment_id}: {cleanup_err}", file=sys.stderr)
         return jsonify({"error": "Failed to generate upload URLs"}), 500
 
     if not record.data:
@@ -155,7 +157,8 @@ def get_assignment(assignment_id: str) -> Tuple[Response, int]:
             result["answer_key_download_url"] = generate_download_url(
                 ASSIGNMENTS_BUCKET, record["answer_key_storage_path"]
             )
-    except ValueError:
+    except ValueError as e:
+        print(f"Failed to generate download URLs for assignment {assignment_id}: {e}", file=sys.stderr)
         return jsonify({"error": "Failed to generate download URLs"}), 500
 
     return jsonify(result), 200
@@ -241,7 +244,8 @@ def reupload_assignment_files(assignment_id: str) -> Tuple[Response, int]:
             result["answer_key_upload_url"] = generate_upload_url(
                 ASSIGNMENTS_BUCKET, record["answer_key_storage_path"]
             )
-    except Exception:
+    except Exception as e:
+        print(f"Failed to generate reupload URLs for assignment {assignment_id}: {e}", file=sys.stderr)
         return jsonify({"error": "Failed to generate upload URLs"}), 500
 
     return jsonify(result), 200
@@ -308,7 +312,7 @@ def create_submission(assignment_id: str) -> Tuple[Response, int]:
             "storage_path": storage_path,
         }).execute()
     except APIError as e:
-        if "23505" in str(e):
+        if e.code == POSTGRES_UNIQUE_VIOLATION:
             return jsonify({"error": "Submission already exists for this assignment"}), 409
         print(f"Failed to insert submission: {e}", file=sys.stderr)
         return jsonify({"error": "Failed to create submission"}), 500

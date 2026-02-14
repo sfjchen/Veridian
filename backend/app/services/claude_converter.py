@@ -2,7 +2,8 @@ import base64
 import anthropic
 from flask import current_app
 
-MAX_FILE_SIZE = 10 * 1024 * 1024  # 10MB
+# Claude API PDF input limit; also keeps memory usage reasonable per request
+MAX_FILE_SIZE = 10 * 1024 * 1024
 
 
 def convert_pdf_to_latex(pdf_bytes: bytes) -> str:
@@ -28,9 +29,14 @@ def convert_pdf_to_latex(pdf_bytes: bytes) -> str:
                 },
                 {
                     "type": "text",
-                    "text": "Convert this PDF to LaTeX. Return ONLY the LaTeX content â€” no explanation, no markdown code fences. Preserve all mathematical notation, formatting, and structure as faithfully as possible.",
+                    "text": "Convert this PDF to LaTeX. Return ONLY the LaTeX content — no explanation, no markdown code fences. Preserve all mathematical notation, formatting, and structure as faithfully as possible.",
                 },
             ],
         }],
     )
-    return message.content[0].text
+    if not message.content:
+        raise ValueError("Claude API returned empty response")
+    block = message.content[0]
+    if not hasattr(block, "text"):
+        raise ValueError(f"Claude API returned non-text content: {block.type}")
+    return block.text

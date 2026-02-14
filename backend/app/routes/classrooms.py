@@ -72,7 +72,11 @@ def join_classroom() -> Response | Tuple[Response, int]:
     if not classroom.data:
         return jsonify({"error": "Invalid class code"}), 404
 
-    classroom_id = classroom.data[0]["id"]
+    record = classroom.data[0]
+    if "id" not in record:
+        return jsonify({"error": "Invalid classroom data structure"}), 500
+    classroom_id = record["id"]
+
     try:
         client.table("classroom_memberships").insert({
             "student_id": g.user_id,

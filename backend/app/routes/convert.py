@@ -1,23 +1,28 @@
-from flask import Blueprint, request, jsonify
+import os
+from typing import Tuple
+
+from flask import Blueprint, Response, request, jsonify
 from app.middleware.auth import require_auth
-from app.services.claude_converter import convert_pdf_to_latex, MAX_FILE_SIZE
+from app.services.claude_converter import convert_pdf_to_latex
 
 convert_bp = Blueprint("convert", __name__, url_prefix="/convert")
 
 
 @convert_bp.route("/pdf-to-latex", methods=["POST"])
 @require_auth
-def pdf_to_latex():
+def pdf_to_latex() -> Tuple[Response, int]:
     if "file" not in request.files:
         return jsonify({"error": "No file provided"}), 400
 
     file = request.files["file"]
-    if not file.filename or not file.filename.lower().endswith(".pdf"):
+    if not file.filename:
+        return jsonify({"error": "No filename provided"}), 400
+
+    _, ext = os.path.splitext(file.filename)
+    if ext.lower() != ".pdf":
         return jsonify({"error": "File must be a PDF"}), 400
 
     pdf_bytes = file.read()
-    if len(pdf_bytes) > MAX_FILE_SIZE:
-        return jsonify({"error": f"File exceeds {MAX_FILE_SIZE // (1024*1024)}MB limit"}), 413
 
     try:
         latex = convert_pdf_to_latex(pdf_bytes)

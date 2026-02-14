@@ -1,6 +1,6 @@
 # Migration Guide — Setup, Run, Test
 
-Monorepo: teacher dashboard + student platform. One Supabase project for both.
+Full platform monorepo: teacher + student. One Supabase project for both. Migrations run once per project.
 
 ## What Lives Where
 

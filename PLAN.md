@@ -1,10 +1,10 @@
-# Math Mistake Analysis Platform — Merged Roadmap
+# Math Mistake Analysis Platform — Roadmap
 
-**Running docs**: This file, `AGENTS.md`, `CLAUDE.md`, and `README.md` are the project's living documentation.
+**Running docs**: `AGENTS.md`, `CLAUDE.md`, `README.md`, `PLAN.md`, `MIGRATION_GUIDE.md`.
 
 ## Overview
 
-Monorepo with teacher side (classrooms, assignments, corpus, submissions) and student side (canvas, AI mistake analysis, Socratic chat). Shared Supabase.
+Full platform monorepo: teacher side (classrooms, assignments, corpus, submissions) and student side (canvas, AI mistake analysis, Socratic chat). Shared Supabase.
 
 ---
 

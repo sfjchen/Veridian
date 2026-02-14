@@ -4,12 +4,10 @@
 
 ## Project Overview
 
-Math Mistake Analysis Platform — EdTech for teachers to create assignments and for students to submit solutions with AI-powered mistake analysis. Monorepo:
+Math Mistake Analysis Platform — full monorepo (teacher + student). Shared Supabase.
 
-- **Teacher side**: `backend/`, `frontend/` — Flask + React. Classrooms, assignments, corpus, submissions.
-- **Student side**: `student-platform/` — Flask API (`get_coords.py`) + Expo app. Per-problem canvas, mistake analysis, Socratic chat.
-
-Shared Supabase for auth, assignments, problem_results, chat_messages.
+- **Teacher**: `backend/`, `frontend/` — Flask + React. Classrooms, assignments, corpus, submissions.
+- **Student**: `student-platform/` — backend (`get_coords.py`) + frontend (`frontend/`). Canvas, mistake analysis, Socratic chat.
 
 ## Code Review Process
 

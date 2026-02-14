@@ -47,7 +47,7 @@ function ClassroomCard({
 
 export default function ClassroomsScreen() {
   const router = useRouter();
-  const { classrooms, loading, error } = useClassrooms();
+  const { classrooms, loading, error, refresh } = useClassrooms();
 
   if (loading) {
     return (
@@ -80,6 +80,13 @@ export default function ClassroomsScreen() {
           <Text style={styles.emptySubtitle}>
             Sign in or check your connection to see your classes.
           </Text>
+          <Pressable
+            style={({ pressed }) => [styles.retryButton, pressed && { opacity: 0.7 }]}
+            onPress={refresh}
+            accessibilityRole="button"
+            accessibilityLabel="Retry loading classes">
+            <Text style={styles.retryButtonText}>Retry</Text>
+          </Pressable>
         </View>
       </SafeAreaView>
     );
@@ -205,6 +212,18 @@ const styles = StyleSheet.create({
     fontSize: 15,
     color: palette.errorText,
     textAlign: 'center',
+  },
+  retryButton: {
+    marginTop: 4,
+    paddingVertical: 10,
+    paddingHorizontal: 16,
+    borderRadius: radius.button,
+    backgroundColor: palette.primary,
+  },
+  retryButtonText: {
+    fontSize: 14,
+    fontWeight: '600',
+    color: palette.white,
   },
   empty: {
     flex: 1,

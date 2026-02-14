@@ -144,7 +144,6 @@ export default function DocumentScreen() {
     saveError: docsSaveError,
     clearLoadError: clearDocsLoadError,
     clearSaveError: clearDocsSaveError,
-    refresh: refreshDocuments,
   } = useDocuments();
   const doc = id ? getDocument(id) : undefined;
 
@@ -182,12 +181,7 @@ export default function DocumentScreen() {
   const viewShotRef = useRef<ViewShot | null>(null);
   const [canvasDims, setCanvasDims] = useState<{ w: number; h: number } | null>(null);
 
-  useEffect(() => {
-    setCanvasDims(null);
-  }, [pageIndex]);
-
   const STROKES_KEY = id ? `veridian_strokes:${id}` : null;
-
   const pageIndex = currentPage - 1;
   const currentStrokes = useMemo(() => strokesByPage[pageIndex] ?? [], [strokesByPage, pageIndex]);
   const currentProblem = isProblemMode ? problems[pageIndex] : null;
@@ -337,6 +331,7 @@ export default function DocumentScreen() {
     isAnalyzing,
     lastResult,
     error: analysisError,
+    clearError: clearAnalysisError,
     triggerNow,
     markDirty,
   } = useAutoAnalysis({
@@ -349,6 +344,11 @@ export default function DocumentScreen() {
     onError: (msg) => showAlert('Analysis failed', msg),
     onStaleResult,
   });
+
+  useEffect(() => {
+    setCanvasDims(null);
+    clearAnalysisError();
+  }, [pageIndex, clearAnalysisError]);
 
   // Store results per problem when analysis completes.
   useEffect(() => {

@@ -124,6 +124,32 @@ class PersistTask(TypedDict):
     payload: Dict[str, Any]
 
 
+class CaptureRequestParams(TypedDict):
+    image_b64: str
+    document_id: str
+    sample_slug: str
+    reference_tex: str
+    context_tex: str
+    include_solution: bool
+
+
+class CaptureContext(TypedDict):
+    owner_id: str
+    image_bytes: bytes
+    media_type: str
+    document_id: str
+    sample_slug: str
+    reference_tex: str
+    context_tex: str
+    include_solution: bool
+
+
+class CaptureArtifactIds(TypedDict):
+    screenshot_artifact_id: str
+    ocr_latex_artifact_id: str
+    revised_latex_artifact_id: str
+
+
 _DB_WRITE_BACKOFF_SECONDS = (0.1, 0.5, 2.0)
 _RESULT_DLQ_PATH = Path(
     os.getenv(
@@ -1537,150 +1563,219 @@ def chat_history(assignment_id: str, problem_num: int) -> Any:
     return jsonify({"messages": messages})
 
 
+def _parse_capture_params(payload: Dict[str, Any]) -> CaptureRequestParams:
+    image_b64 = str(payload.get("image", "")).strip()
+    if not image_b64:
+        raise ValueError("Missing required field: image")
+    return {
+        "image_b64": image_b64,
+        "document_id": _sanitize_document_id(str(payload.get("documentId", "")).strip()),
+        "sample_slug": str(payload.get("sample_slug", "")).strip(),
+        "reference_tex": str(payload.get("reference_tex", "")).strip(),
+        "context_tex": str(payload.get("context_tex", "")).strip(),
+        "include_solution": str(payload.get("include_solution", "true")).lower() in {"true", "1", "yes"},
+    }
+
+
+def _resolve_sample_context(params: CaptureRequestParams) -> tuple[str, str, str]:
+    sample_slug = params["sample_slug"] or _document_to_sample_slug(params["document_id"])
+    reference_tex = params["reference_tex"]
+    context_tex = params["context_tex"]
+    if reference_tex and context_tex:
+        return (sample_slug, reference_tex, context_tex)
+    loaded_context, loaded_solution = _load_sample_reference_context(sample_slug)
+    return (
+        sample_slug,
+        reference_tex or loaded_solution,
+        context_tex or loaded_context,
+    )
+
+
+def _build_capture_context(params: CaptureRequestParams) -> CaptureContext:
+    owner_id = _resolve_capture_owner_id()
+    image_bytes = _decode_capture_image_base64(params["image_b64"])
+    media_type = _infer_image_media_type(image_bytes)
+    sample_slug, reference_tex, context_tex = _resolve_sample_context(params)
+    return {
+        "owner_id": owner_id,
+        "image_bytes": image_bytes,
+        "media_type": media_type,
+        "document_id": params["document_id"],
+        "sample_slug": sample_slug,
+        "reference_tex": reference_tex,
+        "context_tex": context_tex,
+        "include_solution": params["include_solution"],
+    }
+
+
+def _is_capture_auth_error(message: str) -> bool:
+    lowered = message.lower()
+    return "bearer token" in lowered or message.startswith("Missing owner identity.")
+
+
+def _capture_basename(context: CaptureContext) -> str:
+    return context["document_id"] or "capture"
+
+
+def _capture_metadata(context: CaptureContext, stage: str) -> Dict[str, str]:
+    return {
+        "document_id": context["document_id"],
+        "sample_slug": context["sample_slug"],
+        "stage": stage,
+    }
+
+
+def _store_capture_screenshot(context: CaptureContext) -> str:
+    basename = _capture_basename(context)
+    screenshot = create_artifact_from_bytes(
+        owner_id=context["owner_id"],
+        artifact_type="screenshot",
+        content_bytes=context["image_bytes"],
+        display_name=f"{basename}-screenshot{_mime_to_extension(context['media_type'])}",
+        mime_type=context["media_type"],
+        metadata=_capture_metadata(context, "capture"),
+    )
+    return str(screenshot["id"])
+
+
+def _store_capture_ocr_latex(context: CaptureContext, student_tex: str) -> str:
+    basename = _capture_basename(context)
+    ocr_latex = create_latex_artifact_from_content(
+        owner_id=context["owner_id"],
+        content=student_tex,
+        display_name=f"{basename}-student-ocr.tex",
+        metadata=_capture_metadata(context, "student_ocr"),
+    )
+    return str(ocr_latex["id"])
+
+
+def _store_capture_revised_latex(context: CaptureContext, annotated_tex: str) -> str:
+    basename = _capture_basename(context)
+    revised_latex = create_latex_artifact_from_content(
+        owner_id=context["owner_id"],
+        content=annotated_tex,
+        display_name=f"{basename}-revised-annotated.tex",
+        metadata=_capture_metadata(context, "revised_annotated"),
+    )
+    return str(revised_latex["id"])
+
+
+def _run_capture_analysis(student_tex: str, context: CaptureContext) -> tuple[str, str]:
+    if not context["reference_tex"] or not context["context_tex"]:
+        return (student_tex, "")
+    analyzer = MistakeAnalyzer(
+        analysis_model=MISTAKE_ANALYSIS_MODEL,
+        use_extended_thinking=_mistake_analysis_thinking_enabled(),
+    )
+    result = analyzer.run(
+        student_tex=student_tex,
+        reference_tex=context["reference_tex"],
+        context_tex=context["context_tex"],
+        include_solution=context["include_solution"],
+    )
+    return (result["annotated_tex"], result["continuation_tex"])
+
+
+def _store_capture_continuation(context: CaptureContext, continuation_tex: str) -> None:
+    if not continuation_tex:
+        return
+    basename = _capture_basename(context)
+    try:
+        create_latex_artifact_from_content(
+            owner_id=context["owner_id"],
+            content=continuation_tex,
+            display_name=f"{basename}-revised-continuation.tex",
+            metadata=_capture_metadata(context, "revised_continuation"),
+        )
+    except Exception as exc:
+        log.error("Failed to store continuation artifact: %s", exc, exc_info=True)
+
+
+def _extract_capture_mistakes(
+    context: CaptureContext, annotated_tex: str, artifact_ids: CaptureArtifactIds
+) -> tuple[List[Dict[str, Any]], Dict[str, Any] | None]:
+    if not _has_mistake_annotations(annotated_tex):
+        return ([], None)
+    try:
+        coords_payload = _run_mistake_coord_pipeline(
+            image_bytes=context["image_bytes"],
+            latex=annotated_tex,
+            media_type=context["media_type"],
+        )
+        mistakes = coords_payload.get("mistakes", [])
+    except (ValueError, RuntimeError):
+        return ([], None)
+    except Exception as exc:
+        log.error("Mistake coord pipeline failed: %s", exc, exc_info=True)
+        return ([], None)
+    try:
+        coord_run = create_coord_run(
+            owner_id=context["owner_id"],
+            screenshot_artifact_id=artifact_ids["screenshot_artifact_id"],
+            latex_artifact_id=artifact_ids["revised_latex_artifact_id"],
+            result=coords_payload,
+        )
+    except Exception as exc:
+        log.error("Failed to create coord run: %s", exc, exc_info=True)
+        coord_run = None
+    return (mistakes, coord_run)
+
+
 @app.post("/api/capture")
 def capture_pipeline() -> Any:
-    payload = request.get_json(silent=True) or {}
-    image_b64 = str(payload.get("image", "")).strip()
-    document_id = _sanitize_document_id(str(payload.get("documentId", "")).strip())
-    sample_slug = str(payload.get("sample_slug", "")).strip()
-    reference_tex = str(payload.get("reference_tex", "")).strip()
-    context_tex = str(payload.get("context_tex", "")).strip()
-    include_solution = str(payload.get("include_solution", "true")).lower() in {"true", "1", "yes"}
-
     if not OPENAI_API_KEY:
         return jsonify({"error": "OPENAI_API_KEY not configured"}), 503
-    if not image_b64:
-        return jsonify({"error": "Missing required field: image"}), 400
 
     try:
-        owner_id = _resolve_capture_owner_id()
-    except ValueError as exc:
-        return jsonify({"error": str(exc)}), 401
-
-    try:
-        image_bytes = _decode_capture_image_base64(image_b64)
-        media_type = _infer_image_media_type(image_bytes)
+        params = _parse_capture_params(request.get_json(silent=True) or {})
     except ValueError as exc:
         return jsonify({"error": str(exc)}), 400
 
-    inferred_sample_slug = sample_slug or _document_to_sample_slug(document_id)
-    if not reference_tex or not context_tex:
-        try:
-            loaded_context, loaded_solution = _load_sample_reference_context(inferred_sample_slug)
-        except ValueError as exc:
-            return jsonify({"error": str(exc)}), 400
-        except Exception as exc:
-            return jsonify({"error": f"Unable to load sample worksheet context: {exc}"}), 502
-        if not context_tex:
-            context_tex = loaded_context
-        if not reference_tex:
-            reference_tex = loaded_solution
-
-    screenshot_filename = f"{document_id or 'capture'}-screenshot{_mime_to_extension(media_type)}"
     try:
-        screenshot_artifact = create_artifact_from_bytes(
-            owner_id=owner_id,
-            artifact_type="screenshot",
-            content_bytes=image_bytes,
-            display_name=screenshot_filename,
-            mime_type=media_type,
-            metadata={"document_id": document_id, "sample_slug": inferred_sample_slug, "stage": "capture"},
-        )
+        context = _build_capture_context(params)
+    except ValueError as exc:
+        if _is_capture_auth_error(str(exc)):
+            return jsonify({"error": str(exc)}), 401
+        return jsonify({"error": str(exc)}), 400
     except Exception as exc:
-        return jsonify({"error": f"Unable to store screenshot artifact: {exc}"}), 502
+        return jsonify({"error": f"Unable to load sample worksheet context: {exc}"}), 502
 
     try:
-        student_tex = _image_bytes_to_latex(image_bytes)
+        student_tex = _image_bytes_to_latex(context["image_bytes"])
     except ValueError as exc:
         return jsonify({"error": str(exc)}), 400
     except Exception as exc:
         return jsonify({"error": f"Image-to-latex failed: {exc}"}), 502
 
     try:
-        raw_latex_artifact = create_latex_artifact_from_content(
-            owner_id=owner_id,
-            content=student_tex,
-            display_name=f"{document_id or 'capture'}-student-ocr.tex",
-            metadata={"document_id": document_id, "sample_slug": inferred_sample_slug, "stage": "student_ocr"},
-        )
+        annotated_tex, continuation_tex = _run_capture_analysis(student_tex, context)
+    except ValueError as exc:
+        return jsonify({"error": f"Analysis failed: {exc}"}), 400
+    except Exception as exc:
+        return jsonify({"error": f"Analysis failed: {exc}"}), 502
+
+    try:
+        screenshot_artifact_id = _store_capture_screenshot(context)
+    except Exception as exc:
+        return jsonify({"error": f"Unable to store screenshot artifact: {exc}"}), 502
+
+    try:
+        ocr_latex_artifact_id = _store_capture_ocr_latex(context, student_tex)
     except Exception as exc:
         return jsonify({"error": f"Unable to store OCR latex artifact: {exc}"}), 502
 
-    annotated_tex = student_tex
-    continuation_tex = ""
-    mistakes: List[Dict[str, Any]] = []
-    coord_run = None
-
-    if reference_tex and context_tex:
-        from mistake_analysis.client import MistakeAnalyzer
-
-        analyzer = MistakeAnalyzer(
-            analysis_model=MISTAKE_ANALYSIS_MODEL,
-            use_extended_thinking=_mistake_analysis_thinking_enabled(),
-        )
-        try:
-            analysis_result = analyzer.run(
-                student_tex=student_tex,
-                reference_tex=reference_tex,
-                context_tex=context_tex,
-                include_solution=include_solution,
-            )
-            annotated_tex = analysis_result["annotated_tex"]
-            continuation_tex = analysis_result["continuation_tex"]
-        except ValueError as exc:
-            return jsonify({"error": f"Analysis failed: {exc}"}), 400
-        except Exception as exc:
-            return jsonify({"error": f"Analysis failed: {exc}"}), 502
-
     try:
-        revised_latex_artifact = create_latex_artifact_from_content(
-            owner_id=owner_id,
-            content=annotated_tex,
-            display_name=f"{document_id or 'capture'}-revised-annotated.tex",
-            metadata={"document_id": document_id, "sample_slug": inferred_sample_slug, "stage": "revised_annotated"},
-        )
+        revised_latex_artifact_id = _store_capture_revised_latex(context, annotated_tex)
     except Exception as exc:
         return jsonify({"error": f"Unable to store revised latex artifact: {exc}"}), 502
 
-    if continuation_tex:
-        try:
-            create_latex_artifact_from_content(
-                owner_id=owner_id,
-                content=continuation_tex,
-                display_name=f"{document_id or 'capture'}-revised-continuation.tex",
-                metadata={
-                    "document_id": document_id,
-                    "sample_slug": inferred_sample_slug,
-                    "stage": "revised_continuation",
-                },
-            )
-        except Exception as exc:
-            log.error("Failed to store continuation artifact: %s", exc, exc_info=True)
-
-    if _has_mistake_annotations(annotated_tex):
-        try:
-            coords_payload = _run_mistake_coord_pipeline(
-                image_bytes=image_bytes,
-                latex=annotated_tex,
-                media_type=media_type,
-            )
-            mistakes = coords_payload.get("mistakes", [])
-        except (ValueError, RuntimeError):
-            mistakes = []
-        except Exception as exc:
-            log.error("Mistake coord pipeline failed: %s", exc, exc_info=True)
-            mistakes = []
-        else:
-            try:
-                coord_run = create_coord_run(
-                    owner_id=owner_id,
-                    screenshot_artifact_id=screenshot_artifact["id"],
-                    latex_artifact_id=revised_latex_artifact["id"],
-                    result=coords_payload,
-                )
-            except Exception as exc:
-                log.error("Failed to create coord run: %s", exc, exc_info=True)
-                coord_run = None
+    artifact_ids: CaptureArtifactIds = {
+        "screenshot_artifact_id": screenshot_artifact_id,
+        "ocr_latex_artifact_id": ocr_latex_artifact_id,
+        "revised_latex_artifact_id": revised_latex_artifact_id,
+    }
+    _store_capture_continuation(context, continuation_tex)
+    mistakes, coord_run = _extract_capture_mistakes(context, annotated_tex, artifact_ids)
 
     return jsonify(
         {
@@ -1689,11 +1784,7 @@ def capture_pipeline() -> Any:
             "annotated_tex": annotated_tex,
             "continuation_tex": continuation_tex,
             "mistakes": mistakes,
-            "artifacts": {
-                "screenshot_artifact_id": screenshot_artifact["id"],
-                "ocr_latex_artifact_id": raw_latex_artifact["id"],
-                "revised_latex_artifact_id": revised_latex_artifact["id"],
-            },
+            "artifacts": artifact_ids,
             "coord_run_id": coord_run["id"] if isinstance(coord_run, dict) and coord_run.get("id") else None,
         }
     )

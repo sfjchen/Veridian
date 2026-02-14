@@ -63,7 +63,7 @@ export default function AssignmentsScreen() {
     classroomName?: string;
   }>();
   const router = useRouter();
-  const { assignments, loading, error } = useAssignments(classroomId ?? null);
+  const { assignments, loading, error, refresh } = useAssignments(classroomId ?? null);
 
   const backAction = (
     <Pressable
@@ -120,6 +120,13 @@ export default function AssignmentsScreen() {
         <View style={styles.centered}>
           <MaterialCommunityIcons name="alert-circle-outline" size={48} color={palette.textMuted} />
           <Text style={styles.errorText}>{error}</Text>
+          <Pressable
+            style={({ pressed }) => [styles.retryButton, pressed && { opacity: 0.7 }]}
+            onPress={refresh}
+            accessibilityRole="button"
+            accessibilityLabel="Retry loading assignments">
+            <Text style={styles.retryButtonText}>Retry</Text>
+          </Pressable>
         </View>
       </SafeAreaView>
     );
@@ -226,6 +233,18 @@ const styles = StyleSheet.create({
   },
   loadingText: { fontSize: 15, color: palette.textMuted },
   errorText: { fontSize: 15, color: palette.errorText, textAlign: 'center' },
+  retryButton: {
+    marginTop: 4,
+    paddingVertical: 10,
+    paddingHorizontal: 16,
+    backgroundColor: palette.primary,
+    borderRadius: radius.button,
+  },
+  retryButtonText: {
+    color: palette.white,
+    fontSize: 14,
+    fontWeight: '600',
+  },
   emptyTitle: { fontSize: 18, fontWeight: '600', color: palette.textSecondary },
   emptySubtitle: { fontSize: 14, color: palette.textMuted, marginTop: 6, textAlign: 'center' },
 });

@@ -1,9 +1,22 @@
 import React, { useState } from "react";
 import { View, Text, TextInput, TouchableOpacity, StyleSheet, Alert } from "react-native";
+import { NativeStackNavigationProp } from "@react-navigation/native-stack";
 import { useAuth } from "../../stores/auth";
 import { UserRole } from "../../types";
 
-export function SignupScreen({ navigation }: { navigation: any }) {
+const EMAIL_REGEX = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+const MIN_PASSWORD_LENGTH = 6;
+
+type AuthStackParamList = {
+  Login: undefined;
+  Signup: undefined;
+};
+
+type SignupScreenProps = {
+  navigation: NativeStackNavigationProp<AuthStackParamList, "Signup">;
+};
+
+export function SignupScreen({ navigation }: SignupScreenProps) {
   const { signUp } = useAuth();
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
@@ -12,10 +25,21 @@ export function SignupScreen({ navigation }: { navigation: any }) {
   const [loading, setLoading] = useState(false);
 
   const handleSignup = async () => {
-    if (!email || !password || !displayName) return;
+    if (!displayName.trim() || !email.trim() || !password) {
+      Alert.alert("Validation Error", "Please fill in all fields.");
+      return;
+    }
+    if (!EMAIL_REGEX.test(email.trim())) {
+      Alert.alert("Invalid Email", "Please enter a valid email address.");
+      return;
+    }
+    if (password.length < MIN_PASSWORD_LENGTH) {
+      Alert.alert("Weak Password", `Password must be at least ${MIN_PASSWORD_LENGTH} characters.`);
+      return;
+    }
     setLoading(true);
     try {
-      await signUp(email, password, role, displayName);
+      await signUp(email.trim(), password, role, displayName.trim());
       Alert.alert("Success", "Account created! You can now sign in.");
       navigation.navigate("Login");
     } catch (e: any) {

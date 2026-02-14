@@ -1,6 +1,10 @@
 import { supabase } from "./supabase";
 
-const API_URL = process.env.EXPO_PUBLIC_API_URL ?? "http://localhost:5000";
+const API_URL = process.env.EXPO_PUBLIC_API_URL ?? (__DEV__ ? "http://localhost:5000" : undefined);
+
+if (!API_URL) {
+  throw new Error("EXPO_PUBLIC_API_URL must be set in production");
+}
 
 type HttpMethod = "GET" | "POST" | "PUT" | "DELETE";
 
@@ -34,8 +38,14 @@ export async function api<T = unknown>(
   });
 
   if (!response.ok) {
-    const error = await response.json().catch(() => ({ error: "Request failed" }));
-    throw new Error(error.error ?? `HTTP ${response.status}`);
+    let errorMessage = `HTTP ${response.status}`;
+    try {
+      const errorBody = await response.json();
+      if (errorBody?.error) errorMessage = errorBody.error;
+    } catch {
+      // Non-JSON response body, fall back to HTTP status
+    }
+    throw new Error(errorMessage);
   }
 
   return response.json();

@@ -1,18 +1,31 @@
 import React, { useState } from "react";
 import { View, Text, TextInput, TouchableOpacity, StyleSheet, Alert } from "react-native";
+import { NativeStackNavigationProp } from "@react-navigation/native-stack";
 import { useAuth } from "../../stores/auth";
 
-export function LoginScreen({ navigation }: { navigation: any }) {
+type AuthStackParamList = {
+  Login: undefined;
+  Signup: undefined;
+};
+
+type LoginScreenProps = {
+  navigation: NativeStackNavigationProp<AuthStackParamList, "Login">;
+};
+
+export function LoginScreen({ navigation }: LoginScreenProps) {
   const { signIn } = useAuth();
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [loading, setLoading] = useState(false);
 
   const handleLogin = async () => {
-    if (!email || !password) return;
+    if (!email.trim() || !password) {
+      Alert.alert("Validation Error", "Please enter both email and password.");
+      return;
+    }
     setLoading(true);
     try {
-      await signIn(email, password);
+      await signIn(email.trim(), password);
     } catch (e: any) {
       Alert.alert("Login Failed", e.message);
     } finally {

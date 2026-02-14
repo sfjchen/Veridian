@@ -55,11 +55,15 @@ def _validate_enum_field(key: str, value: Any) -> None:
         raise ValueError(f"{key} must be one of {VALID_VALUES[key]}")
 
 
-def validate_config(config: dict[str, Any]) -> dict[str, Any]:
+def validate_config(config: dict[str, Any] | None) -> dict[str, Any]:
     """Validate and return a cleaned sparse config dict.
 
     Raises ValueError on unknown fields or invalid values.
     """
+    if config is None:
+        return {}
+    if not isinstance(config, dict):
+        raise ValueError("config must be a dict")
     cleaned: dict[str, Any] = {}
     for key, value in config.items():
         if key not in HARDCODED_DEFAULTS:

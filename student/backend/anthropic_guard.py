@@ -1,19 +1,23 @@
 import inspect
 import re
-from typing import Any
+from typing import Any, Protocol
 
 MIN_ANTHROPIC_VERSION = (0, 79, 0)
-MIN_ANTHROPIC_VERSION_STR = "0.79.0"
-REMEDIATION_COMMAND = (
-    'cd /Users/davidmaemoto/Desktop/Veridian/student/backend && '
-    'pip install -U "anthropic>=0.79.0"'
-)
+MIN_ANTHROPIC_VERSION_STR = ".".join(str(part) for part in MIN_ANTHROPIC_VERSION)
+REMEDIATION_COMMAND = 'pip install -U "anthropic>=0.79.0"'
+
+
+class _MessagesClientProtocol(Protocol):
+    messages: Any
 
 
 def _parse_version(version: str) -> tuple[int, int, int]:
-    match = re.match(r"^\s*(\d+)\.(\d+)\.(\d+)", version or "")
+    trimmed = version.strip()
+    if not trimmed:
+        raise ValueError("Anthropic SDK version string is empty.")
+    match = re.match(r"^(\d+)\.(\d+)\.(\d+)$", trimmed)
     if match is None:
-        raise ValueError(f"Invalid Anthropic version string: {version!r}")
+        raise ValueError(f"Invalid Anthropic SDK version string: {version!r}")
     return (int(match.group(1)), int(match.group(2)), int(match.group(3)))
 
 
@@ -23,15 +27,15 @@ def _read_installed_anthropic_version() -> str:
     except Exception as exc:
         raise RuntimeError(
             "Anthropic SDK is not installed. "
-            f"Install it with: {REMEDIATION_COMMAND}"
+            f"Run: {REMEDIATION_COMMAND}"
         ) from exc
-    version = getattr(anthropic, "__version__", "")
-    if not version:
+    version = getattr(anthropic, "__version__", None)
+    if version is None or not str(version).strip():
         raise RuntimeError(
             "Anthropic SDK version could not be detected. "
-            f"Install/upgrade with: {REMEDIATION_COMMAND}"
+            f"Run: {REMEDIATION_COMMAND}"
         )
-    return str(version)
+    return str(version).strip()
 
 
 def ensure_supported_anthropic_version(anthropic_version: str | None = None) -> None:
@@ -41,7 +45,7 @@ def ensure_supported_anthropic_version(anthropic_version: str | None = None) -> 
     except ValueError as exc:
         raise RuntimeError(
             "Anthropic SDK version is unreadable "
-            f"({version!r}). Install/upgrade with: {REMEDIATION_COMMAND}"
+            f"({version!r}). Run: {REMEDIATION_COMMAND}"
         ) from exc
     if parsed < MIN_ANTHROPIC_VERSION:
         raise RuntimeError(
@@ -51,19 +55,19 @@ def ensure_supported_anthropic_version(anthropic_version: str | None = None) -> 
         )
 
 
-def ensure_messages_create_supports_thinking(client: Any) -> None:
+def ensure_messages_create_supports_thinking(client: _MessagesClientProtocol) -> None:
     create_method = getattr(getattr(client, "messages", None), "create", None)
     if create_method is None:
         raise RuntimeError(
             "Anthropic client is missing messages.create(). "
-            f"Install/upgrade with: {REMEDIATION_COMMAND}"
+            f"Run: {REMEDIATION_COMMAND}"
         )
     try:
         signature = inspect.signature(create_method)
     except (TypeError, ValueError) as exc:
         raise RuntimeError(
             "Unable to inspect Anthropic messages.create() signature. "
-            f"Install/upgrade with: {REMEDIATION_COMMAND}"
+            f"Run: {REMEDIATION_COMMAND}"
         ) from exc
     if "thinking" not in signature.parameters:
         raise RuntimeError(
@@ -75,7 +79,7 @@ def ensure_messages_create_supports_thinking(client: Any) -> None:
 
 
 def validate_anthropic_thinking_support(
-    client: Any,
+    client: _MessagesClientProtocol,
     anthropic_version: str | None = None,
 ) -> None:
     ensure_supported_anthropic_version(anthropic_version)

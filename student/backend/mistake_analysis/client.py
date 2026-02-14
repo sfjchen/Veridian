@@ -48,11 +48,6 @@ class MistakeAnalyzer:
         use_extended_thinking: bool = True,
         max_tokens: int | None = None,
     ):
-        self.client = anthropic.Anthropic()  # uses ANTHROPIC_API_KEY env var
-        validate_anthropic_thinking_support(
-            self.client,
-            anthropic_version=getattr(anthropic, "__version__", None),
-        )
         self.mistakes_path = Path(mistakes_json_path)
         self.analysis_model = analysis_model
         self.grader_model = grader_model
@@ -66,10 +61,15 @@ class MistakeAnalyzer:
 
         backend = (os.getenv("MISTAKE_ANALYSIS_BACKEND", "anthropic") or "anthropic").strip().lower()
         self._backend = "openai" if backend == "openai" else "anthropic"
+        self.client: anthropic.Anthropic | None
+        self._openai_client: OpenAI | None
         if self._backend == "openai":
+            self.client = None
             self._openai_client = OpenAI()
             self._openai_model = (os.getenv("MISTAKE_ANALYSIS_OPENAI_MODEL", "gpt-4o") or "gpt-4o").strip()
         else:
+            self.client = anthropic.Anthropic()  # uses ANTHROPIC_API_KEY env var
+            validate_anthropic_thinking_support(self.client)
             self._openai_client = None
             self._openai_model = ""
 
@@ -88,6 +88,8 @@ class MistakeAnalyzer:
 
     def _call_api(self, context: str, **kwargs):
         """Wrapper around client.messages.create with error handling."""
+        if self.client is None:
+            raise ValueError("Anthropic backend is disabled.")
         try:
             return self.client.messages.create(**kwargs)
         except anthropic.APIError as exc:
@@ -117,6 +119,8 @@ class MistakeAnalyzer:
                 kwargs["thinking"] = {"type": "adaptive"}
             response = self._call_api(context, **kwargs)
             return extract_text(response)
+        if self._openai_client is None:
+            raise ValueError("OpenAI backend is not configured.")
         try:
             response = self._openai_client.chat.completions.create(
                 model=self._openai_model,

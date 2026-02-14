@@ -19,7 +19,7 @@ export interface Assignment {
   id: string;
   classroom_id: string;
   title: string;
-  prompt_storage_path: string | null;
+  assignment_file_storage_path: string | null;
   answer_key_storage_path: string | null;
   context_file_ids: string[];
   due_date: string | null;
@@ -45,6 +45,6 @@ export interface CorpusFile {
 }
 
 export interface AssignmentDetail extends Assignment {
-  prompt_download_url?: string;
+  assignment_file_download_url?: string;
   answer_key_download_url?: string;
 }

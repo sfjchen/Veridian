@@ -4,18 +4,18 @@ import { api } from "../../lib/api";
 import { LatexRenderer } from "../../components/LatexRenderer";
 import { FileUploader } from "../../components/FileUploader";
 
-const MAX_PROMPT_LENGTH = 100_000;
+const MAX_ASSIGNMENT_FILE_LENGTH = 100_000;
 
 interface AssignmentDetail {
   id: string;
   title: string;
-  prompt_download_url?: string;
+  assignment_file_download_url?: string;
   due_date: string | null;
 }
 
 function sanitizeLatexContent(raw: string): string {
-  if (raw.length > MAX_PROMPT_LENGTH) {
-    throw new Error("Prompt file too large");
+  if (raw.length > MAX_ASSIGNMENT_FILE_LENGTH) {
+    throw new Error("Assignment file too large");
   }
   return raw
     .replace(/<script[\s\S]*?<\/script>/gi, "")
@@ -31,7 +31,7 @@ export function AssignmentScreen({ route }: { route: any }) {
   const { assignmentId } = route.params;
   const [assignment, setAssignment] = useState<AssignmentDetail | null>(null);
   const [loading, setLoading] = useState(true);
-  const [promptContent, setPromptContent] = useState<string | null>(null);
+  const [assignmentContent, setAssignmentContent] = useState<string | null>(null);
   const [submissionUrl, setSubmissionUrl] = useState<string | null>(null);
   const [submitting, setSubmitting] = useState(false);
 
@@ -42,12 +42,12 @@ export function AssignmentScreen({ route }: { route: any }) {
         const data = await api<AssignmentDetail>(`/assignments/${assignmentId}`);
         if (cancelled) return;
         setAssignment(data);
-        if (data.prompt_download_url) {
-          const resp = await fetch(data.prompt_download_url);
-          if (!resp.ok) throw new Error(`Failed to fetch prompt: ${resp.status}`);
+        if (data.assignment_file_download_url) {
+          const resp = await fetch(data.assignment_file_download_url);
+          if (!resp.ok) throw new Error(`Failed to fetch assignment file: ${resp.status}`);
           const text = await resp.text();
           if (cancelled) return;
-          setPromptContent(sanitizeLatexContent(text));
+          setAssignmentContent(sanitizeLatexContent(text));
         }
       } catch (e: any) {
         if (!cancelled) Alert.alert("Error", e.message);
@@ -85,10 +85,10 @@ export function AssignmentScreen({ route }: { route: any }) {
           })}
         </Text>
       )}
-      {promptContent && (
-        <View style={styles.promptContainer}>
+      {assignmentContent && (
+        <View style={styles.assignmentContainer}>
           <Text style={styles.sectionTitle}>Problem</Text>
-          <LatexRenderer latex={promptContent} />
+          <LatexRenderer latex={assignmentContent} />
         </View>
       )}
       {!submissionUrl ? (
@@ -111,7 +111,7 @@ const styles = StyleSheet.create({
   title: { fontSize: 24, fontWeight: "bold" },
   due: { fontSize: 14, color: "#6B7280", marginTop: 4, marginBottom: 16 },
   sectionTitle: { fontSize: 16, fontWeight: "600", marginBottom: 8 },
-  promptContainer: { flex: 1, marginBottom: 16 },
+  assignmentContainer: { flex: 1, marginBottom: 16 },
   submitButton: {
     backgroundColor: "#4F46E5", borderRadius: 8, padding: 16,
     alignItems: "center", marginTop: 16,

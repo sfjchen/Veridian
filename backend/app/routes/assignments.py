@@ -64,21 +64,21 @@ def create_assignment(classroom_id: str) -> Tuple[Response, int]:
         return jsonify({"error": "One or more context_file_ids are invalid"}), 400
 
     assignment_id = str(uuid.uuid4())
-    prompt_path = f"{classroom_id}/{assignment_id}/prompt"
+    assignment_file_path = f"{classroom_id}/{assignment_id}/prompt"
     answer_key_path = f"{classroom_id}/{assignment_id}/answer_key"
 
     record = client.table("assignments").insert({
         "id": assignment_id,
         "classroom_id": classroom_id,
         "title": title,
-        "prompt_storage_path": prompt_path,
+        "assignment_file_storage_path": assignment_file_path,
         "answer_key_storage_path": answer_key_path,
         "context_file_ids": context_file_ids,
         "due_date": data.get("due_date"),
     }).execute()
 
     try:
-        prompt_upload_url = generate_upload_url(ASSIGNMENTS_BUCKET, prompt_path)
+        assignment_file_upload_url = generate_upload_url(ASSIGNMENTS_BUCKET, assignment_file_path)
         answer_key_upload_url = generate_upload_url(ASSIGNMENTS_BUCKET, answer_key_path)
     except Exception:
         try:
@@ -89,7 +89,7 @@ def create_assignment(classroom_id: str) -> Tuple[Response, int]:
 
     return jsonify({
         **record.data[0],
-        "prompt_upload_url": prompt_upload_url,
+        "assignment_file_upload_url": assignment_file_upload_url,
         "answer_key_upload_url": answer_key_upload_url,
     }), 201
 
@@ -137,9 +137,9 @@ def get_assignment(assignment_id: str) -> Tuple[Response, int]:
     result = {k: v for k, v in record.items() if k != "classrooms"}
 
     try:
-        if record.get("prompt_storage_path"):
-            result["prompt_download_url"] = generate_download_url(
-                ASSIGNMENTS_BUCKET, record["prompt_storage_path"]
+        if record.get("assignment_file_storage_path"):
+            result["assignment_file_download_url"] = generate_download_url(
+                ASSIGNMENTS_BUCKET, record["assignment_file_storage_path"]
             )
         if is_teacher and record.get("answer_key_storage_path"):
             result["answer_key_download_url"] = generate_download_url(

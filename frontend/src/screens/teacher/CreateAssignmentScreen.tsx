@@ -9,12 +9,12 @@ export function CreateAssignmentScreen({ route, navigation }: { route: any; navi
   const { classroomId } = route.params;
   const [title, setTitle] = useState("");
   const [dueDate, setDueDate] = useState("");
-  const [urls, setUrls] = useState<{ prompt: string; answer_key: string } | null>(null);
-  const [promptUploaded, setPromptUploaded] = useState(false);
+  const [urls, setUrls] = useState<{ assignment_file: string; answer_key: string } | null>(null);
+  const [assignmentFileUploaded, setAssignmentFileUploaded] = useState(false);
   const [answerKeyUploaded, setAnswerKeyUploaded] = useState(false);
   const [creating, setCreating] = useState(false);
 
-  const allDone = promptUploaded && answerKeyUploaded;
+  const allDone = assignmentFileUploaded && answerKeyUploaded;
 
   useEffect(() => {
     if (allDone) {
@@ -47,7 +47,7 @@ export function CreateAssignmentScreen({ route, navigation }: { route: any; navi
     setCreating(true);
     try {
       const result = await api<{
-        prompt_upload_url: string;
+        assignment_file_upload_url: string;
         answer_key_upload_url: string;
       }>(`/classrooms/${classroomId}/assignments`, {
         method: "POST",
@@ -56,7 +56,7 @@ export function CreateAssignmentScreen({ route, navigation }: { route: any; navi
           due_date: dueDateValue,
         },
       });
-      setUrls({ prompt: result.prompt_upload_url, answer_key: result.answer_key_upload_url });
+      setUrls({ assignment_file: result.assignment_file_upload_url, answer_key: result.answer_key_upload_url });
     } catch (e: any) {
       Alert.alert("Error", e.message);
     } finally {
@@ -85,11 +85,11 @@ export function CreateAssignmentScreen({ route, navigation }: { route: any; navi
         </TouchableOpacity>
       ) : (
         <View>
-          <Text style={styles.sectionTitle}>Upload Prompt</Text>
+          <Text style={styles.sectionTitle}>Upload Assignment File</Text>
           <FileUploader
-            uploadUrl={urls.prompt}
-            label="Select Prompt File"
-            onUploadComplete={() => setPromptUploaded(true)}
+            uploadUrl={urls.assignment_file}
+            label="Select Assignment File"
+            onUploadComplete={() => setAssignmentFileUploaded(true)}
           />
           <Text style={styles.sectionTitle}>Upload Answer Key</Text>
           <FileUploader

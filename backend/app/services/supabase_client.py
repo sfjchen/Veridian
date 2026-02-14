@@ -1,10 +1,5 @@
-import threading
-
 from supabase import create_client, Client
 from flask import current_app, g
-
-_admin_client: Client | None = None
-_admin_lock = threading.Lock()
 
 
 def get_supabase_client() -> Client:
@@ -21,16 +16,14 @@ def get_supabase_client() -> Client:
 
 
 def get_supabase_admin_client() -> Client:
-    """Admin client using service role key. Bypasses RLS -- use sparingly.
+    """Per-request admin client using service role key. Bypasses RLS.
 
-    Thread-safe singleton since the admin client has no per-request state.
+    Created fresh per request to avoid HTTP/2 connection resets from the
+    Supabase server terminating idle pooled connections.
     """
-    global _admin_client
-    if _admin_client is None:
-        with _admin_lock:
-            if _admin_client is None:
-                _admin_client = create_client(
-                    current_app.config["SUPABASE_URL"],
-                    current_app.config["SUPABASE_SERVICE_ROLE_KEY"],
-                )
-    return _admin_client
+    if not hasattr(g, "_supabase_admin_client"):
+        g._supabase_admin_client = create_client(
+            current_app.config["SUPABASE_URL"],
+            current_app.config["SUPABASE_SERVICE_ROLE_KEY"],
+        )
+    return g._supabase_admin_client

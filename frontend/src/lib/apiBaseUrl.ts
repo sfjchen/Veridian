@@ -1,7 +1,7 @@
 import Constants from "expo-constants";
 import { Platform } from "react-native";
 
-const API_PORT = "5000";
+const API_PORT = "5001";
 
 interface ExpoDebugHostConfig {
   expoConfig?: {

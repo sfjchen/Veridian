@@ -25,6 +25,19 @@ from pathlib import Path
 
 from openai import OpenAI
 
+try:
+    from anthropic_guard import (
+        build_adaptive_thinking,
+        validate_anthropic_thinking_support,
+    )
+except ModuleNotFoundError:
+    import sys
+
+    sys.path.insert(0, str(Path(__file__).resolve().parent.parent))
+    from anthropic_guard import (
+        build_adaptive_thinking,
+        validate_anthropic_thinking_support,
+    )
 from .constants import TAG_BANK, SEVERITIES, TAG_TO_SEVERITY, ALL_TAGS
 from .prompts import ANALYSIS_SYSTEM_PROMPT, GRADER_SYSTEM_PROMPT, CONTINUATION_SYSTEM_PROMPT
 from .helpers import escape_latex_text, extract_json_from_llm_response, extract_text, find_snippet, in_math_mode as _in_math_mode
@@ -47,12 +60,13 @@ class MistakeAnalyzer:
         use_extended_thinking: bool = True,
         max_tokens: int | None = None,
     ):
-        self.client = anthropic.Anthropic()  # uses ANTHROPIC_API_KEY env var
         self.mistakes_path = Path(mistakes_json_path)
         self.analysis_model = analysis_model
         self.grader_model = grader_model
         self.continuation_model = continuation_model
         self.use_extended_thinking = use_extended_thinking
+        self.client: anthropic.Anthropic | None
+        self._openai_client: OpenAI | None
         try:
             _cap = int(os.getenv("MISTAKE_ANALYSIS_MAX_TOKENS", "8192").strip())
         except ValueError:
@@ -62,9 +76,12 @@ class MistakeAnalyzer:
         backend = (os.getenv("MISTAKE_ANALYSIS_BACKEND", "anthropic") or "anthropic").strip().lower()
         self._backend = "openai" if backend == "openai" else "anthropic"
         if self._backend == "openai":
+            self.client = None
             self._openai_client = OpenAI()
             self._openai_model = (os.getenv("MISTAKE_ANALYSIS_OPENAI_MODEL", "gpt-4o") or "gpt-4o").strip()
         else:
+            self.client = anthropic.Anthropic()  # uses ANTHROPIC_API_KEY env var
+            validate_anthropic_thinking_support(self.client)
             self._openai_client = None
             self._openai_model = ""
 
@@ -83,6 +100,8 @@ class MistakeAnalyzer:
 
     def _call_api(self, context: str, **kwargs):
         """Wrapper around client.messages.create with error handling."""
+        if self.client is None:
+            raise ValueError("Anthropic backend is disabled.")
         try:
             return self.client.messages.create(**kwargs)
         except anthropic.APIError as exc:
@@ -109,9 +128,11 @@ class MistakeAnalyzer:
             }
             if use_thinking:
                 kwargs["temperature"] = 1
-                kwargs["thinking"] = {"type": "adaptive"}
+                kwargs["thinking"] = build_adaptive_thinking()
             response = self._call_api(context, **kwargs)
             return extract_text(response)
+        if self._openai_client is None:
+            raise ValueError("OpenAI backend is not configured.")
         try:
             response = self._openai_client.chat.completions.create(
                 model=self._openai_model,

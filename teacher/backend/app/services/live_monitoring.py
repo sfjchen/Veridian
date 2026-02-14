@@ -33,7 +33,10 @@ def parse_iso8601_timestamp(value: str | None) -> datetime | None:
     normalized = value.strip()
     if not normalized:
         return None
-    parsed = datetime.fromisoformat(normalized.replace("Z", "+00:00"))
+    try:
+        parsed = datetime.fromisoformat(normalized.replace("Z", "+00:00"))
+    except ValueError as exc:
+        raise ValueError("Invalid ISO-8601 timestamp") from exc
     if parsed.tzinfo is None:
         parsed = parsed.replace(tzinfo=timezone.utc)
     return parsed.astimezone(timezone.utc)
@@ -75,8 +78,8 @@ def generate_error_fingerprint(
         normalize_text(topic),
         normalize_text(category),
     ])
-    digest = hashlib.sha1(fingerprint_source.encode("utf-8")).hexdigest()
-    return digest[:16]
+    digest = hashlib.sha256(fingerprint_source.encode("utf-8")).hexdigest()
+    return digest[:32]
 
 
 def parse_record_timestamp(record: dict[str, Any], key: str) -> datetime | None:
@@ -164,6 +167,18 @@ def list_display_names_by_student_id(
         for row in profiles.data
         if row.get("id")
     }
+
+
+def enrich_with_display_names(
+    records: list[dict[str, Any]], client: Client, field: str = "student_id",
+) -> None:
+    student_ids = sorted({row[field] for row in records if row.get(field)})
+    if not student_ids:
+        return
+    display_names = list_display_names_by_student_id(client, student_ids)
+    for row in records:
+        sid = row.get(field)
+        row["student_display_name"] = display_names.get(sid, "") if sid else ""
 
 
 def insert_error_log(
@@ -266,3 +281,15 @@ def latest_progress_by_student(progress_events: list[dict[str, Any]]) -> dict[st
             continue
         latest[student_id] = row
     return latest
+
+
+def fetch_latest_progress_per_student(
+    client: Client, assignment_id: str, since: datetime | None = None,
+) -> dict[str, dict[str, Any]]:
+    query = client.table(ASSIGNMENT_PROGRESS_TABLE).select("*").eq(
+        "assignment_id", assignment_id,
+    )
+    if since is not None:
+        query = query.gte("last_active_at", _isoformat_utc(since))
+    result = query.order("last_active_at", desc=True).limit(10000).execute()
+    return latest_progress_by_student([dict(r) for r in result.data])

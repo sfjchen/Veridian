@@ -63,7 +63,7 @@ def _parse_completion_percentage(value: Any) -> float:
         completion_percentage = float(value)
     except (TypeError, ValueError) as exc:
         raise ValidationError("completion_percentage must be a number between 0 and 100") from exc
-    if completion_percentage < 0 or completion_percentage > 100:
+    if not (0 <= completion_percentage <= 100):
         raise ValidationError("completion_percentage must be a number between 0 and 100")
     return round(completion_percentage, 2)
 

@@ -14,7 +14,9 @@ from app.services.insight_engine import (
     categorize_error,
 )
 from app.services.live_monitoring import (
+    enrich_with_display_names,
     fetch_assignment_context,
+    fetch_latest_progress_per_student,
     generate_error_fingerprint,
     insert_error_log,
     insert_progress_event,
@@ -113,18 +115,18 @@ def get_assignment_error_logs(assignment_id: str) -> Tuple[Response, int]:
         return _json_error("Access denied", 403)
 
     target_student_id = request.args.get("student_id")
-    if target_student_id and not validate_uuid(target_student_id):
-        return _json_error("Invalid student ID", 400)
     if g.user_role != "teacher":
         target_student_id = g.user_id
-    elif target_student_id and not user_can_access_student_assignment_data(
-        client,
-        context,
-        requester_id=g.user_id,
-        requester_role=g.user_role,
-        student_id=target_student_id,
-    ):
-        return _json_error("Student not found in classroom", 404)
+    elif target_student_id:
+        if not validate_uuid(target_student_id):
+            return _json_error("Invalid student ID", 400)
+        if not user_can_access_student_assignment_data(
+            client, context,
+            requester_id=g.user_id,
+            requester_role=g.user_role,
+            student_id=target_student_id,
+        ):
+            return _json_error("Student not found in classroom", 404)
 
     try:
         limit = _parse_limit_query(default_value=100, max_value=1000)
@@ -145,11 +147,7 @@ def get_assignment_error_logs(assignment_id: str) -> Tuple[Response, int]:
         return _json_error("Failed to fetch error logs", 500)
 
     if g.user_role == "teacher":
-        student_ids = sorted({row["student_id"] for row in logs if row.get("student_id")})
-        display_names = list_display_names_by_student_id(client, student_ids)
-        for row in logs:
-            student_id = row.get("student_id")
-            row["student_display_name"] = display_names.get(student_id, "")
+        enrich_with_display_names(logs, client)
 
     return jsonify({
         "assignment_id": assignment_id,
@@ -213,18 +211,18 @@ def get_assignment_progress(assignment_id: str) -> Tuple[Response, int]:
         return _json_error("Access denied", 403)
 
     target_student_id = request.args.get("student_id")
-    if target_student_id and not validate_uuid(target_student_id):
-        return _json_error("Invalid student ID", 400)
     if g.user_role != "teacher":
         target_student_id = g.user_id
-    elif target_student_id and not user_can_access_student_assignment_data(
-        client,
-        context,
-        requester_id=g.user_id,
-        requester_role=g.user_role,
-        student_id=target_student_id,
-    ):
-        return _json_error("Student not found in classroom", 404)
+    elif target_student_id:
+        if not validate_uuid(target_student_id):
+            return _json_error("Invalid student ID", 400)
+        if not user_can_access_student_assignment_data(
+            client, context,
+            requester_id=g.user_id,
+            requester_role=g.user_role,
+            student_id=target_student_id,
+        ):
+            return _json_error("Student not found in classroom", 404)
 
     include_events = request.args.get("include_events", "false").lower() == "true"
     try:
@@ -234,38 +232,41 @@ def get_assignment_progress(assignment_id: str) -> Tuple[Response, int]:
         return _json_error(str(exc), 400)
 
     try:
-        progress_events = list_progress_events(
-            client=client,
-            assignment_id=assignment_id,
-            limit=limit,
-            student_id=target_student_id,
-            since=since,
+        latest_progress_map = fetch_latest_progress_per_student(
+            client, assignment_id, since,
         )
     except APIError as exc:
         print(f"Failed to query assignment progress: {exc}", file=sys.stderr)
         return _json_error("Failed to fetch progress events", 500)
 
-    latest_by_student = latest_progress_by_student(progress_events)
     latest_records: list[dict[str, Any]]
     if target_student_id is None:
-        latest_records = list(latest_by_student.values())
-    elif target_student_id in latest_by_student:
-        latest_records = [latest_by_student[target_student_id]]
+        latest_records = list(latest_progress_map.values())
+    elif target_student_id in latest_progress_map:
+        latest_records = [latest_progress_map[target_student_id]]
     else:
         latest_records = []
 
     if g.user_role == "teacher":
-        student_ids = sorted({row["student_id"] for row in latest_records if row.get("student_id")})
-        display_names = list_display_names_by_student_id(client, student_ids)
-        for row in latest_records:
-            row["student_display_name"] = display_names.get(row.get("student_id"), "")
+        enrich_with_display_names(latest_records, client)
 
-    response = {
+    response: dict[str, Any] = {
         "assignment_id": assignment_id,
         "latest_count": len(latest_records),
         "latest_progress": latest_records,
     }
     if include_events:
+        try:
+            progress_events = list_progress_events(
+                client=client,
+                assignment_id=assignment_id,
+                limit=limit,
+                student_id=target_student_id,
+                since=since,
+            )
+        except APIError as exc:
+            print(f"Failed to query progress events: {exc}", file=sys.stderr)
+            return _json_error("Failed to fetch progress events", 500)
         response["events"] = progress_events
         response["event_count"] = len(progress_events)
     return jsonify(response), 200
@@ -288,7 +289,6 @@ def get_assignment_teacher_insights(assignment_id: str) -> Tuple[Response, int]:
         settings = InsightSettings.from_query_args(request.args)
         since = _parse_since_query()
         error_limit = parse_positive_int(request.args.get("error_limit"), 3000, 20000)
-        progress_limit = parse_positive_int(request.args.get("progress_limit"), 3000, 20000)
     except ValueError as exc:
         return _json_error(str(exc), 400)
 
@@ -302,12 +302,8 @@ def get_assignment_teacher_insights(assignment_id: str) -> Tuple[Response, int]:
             student_id=None,
             since=since,
         )
-        progress_events = list_progress_events(
-            client=client,
-            assignment_id=assignment_id,
-            limit=progress_limit,
-            student_id=None,
-            since=since,
+        latest_progress_map = fetch_latest_progress_per_student(
+            client, assignment_id, since,
         )
     except APIError as exc:
         print(f"Failed to query assignment insights data: {exc}", file=sys.stderr)
@@ -318,7 +314,7 @@ def get_assignment_teacher_insights(assignment_id: str) -> Tuple[Response, int]:
         student_ids=student_ids,
         student_display_names=display_names,
         error_logs=error_logs,
-        latest_progress_by_student_id=latest_progress_by_student(progress_events),
+        latest_progress_by_student_id=latest_progress_map,
         settings=settings,
     )
     return jsonify(insights), 200

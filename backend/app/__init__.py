@@ -5,7 +5,7 @@ from .config import Config
 
 def create_app() -> Flask:
     app = Flask(__name__)
-    CORS(app)
+    CORS(app, origins="*", supports_credentials=True)
     config = Config.from_env()
     app.config.from_mapping(
         SECRET_KEY=config.flask_secret_key,

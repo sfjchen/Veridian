@@ -1,4 +1,5 @@
 import functools
+import sys
 from typing import Any, Callable, Tuple
 
 import jwt
@@ -21,6 +22,37 @@ def _get_jwks_client() -> PyJWKClient:
     return _jwks_client
 
 
+def _decode_token(token: str) -> dict[str, Any]:
+    """Decode a Supabase JWT.
+
+    Tries HS256 with the configured JWT secret first (standard for most
+    Supabase projects), then falls back to JWKS (RS256/ES256) for newer
+    projects that use asymmetric signing.
+    """
+    jwt_secret = current_app.config.get("SUPABASE_JWT_SECRET")
+
+    if jwt_secret:
+        try:
+            return jwt.decode(
+                token,
+                jwt_secret,
+                algorithms=["HS256"],
+                audience="authenticated",
+            )
+        except jwt.ExpiredSignatureError:
+            raise
+        except jwt.InvalidTokenError:
+            pass  # Fall through to JWKS
+
+    signing_key = _get_jwks_client().get_signing_key_from_jwt(token)
+    return jwt.decode(
+        token,
+        signing_key.key,
+        algorithms=["RS256", "ES256"],
+        audience="authenticated",
+    )
+
+
 def _role_from_payload(payload: dict[str, Any]) -> str | None:
     user_metadata = payload.get("user_metadata", {})
     app_metadata = payload.get("app_metadata", {})
@@ -37,10 +69,12 @@ def _role_from_profile(user_id: str) -> str | None:
     try:
         client = get_supabase_admin_client()
         profile = client.table("profiles").select("role").eq("id", user_id).execute()
-    except Exception:
+    except Exception as exc:
+        print(f"_role_from_profile query failed for {user_id}: {exc}", file=sys.stderr)
         return None
 
     if not profile.data:
+        print(f"_role_from_profile: no profile row for {user_id}", file=sys.stderr)
         return None
 
     record = profile.data[0] if isinstance(profile.data, list) else profile.data
@@ -64,18 +98,14 @@ def require_auth(f: Callable) -> Callable:
 
         token = parts[1]
         try:
-            signing_key = _get_jwks_client().get_signing_key_from_jwt(token)
-            payload = jwt.decode(
-                token,
-                signing_key.key,
-                algorithms=["ES256"],
-                audience="authenticated",
-            )
+            payload = _decode_token(token)
         except jwt.ExpiredSignatureError:
             return jsonify({"error": "Token expired"}), 401
-        except jwt.InvalidTokenError:
+        except jwt.InvalidTokenError as exc:
+            print(f"JWT invalid after all decode attempts: {exc}", file=sys.stderr)
             return jsonify({"error": "Invalid token"}), 401
-        except Exception:
+        except Exception as exc:
+            print(f"JWT decode error: {exc}", file=sys.stderr)
             return jsonify({"error": "Authentication service unavailable"}), 503
 
         user_id = payload.get("sub")
@@ -84,7 +114,16 @@ def require_auth(f: Callable) -> Callable:
 
         g.user_id = user_id
         g.user_token = token
-        g.user_role = _role_from_payload(payload) or _role_from_profile(user_id) or ROLE_STUDENT
+
+        role = _role_from_payload(payload)
+        if not role:
+            role = _role_from_profile(user_id)
+        if not role:
+            print(
+                f"Could not resolve role for {user_id}, defaulting to {ROLE_STUDENT}",
+                file=sys.stderr,
+            )
+        g.user_role = role or ROLE_STUDENT
         return f(*args, **kwargs)
 
     return decorated

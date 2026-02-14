@@ -55,7 +55,7 @@ except ModuleNotFoundError:
 # Load shared env first so local .env can override
 _env_path = Path(__file__).resolve().parent.parent.parent / "environment" / ".env"
 load_dotenv(_env_path)
-load_dotenv()
+load_dotenv(override=True)
 
 ANTHROPIC_API_KEY = os.getenv("ANTHROPIC_API_KEY")
 CLAUDE_MODEL = os.getenv("CLAUDE_MODEL")

@@ -1,51 +1,62 @@
 # Math Mistake Analysis Platform
 
-EdTech platform for teachers to create math assignments and for students to submit solutions with AI-powered mistake analysis. Built with Flask + Expo React Native + Supabase.
+Monorepo for the full EdTech platform: teacher side (classrooms, assignments, corpus, submissions) and student side (canvas, AI mistake analysis, Socratic chat). Shared Supabase.
 
 ## Repo Structure
 
-| Directory | Purpose |
-|-----------|---------|
-| `backend/` | Teacher Flask API — classrooms, assignments, corpus, submissions |
-| `frontend/` | Teacher React app — dashboard, assignment creation, submission review |
-| `student-platform/` | Student Flask API + Expo app — canvas, mistake analysis, Socratic chat |
-| `supabase/` | Shared database migrations |
+| Path | Purpose |
+|------|---------|
+| `backend/` | Teacher backend (Flask) — classrooms, assignments, corpus |
+| `frontend/` | Teacher frontend (Expo React) — dashboard, assignment creation |
+| `student-platform/` | Student side — backend (`get_coords.py`) + frontend (`frontend/`) |
+| `supabase/` | Shared DB migrations |
+| `scripts/` | Migration script, etc. |
+| `plans/` | Feature plans |
+
+**Layout:** Teacher backend + frontend at root; student backend + frontend under `student-platform/`. Both use the same Supabase project.
 
 ## Prerequisites
 
-- Python 3.11+
-- Node.js 18+
-- [Expo CLI](https://docs.expo.dev/get-started/installation/) (`npm install -g expo-cli`)
-- [Supabase](https://supabase.com) project
+Python 3.11+, Node 18+, Expo CLI. One Supabase project (migrations run once — see `MIGRATION_GUIDE.md`).
 
-## Quick Start
+## One-Time Setup
 
-### Teacher Side
+1. Copy env: `backend/.env.example` → `backend/.env`, `frontend/.env.example` → `frontend/.env`, `student-platform/.env.example` → `student-platform/.env`
+2. Install deps: `pip install -r requirements.txt` in `backend/` and `student-platform/`; `npm install` in `frontend/` and `student-platform/frontend/`
 
-1. Copy `backend/.env.example` to `backend/.env` and `frontend/.env.example` to `frontend/.env`
-2. Run migrations: `./scripts/apply_migrations.sh` (set `SUPABASE_DB_URL`) or apply in order (see `MIGRATION_GUIDE.md`)
-3. Backend: `cd backend && pip install -r requirements.txt && python3 run.py`
-4. Frontend: `cd frontend && npm install && npx expo start`
+(Migrations: run once per project via `./scripts/apply_migrations.sh` if needed.)
 
-### Student Side
+## Full Flows (Repeat Testing)
 
-1. Copy `student-platform/.env.example` to `student-platform/.env`
-2. Run migrations (see `MIGRATION_GUIDE.md` for full order; teacher migrations first)
-3. Backend: `cd student-platform && pip install -r requirements.txt && python3 get_coords.py`
-4. Frontend: `cd student-platform/frontend && npm install && npx expo start`
+**Teacher flow:** Create classroom → upload corpus → create assignment → view submissions
 
-See `student-platform/README.md` for detailed student-platform setup.
+```bash
+# Terminal 1: Teacher backend (port 5001)
+cd backend && python3 run.py
 
-## Architecture
+# Terminal 2: Teacher frontend
+cd frontend && npx expo start
+```
 
-**Teacher flow:** Create classrooms → upload corpus → create assignments → view submissions
+**Student flow:** Sample worksheet → canvas → Done → AI analysis → Socratic chat
 
-**Student flow:** Join classroom → open assignment → work on canvas → tap Done → AI analyzes mistakes → Socratic chat per problem
+```bash
+# Terminal 1: Student backend (port 8000)
+cd student-platform && python3 get_coords.py
 
-**Shared:** One Supabase project for auth, assignments, problem_results, chat_messages, and all tables. Teacher and student apps use the same database. Student platform uses `get_coords.py` for OCR + mistake analysis + coordinate detection.
+# Terminal 2: Student frontend
+cd student-platform/frontend && npx expo start
+```
+
+**Both sides:** Run all four above. Backend required for full flows; frontend alone works for auth/login UI only.
+
+## Quick Checks
+
+| Test | Command |
+|------|---------|
+| Teacher backend | `cd backend && python3 run.py` — hit `/classrooms` with JWT |
+| Student backend | `cd student-platform && python3 get_coords.py` — `curl http://localhost:8000/health` |
 
 ## Development
 
-See `AGENTS.md` and `CLAUDE.md` for conventions, workflow, and code review process.
-
-**Running docs**: `AGENTS.md`, `CLAUDE.md`, `README.md`, `PLAN.md`, `MIGRATION_GUIDE.md`. Update them in the same PR when features, architecture, or conventions change.
+See `AGENTS.md`, `CLAUDE.md` for workflow and conventions. Running docs: `AGENTS.md`, `CLAUDE.md`, `README.md`, `PLAN.md`, `MIGRATION_GUIDE.md`.

@@ -42,3 +42,6 @@ web-build/
 # OS
 .DS_Store
 Thumbs.db
+
+# Student platform local output
+student-platform/mistakes.json

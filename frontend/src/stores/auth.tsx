@@ -68,8 +68,13 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       data: { subscription },
     } = supabase.auth.onAuthStateChange(async (_event, session) => {
       setSession(session);
-      const resolved = await resolveRole(session?.user ?? null);
-      setRole(resolved);
+      try {
+        const resolved = await resolveRole(session?.user ?? null);
+        setRole(resolved);
+      } catch (err) {
+        console.error("Failed to resolve role on auth state change:", err);
+        setRole(null);
+      }
     });
 
     return () => subscription.unsubscribe();

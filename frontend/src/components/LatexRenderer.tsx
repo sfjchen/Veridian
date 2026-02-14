@@ -22,7 +22,15 @@ export function LatexRenderer({ latex, style }: Props) {
       </style>
     </head>
     <body>
-      <div id="content">${latex.replace(/<script[\s\S]*?<\/script>/gi, "")}</div>
+      <div id="content">${latex
+        .replace(/<script[\s\S]*?<\/script>/gi, "")
+        .replace(/<iframe[\s\S]*?(<\/iframe>|\/>)/gi, "")
+        .replace(/<object[\s\S]*?(<\/object>|\/>)/gi, "")
+        .replace(/<embed[\s\S]*?\/>/gi, "")
+        .replace(/on\w+\s*=\s*["'][^"']*["']/gi, "")
+        .replace(/on\w+\s*=\s*[^\s>]+/gi, "")
+        .replace(/javascript\s*:/gi, "removed:")
+      }</div>
       <script>
         renderMathInElement(document.getElementById("content"), {
           delimiters: [

@@ -39,6 +39,10 @@ def create_classroom() -> Response | Tuple[Response, int]:
             if e.code == POSTGRES_UNIQUE_VIOLATION:
                 return jsonify({"error": "Failed to generate unique class code"}), 500
             return jsonify({"error": str(e)}), 400
+        except Exception as e:
+            return jsonify({"error": f"Unexpected error: {e}"}), 500
+
+    return jsonify({"error": "Failed to create classroom"}), 500
 
 
 @classrooms_bp.route("", methods=["GET"])

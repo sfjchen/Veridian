@@ -39,17 +39,15 @@ export function SignupScreen({ navigation }: SignupScreenProps) {
     }
     setLoading(true);
     try {
-      const { data, error } = await signUp(email.trim(), password, role, displayName.trim());
-      if (error) throw error;
-      if (!data.session) {
-        // Email verification required
-        Alert.alert("Account Created", "Please check your email to verify your account, then sign in.");
-        navigation.navigate("Login");
-        setLoading(false);
-      }
-      // If data.session exists, auto-confirm happened — component will unmount via auth state change
+      await signUp(email.trim(), password, role, displayName.trim());
+      // If we reach here, auto-confirm happened — auth state change will unmount this screen
     } catch (e: any) {
-      Alert.alert("Signup Failed", e.message);
+      if (e.message?.includes("check your email")) {
+        Alert.alert("Account Created", e.message);
+        navigation.navigate("Login");
+      } else {
+        Alert.alert("Signup Failed", e.message);
+      }
       setLoading(false);
     }
   };

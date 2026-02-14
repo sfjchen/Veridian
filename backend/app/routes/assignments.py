@@ -91,6 +91,9 @@ def create_assignment(classroom_id: str) -> Tuple[Response, int]:
             pass
         return jsonify({"error": "Failed to generate upload URLs"}), 500
 
+    if not record.data:
+        return jsonify({"error": "Insert returned no data"}), 500
+
     return jsonify({
         **record.data[0],
         "assignment_file_upload_url": assignment_file_upload_url,
@@ -188,9 +191,16 @@ def update_assignment(assignment_id: str) -> Tuple[Response, int]:
     if not updates:
         return jsonify({"error": "No valid fields to update"}), 400
 
-    updated = client.table("assignments").update(updates).eq(
-        "id", assignment_id
-    ).execute()
+    try:
+        updated = client.table("assignments").update(updates).eq(
+            "id", assignment_id
+        ).execute()
+    except APIError as e:
+        print(f"Failed to update assignment: {e}", file=sys.stderr)
+        return jsonify({"error": "Failed to update assignment"}), 500
+
+    if not updated.data:
+        return jsonify({"error": "Update returned no data"}), 500
 
     return jsonify(updated.data[0]), 200
 
@@ -226,6 +236,34 @@ def reupload_assignment_files(assignment_id: str) -> Tuple[Response, int]:
         return jsonify({"error": "Failed to generate upload URLs"}), 500
 
     return jsonify(result), 200
+
+
+@assignments_bp.route("/assignments/<assignment_id>/submissions", methods=["GET"])
+@require_auth
+def list_submissions(assignment_id: str) -> Tuple[Response, int]:
+    client = get_supabase_client()
+
+    assignment = client.table("assignments").select(
+        "id, classroom_id, classrooms(teacher_id)"
+    ).eq("id", assignment_id).execute()
+    if not assignment.data:
+        return jsonify({"error": "Assignment not found"}), 404
+
+    record = assignment.data[0]
+    classroom_id = record["classroom_id"]
+    classrooms_join = record.get("classrooms")
+    is_teacher = classrooms_join and g.user_id == classrooms_join.get("teacher_id")
+
+    if is_teacher:
+        submissions = client.table("submissions").select("*").eq(
+            "assignment_id", assignment_id
+        ).order("submitted_at", desc=True).execute()
+    else:
+        submissions = client.table("submissions").select("*").eq(
+            "assignment_id", assignment_id
+        ).eq("student_id", g.user_id).execute()
+
+    return jsonify(submissions.data), 200
 
 
 @assignments_bp.route("/assignments/<assignment_id>/submissions", methods=["POST"])

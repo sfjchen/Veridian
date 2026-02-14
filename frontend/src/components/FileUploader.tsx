@@ -1,0 +1,69 @@
+import React, { useState } from "react";
+import { View, Text, TouchableOpacity, StyleSheet, Alert, ActivityIndicator } from "react-native";
+import * as DocumentPicker from "expo-document-picker";
+import * as FileSystem from "expo-file-system";
+
+interface Props {
+  onUploadComplete: (uri: string) => void;
+  uploadUrl: string;
+  label?: string;
+  accept?: string[];
+}
+
+export function FileUploader({ onUploadComplete, uploadUrl, label = "Upload File", accept }: Props) {
+  const [uploading, setUploading] = useState(false);
+  const [fileName, setFileName] = useState<string | null>(null);
+
+  const handlePick = async () => {
+    try {
+      const result = await DocumentPicker.getDocumentAsync({
+        type: accept ?? ["*/*"],
+        copyToCacheDirectory: true,
+      });
+
+      if (result.canceled) return;
+
+      const file = result.assets[0];
+      setFileName(file.name);
+      setUploading(true);
+
+      const response = await FileSystem.uploadAsync(uploadUrl, file.uri, {
+        httpMethod: "PUT",
+        headers: { "Content-Type": file.mimeType ?? "application/octet-stream" },
+      });
+
+      if (response.status >= 200 && response.status < 300) {
+        onUploadComplete(file.uri);
+      } else {
+        Alert.alert("Upload Failed", `Server returned ${response.status}`);
+      }
+    } catch (e: any) {
+      Alert.alert("Upload Error", e.message);
+    } finally {
+      setUploading(false);
+    }
+  };
+
+  return (
+    <View style={styles.container}>
+      <TouchableOpacity style={styles.button} onPress={handlePick} disabled={uploading}>
+        {uploading ? (
+          <ActivityIndicator color="#fff" />
+        ) : (
+          <Text style={styles.buttonText}>{label}</Text>
+        )}
+      </TouchableOpacity>
+      {fileName && <Text style={styles.fileName}>{fileName}</Text>}
+    </View>
+  );
+}
+
+const styles = StyleSheet.create({
+  container: { marginVertical: 8 },
+  button: {
+    backgroundColor: "#4F46E5", borderRadius: 8, padding: 14,
+    alignItems: "center",
+  },
+  buttonText: { color: "#fff", fontSize: 16, fontWeight: "600" },
+  fileName: { marginTop: 8, fontSize: 14, color: "#666", textAlign: "center" },
+});

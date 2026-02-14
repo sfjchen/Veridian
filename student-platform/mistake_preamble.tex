@@ -1,0 +1,37 @@
+% === Mistake Annotation Preamble ===
+% Include this in annotated student solutions via \input{mistake_preamble}
+
+\usepackage{xcolor}
+\usepackage{tcolorbox}
+\usepackage{marginnote}
+\usepackage{xparse}
+
+% Severity color definitions
+\definecolor{conceptual}{RGB}{204, 0, 0}       % red — fundamental misunderstanding
+\definecolor{procedural}{RGB}{204, 102, 0}      % orange — wrong method/application
+\definecolor{mechanical}{RGB}{204, 180, 0}      % yellow-ish — arithmetic/algebra slip
+\definecolor{notational}{RGB}{100, 100, 180}    % muted blue — writing/notation issue
+
+% \mistake{content}{explanation}{tag}{severity}
+%
+% content:      the erroneous LaTeX expression or text
+% explanation:  one-sentence description of the mistake
+% tag:          tag from the tag bank (e.g., sign-error, wrong-theorem)
+% severity:     one of: conceptual, procedural, mechanical, notational
+%
+% Renders as: colored underline with a margin note.
+% Safe inside math environments when content is math.
+
+\NewDocumentCommand{\mistake}{m m m m}{%
+    \begingroup
+    \color{#4}%
+    \underbrace{#1}_{\text{\tiny #3}}%
+    \endgroup
+    \marginnote{\textcolor{#4}{\scriptsize \textbf{[#4]} #2}}%
+}
+
+% Inline variant for use outside math mode
+\NewDocumentCommand{\mistaketext}{m m m m}{%
+    \textcolor{#4}{\underline{#1}}%
+    \marginnote{\textcolor{#4}{\scriptsize \textbf{[#4]} #2}}%
+}

@@ -60,6 +60,24 @@ def _build_storage_path(classroom_id: str, file_id: str, file_type: str, folder_
     return f"{classroom_id}/{filename}"
 
 
+def _rollback_storage_move(
+    file_id: str, new_path: str, old_path: str,
+) -> tuple[Response, int] | None:
+    try:
+        move_object(CORPUS_BUCKET, new_path, old_path)
+        return None
+    except ValueError as rollback_error:
+        print(
+            f"CRITICAL: Failed to rollback storage move {new_path} -> {old_path}: "
+            f"{rollback_error}",
+            file=sys.stderr,
+        )
+        return jsonify({
+            "error": "Storage rollback failed; manual intervention required",
+            "file_id": file_id,
+        }), 500
+
+
 def _teacher_owns_classroom(client: Client, classroom_id: str, teacher_id: str) -> bool:
     result = client.table("classrooms").select("id").eq(
         "id", classroom_id
@@ -328,22 +346,17 @@ def update_corpus_file(file_id: str) -> tuple[Response, int]:
         updated = client.table("corpus_files").update(updates).eq("id", file_id).execute()
     except APIError as e:
         if updates.get("storage_path") and old_storage_path != new_storage_path:
-            try:
-                move_object(CORPUS_BUCKET, new_storage_path, old_storage_path)
-            except ValueError as rollback_error:
-                print(
-                    f"CRITICAL: Failed to rollback storage move {new_storage_path} -> {old_storage_path}: "
-                    f"{rollback_error}",
-                    file=sys.stderr,
-                )
-                return jsonify({
-                    "error": "Failed to update corpus file; storage rollback also failed",
-                    "file_id": file_id,
-                }), 500
+            rollback_resp = _rollback_storage_move(file_id, new_storage_path, old_storage_path)
+            if rollback_resp is not None:
+                return rollback_resp
         print(f"Failed to update corpus file {file_id}: {e}", file=sys.stderr)
         return jsonify({"error": "Failed to update corpus file"}), 500
 
     if not updated.data:
+        if updates.get("storage_path") and old_storage_path != new_storage_path:
+            rollback_resp = _rollback_storage_move(file_id, new_storage_path, old_storage_path)
+            if rollback_resp is not None:
+                return rollback_resp
         return jsonify({"error": "File not found"}), 404
     return jsonify(_serialize_file(updated.data[0])), 200
 

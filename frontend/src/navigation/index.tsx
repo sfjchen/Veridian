@@ -9,6 +9,7 @@ import { TeacherDashboardScreen } from "../screens/teacher/DashboardScreen";
 import { TeacherClassroomScreen } from "../screens/teacher/ClassroomScreen";
 import { CorpusUploadScreen } from "../screens/teacher/CorpusUploadScreen";
 import { CreateAssignmentScreen } from "../screens/teacher/CreateAssignmentScreen";
+import { TeacherAssignmentScreen } from "../screens/teacher/AssignmentScreen";
 import { StudentDashboardScreen } from "../screens/student/DashboardScreen";
 import { StudentClassroomScreen } from "../screens/student/ClassroomScreen";
 import { AssignmentScreen } from "../screens/student/AssignmentScreen";
@@ -33,6 +34,7 @@ function TeacherNavigator() {
       <TeacherStack.Screen name="Classroom" component={TeacherClassroomScreen} options={{ title: "Classroom" }} />
       <TeacherStack.Screen name="CorpusUpload" component={CorpusUploadScreen} options={{ title: "Upload File" }} />
       <TeacherStack.Screen name="CreateAssignment" component={CreateAssignmentScreen} options={{ title: "New Assignment" }} />
+      <TeacherStack.Screen name="TeacherAssignment" component={TeacherAssignmentScreen} options={{ title: "Assignment" }} />
     </TeacherStack.Navigator>
   );
 }

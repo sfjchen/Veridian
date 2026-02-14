@@ -151,6 +151,79 @@ def get_assignment(assignment_id: str) -> Tuple[Response, int]:
     return jsonify(result), 200
 
 
+@assignments_bp.route("/assignments/<assignment_id>", methods=["PATCH"])
+@require_role("teacher")
+def update_assignment(assignment_id: str) -> Tuple[Response, int]:
+    data = request.get_json()
+    if not data:
+        return jsonify({"error": "No data provided"}), 400
+
+    client = get_supabase_client()
+
+    assignment = client.table("assignments").select(
+        "*, classrooms(teacher_id)"
+    ).eq("id", assignment_id).execute()
+
+    if not assignment.data:
+        return jsonify({"error": "Assignment not found"}), 404
+
+    record = assignment.data[0]
+    classrooms_join = record.get("classrooms")
+    if not classrooms_join or g.user_id != classrooms_join.get("teacher_id"):
+        return jsonify({"error": "Access denied"}), 403
+
+    updates: dict = {}
+    if "title" in data:
+        title = str(data["title"]).strip()
+        if not title or len(title) > MAX_TITLE_LENGTH:
+            return jsonify({"error": f"title must be 1-{MAX_TITLE_LENGTH} characters"}), 400
+        updates["title"] = title
+    if "due_date" in data:
+        updates["due_date"] = data["due_date"]  # null clears it
+
+    if not updates:
+        return jsonify({"error": "No valid fields to update"}), 400
+
+    updated = client.table("assignments").update(updates).eq(
+        "id", assignment_id
+    ).execute()
+
+    return jsonify(updated.data[0]), 200
+
+
+@assignments_bp.route("/assignments/<assignment_id>/reupload", methods=["POST"])
+@require_role("teacher")
+def reupload_assignment_files(assignment_id: str) -> Tuple[Response, int]:
+    client = get_supabase_client()
+
+    assignment = client.table("assignments").select(
+        "*, classrooms(teacher_id)"
+    ).eq("id", assignment_id).execute()
+
+    if not assignment.data:
+        return jsonify({"error": "Assignment not found"}), 404
+
+    record = assignment.data[0]
+    classrooms_join = record.get("classrooms")
+    if not classrooms_join or g.user_id != classrooms_join.get("teacher_id"):
+        return jsonify({"error": "Access denied"}), 403
+
+    result: dict = {}
+    try:
+        if record.get("assignment_file_storage_path"):
+            result["assignment_file_upload_url"] = generate_upload_url(
+                ASSIGNMENTS_BUCKET, record["assignment_file_storage_path"]
+            )
+        if record.get("answer_key_storage_path"):
+            result["answer_key_upload_url"] = generate_upload_url(
+                ASSIGNMENTS_BUCKET, record["answer_key_storage_path"]
+            )
+    except Exception:
+        return jsonify({"error": "Failed to generate upload URLs"}), 500
+
+    return jsonify(result), 200
+
+
 @assignments_bp.route("/assignments/<assignment_id>/submissions", methods=["POST"])
 @require_role("student")
 def create_submission(assignment_id: str) -> Tuple[Response, int]:

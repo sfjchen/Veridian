@@ -1,16 +1,31 @@
-import React, { useState } from "react";
+import React, { useState, useCallback } from "react";
 import { View, Text, FlatList, TouchableOpacity, StyleSheet, ActivityIndicator } from "react-native";
+import { useFocusEffect } from "@react-navigation/native";
+import * as Linking from "expo-linking";
 import { useCorpus } from "../../hooks/useCorpus";
 import { useAssignments } from "../../hooks/useAssignments";
-import { Classroom } from "../../types";
+import { Classroom, CorpusFile } from "../../types";
 
 type Tab = "assignments" | "corpus" | "students";
 
 export function TeacherClassroomScreen({ route, navigation }: { route: any; navigation: any }) {
   const classroom: Classroom = route.params.classroom;
   const [activeTab, setActiveTab] = useState<Tab>("assignments");
-  const { files, loading: corpusLoading, error: corpusError } = useCorpus(classroom.id);
-  const { assignments, loading: assignmentsLoading, error: assignmentsError } = useAssignments(classroom.id);
+  const { files, loading: corpusLoading, error: corpusError, refresh: refreshCorpus } = useCorpus(classroom.id);
+  const { assignments, loading: assignmentsLoading, error: assignmentsError, refresh: refreshAssignments } = useAssignments(classroom.id);
+
+  useFocusEffect(
+    useCallback(() => {
+      refreshAssignments();
+      refreshCorpus();
+    }, [refreshAssignments, refreshCorpus])
+  );
+
+  const handleOpenCorpusFile = (file: CorpusFile) => {
+    if (file.download_url) {
+      Linking.openURL(file.download_url);
+    }
+  };
 
   return (
     <View style={styles.container}>
@@ -48,16 +63,22 @@ export function TeacherClassroomScreen({ route, navigation }: { route: any; navi
               data={assignments}
               keyExtractor={(item) => item.id}
               renderItem={({ item }) => (
-                <View style={styles.listItem}>
-                  <Text style={styles.itemTitle}>{item.title}</Text>
-                  <Text style={styles.itemSub}>
-                    {item.due_date
-                      ? `Due: ${new Date(item.due_date).toLocaleDateString("en-US", {
-                          year: "numeric", month: "short", day: "numeric", timeZone: "UTC",
-                        })}`
-                      : "No due date"}
-                  </Text>
-                </View>
+                <TouchableOpacity
+                  style={styles.listItem}
+                  onPress={() => navigation.navigate("TeacherAssignment", { assignmentId: item.id })}
+                >
+                  <View style={styles.listItemContent}>
+                    <Text style={styles.itemTitle}>{item.title}</Text>
+                    <Text style={styles.itemSub}>
+                      {item.due_date
+                        ? `Due: ${new Date(item.due_date).toLocaleDateString("en-US", {
+                            year: "numeric", month: "short", day: "numeric", timeZone: "UTC",
+                          })}`
+                        : "No due date"}
+                    </Text>
+                  </View>
+                  <Text style={styles.chevron}>&gt;</Text>
+                </TouchableOpacity>
               )}
               ListEmptyComponent={<Text style={styles.empty}>No assignments yet</Text>}
             />
@@ -82,10 +103,17 @@ export function TeacherClassroomScreen({ route, navigation }: { route: any; navi
               data={files}
               keyExtractor={(item) => item.id}
               renderItem={({ item }) => (
-                <View style={styles.listItem}>
-                  <Text style={styles.itemTitle}>{item.display_name}</Text>
-                  <Text style={styles.itemSub}>{item.file_type}</Text>
-                </View>
+                <TouchableOpacity
+                  style={styles.listItem}
+                  onPress={() => handleOpenCorpusFile(item)}
+                  disabled={!item.download_url}
+                >
+                  <View style={styles.listItemContent}>
+                    <Text style={styles.itemTitle}>{item.display_name}</Text>
+                    <Text style={styles.itemSub}>{item.file_type}</Text>
+                  </View>
+                  {item.download_url && <Text style={styles.downloadHint}>Open</Text>}
+                </TouchableOpacity>
               )}
               ListEmptyComponent={<Text style={styles.empty}>No corpus files yet</Text>}
             />
@@ -119,10 +147,13 @@ const styles = StyleSheet.create({
   addButtonText: { color: "#fff", fontSize: 16, fontWeight: "600" },
   listItem: {
     backgroundColor: "#fff", borderRadius: 8, padding: 14,
-    marginBottom: 8,
+    marginBottom: 8, flexDirection: "row", alignItems: "center",
   },
+  listItemContent: { flex: 1 },
   itemTitle: { fontSize: 16, fontWeight: "500" },
   itemSub: { fontSize: 13, color: "#6B7280", marginTop: 4 },
+  chevron: { fontSize: 18, color: "#9CA3AF", marginLeft: 8 },
+  downloadHint: { fontSize: 13, color: "#4F46E5", fontWeight: "600", marginLeft: 8 },
   empty: { textAlign: "center", color: "#9CA3AF", marginTop: 20 },
   errorText: { textAlign: "center", color: "#EF4444", marginTop: 20 },
 });

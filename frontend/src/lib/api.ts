@@ -7,7 +7,7 @@ if (!API_URL) {
   throw new Error("EXPO_PUBLIC_API_URL must be set in production");
 }
 
-type HttpMethod = "GET" | "POST" | "PUT" | "DELETE";
+type HttpMethod = "GET" | "POST" | "PUT" | "PATCH" | "DELETE";
 
 interface ApiOptions {
   method?: HttpMethod;

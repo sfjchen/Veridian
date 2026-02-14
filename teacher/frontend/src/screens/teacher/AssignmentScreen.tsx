@@ -96,8 +96,10 @@ export function TeacherAssignmentScreen({ route, navigation }: { route: any; nav
               const previewUri = await createPdfPreviewDataUri(blob);
               if (mountedRef.current) setPdfPreviewUri(previewUri);
             } catch (previewError) {
-              console.error("Failed to generate PDF preview image:", previewError);
-              if (mountedRef.current) setPdfPreviewUri(null);
+              if (mountedRef.current) {
+                setPdfPreviewUri(null);
+                alert("Warning", "Could not generate PDF preview image");
+              }
             }
           } else if (looksLikeImage(contentType, bytes)) {
             setIsPdf(false);
@@ -299,6 +301,11 @@ export function TeacherAssignmentScreen({ route, navigation }: { route: any; nav
                 onChangeText={setEditDueDate}
               />
               <Text style={styles.sectionTitle}>Config Overrides</Text>
+              {!assignment.resolved_config && (
+                <Text style={styles.configFallbackHint}>
+                  Classroom config unavailable; showing platform defaults.
+                </Text>
+              )}
               <ConfigEditor
                 config={editConfig}
                 inheritedConfig={assignment.resolved_config}
@@ -644,6 +651,10 @@ const styles = StyleSheet.create({
   contentPreview: { marginTop: 24, flex: 1, minHeight: 300 },
   noContent: { color: "#9CA3AF", textAlign: "center", marginTop: 16 },
 
+  configFallbackHint: {
+    fontSize: 12, color: "#92400E", backgroundColor: "#FEF3C7",
+    padding: 8, borderRadius: 6, marginBottom: 8,
+  },
   configSummary: {
     backgroundColor: "#F9FAFB", borderRadius: 8, padding: 14, marginBottom: 16,
   },

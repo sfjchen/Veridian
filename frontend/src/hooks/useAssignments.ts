@@ -22,7 +22,27 @@ export function useAssignments(classroomId: string) {
     }
   }, [classroomId]);
 
-  useEffect(() => { refresh(); }, [refresh]);
+  useEffect(() => {
+    let cancelled = false;
+    const load = async () => {
+      setLoading(true);
+      setError(null);
+      try {
+        const data = await api<Assignment[]>(`/classrooms/${classroomId}/assignments`);
+        if (!cancelled) setAssignments(data);
+      } catch (e) {
+        if (!cancelled) {
+          const message = e instanceof Error ? e.message : "Failed to fetch assignments";
+          setError(message);
+          console.error("Failed to fetch assignments:", e);
+        }
+      } finally {
+        if (!cancelled) setLoading(false);
+      }
+    };
+    load();
+    return () => { cancelled = true; };
+  }, [classroomId]);
 
   return { assignments, loading, error, refresh };
 }

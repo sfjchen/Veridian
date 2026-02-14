@@ -22,7 +22,27 @@ export function useCorpus(classroomId: string) {
     }
   }, [classroomId]);
 
-  useEffect(() => { refresh(); }, [refresh]);
+  useEffect(() => {
+    let cancelled = false;
+    const load = async () => {
+      setLoading(true);
+      setError(null);
+      try {
+        const data = await api<CorpusFile[]>(`/classrooms/${classroomId}/corpus`);
+        if (!cancelled) setFiles(data);
+      } catch (e) {
+        if (!cancelled) {
+          const message = e instanceof Error ? e.message : "Failed to fetch corpus";
+          setError(message);
+          console.error("Failed to fetch corpus:", e);
+        }
+      } finally {
+        if (!cancelled) setLoading(false);
+      }
+    };
+    load();
+    return () => { cancelled = true; };
+  }, [classroomId]);
 
   return { files, loading, error, refresh };
 }

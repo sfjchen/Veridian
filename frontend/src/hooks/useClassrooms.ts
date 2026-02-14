@@ -22,7 +22,27 @@ export function useClassrooms() {
     }
   }, []);
 
-  useEffect(() => { refresh(); }, [refresh]);
+  useEffect(() => {
+    let cancelled = false;
+    const load = async () => {
+      setLoading(true);
+      setError(null);
+      try {
+        const data = await api<Classroom[]>("/classrooms");
+        if (!cancelled) setClassrooms(data);
+      } catch (e) {
+        if (!cancelled) {
+          const message = e instanceof Error ? e.message : "Failed to fetch classrooms";
+          setError(message);
+          console.error("Failed to fetch classrooms:", e);
+        }
+      } finally {
+        if (!cancelled) setLoading(false);
+      }
+    };
+    load();
+    return () => { cancelled = true; };
+  }, []);
 
   const create = async (name: string): Promise<Classroom> => {
     const classroom = await api<Classroom>("/classrooms", {

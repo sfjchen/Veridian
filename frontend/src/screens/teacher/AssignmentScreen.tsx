@@ -4,6 +4,7 @@ import {
   Alert, ScrollView, ActivityIndicator,
 } from "react-native";
 import * as Linking from "expo-linking";
+import { supabase } from "../../lib/supabase";
 import { api } from "../../lib/api";
 import { LatexRenderer } from "../../components/LatexRenderer";
 import { FileUploader } from "../../components/FileUploader";
@@ -11,6 +12,8 @@ import { AssignmentDetail } from "../../types";
 
 const MAX_CONTENT_LENGTH = 100_000;
 const DATE_PATTERN = /^\d{4}-\d{2}-\d{2}$/;
+const API_URL = process.env.EXPO_PUBLIC_API_URL ??
+  (process.env.NODE_ENV !== "production" ? "http://localhost:5000" : "");
 
 function sanitizeContent(raw: string): string {
   if (raw.length > MAX_CONTENT_LENGTH) throw new Error("File too large to preview");
@@ -23,6 +26,10 @@ function sanitizeContent(raw: string): string {
     .replace(/<embed[\s\S]*?\/>/gi, "");
 }
 
+function isPdfContent(text: string): boolean {
+  return text.startsWith("%PDF") || text.charCodeAt(0) > 127;
+}
+
 type ViewMode = "teacher" | "student";
 
 export function TeacherAssignmentScreen({ route, navigation }: { route: any; navigation: any }) {
@@ -30,6 +37,8 @@ export function TeacherAssignmentScreen({ route, navigation }: { route: any; nav
   const [assignment, setAssignment] = useState<AssignmentDetail | null>(null);
   const [loading, setLoading] = useState(true);
   const [assignmentContent, setAssignmentContent] = useState<string | null>(null);
+  const [isPdf, setIsPdf] = useState(false);
+  const [converting, setConverting] = useState(false);
   const [viewMode, setViewMode] = useState<ViewMode>("teacher");
 
   const [editing, setEditing] = useState(false);
@@ -53,8 +62,20 @@ export function TeacherAssignmentScreen({ route, navigation }: { route: any; nav
       if (data.assignment_file_download_url) {
         const resp = await fetch(data.assignment_file_download_url);
         if (resp.ok) {
-          const text = await resp.text();
-          setAssignmentContent(sanitizeContent(text));
+          const contentType = resp.headers.get("content-type") ?? "";
+          if (contentType.includes("application/pdf")) {
+            setIsPdf(true);
+            setAssignmentContent(null);
+          } else {
+            const text = await resp.text();
+            if (isPdfContent(text)) {
+              setIsPdf(true);
+              setAssignmentContent(null);
+            } else {
+              setIsPdf(false);
+              setAssignmentContent(sanitizeContent(text));
+            }
+          }
         }
       }
     } catch (e: any) {
@@ -63,6 +84,41 @@ export function TeacherAssignmentScreen({ route, navigation }: { route: any; nav
       setLoading(false);
     }
   }, [assignmentId]);
+
+  const handleConvertPdf = async () => {
+    if (!assignment?.assignment_file_download_url) return;
+    setConverting(true);
+    try {
+      const pdfResp = await fetch(assignment.assignment_file_download_url);
+      if (!pdfResp.ok) throw new Error("Failed to download PDF");
+      const blob = await pdfResp.blob();
+
+      const { data: { session } } = await supabase.auth.getSession();
+      const formData = new FormData();
+      formData.append("file", blob as any, "assignment.pdf");
+
+      const convertResp = await fetch(`${API_URL}/convert/pdf-to-latex`, {
+        method: "POST",
+        headers: session?.access_token
+          ? { Authorization: `Bearer ${session.access_token}` }
+          : {},
+        body: formData,
+      });
+
+      if (!convertResp.ok) {
+        const err = await convertResp.json().catch(() => ({ error: `HTTP ${convertResp.status}` }));
+        throw new Error(err.error || `Conversion failed: ${convertResp.status}`);
+      }
+
+      const { latex } = await convertResp.json();
+      setAssignmentContent(sanitizeContent(latex));
+      setIsPdf(false);
+    } catch (e: any) {
+      Alert.alert("Conversion Error", e.message);
+    } finally {
+      setConverting(false);
+    }
+  };
 
   useEffect(() => {
     let cancelled = false;
@@ -160,6 +216,8 @@ export function TeacherAssignmentScreen({ route, navigation }: { route: any; nav
               <Text style={styles.sectionTitle}>Problem</Text>
               <LatexRenderer latex={assignmentContent} />
             </View>
+          ) : isPdf ? (
+            <Text style={styles.noContent}>PDF uploaded — convert to LaTeX in Teacher View to preview</Text>
           ) : (
             <Text style={styles.noContent}>No assignment file uploaded</Text>
           )}
@@ -306,10 +364,31 @@ export function TeacherAssignmentScreen({ route, navigation }: { route: any; nav
             </View>
           )}
 
+          {/* PDF Conversion */}
+          {isPdf && (
+            <View style={styles.convertSection}>
+              <Text style={styles.sectionTitle}>PDF Detected</Text>
+              <Text style={styles.convertHint}>
+                Convert the uploaded PDF to LaTeX for in-app math rendering.
+              </Text>
+              <TouchableOpacity
+                style={styles.convertButton}
+                onPress={handleConvertPdf}
+                disabled={converting}
+              >
+                {converting ? (
+                  <ActivityIndicator color="#fff" />
+                ) : (
+                  <Text style={styles.convertButtonText}>Convert PDF to LaTeX</Text>
+                )}
+              </TouchableOpacity>
+            </View>
+          )}
+
           {/* Content Preview */}
           {assignmentContent && (
             <View style={styles.contentPreview}>
-              <Text style={styles.sectionTitle}>Assignment Preview</Text>
+              <Text style={styles.sectionTitle}>Assignment Preview (LaTeX)</Text>
               <LatexRenderer latex={assignmentContent} />
             </View>
           )}
@@ -377,6 +456,14 @@ const styles = StyleSheet.create({
   },
   reuploadButtonText: { color: "#fff", fontSize: 16, fontWeight: "600" },
   reuploadSection: { marginTop: 16 },
+
+  convertSection: { marginTop: 24, backgroundColor: "#F0FDF4", borderRadius: 8, padding: 16 },
+  convertHint: { fontSize: 14, color: "#374151", marginBottom: 12 },
+  convertButton: {
+    backgroundColor: "#059669", borderRadius: 8, padding: 14,
+    alignItems: "center",
+  },
+  convertButtonText: { color: "#fff", fontSize: 16, fontWeight: "600" },
 
   contentPreview: { marginTop: 24, flex: 1, minHeight: 300 },
   noContent: { color: "#9CA3AF", textAlign: "center", marginTop: 16 },

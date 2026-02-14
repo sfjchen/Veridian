@@ -67,15 +67,19 @@ def create_assignment(classroom_id: str) -> Tuple[Response, int]:
     assignment_file_path = f"{classroom_id}/{assignment_id}/prompt"
     answer_key_path = f"{classroom_id}/{assignment_id}/answer_key"
 
-    record = client.table("assignments").insert({
-        "id": assignment_id,
-        "classroom_id": classroom_id,
-        "title": title,
-        "assignment_file_storage_path": assignment_file_path,
-        "answer_key_storage_path": answer_key_path,
-        "context_file_ids": context_file_ids,
-        "due_date": data.get("due_date"),
-    }).execute()
+    try:
+        record = client.table("assignments").insert({
+            "id": assignment_id,
+            "classroom_id": classroom_id,
+            "title": title,
+            "assignment_file_storage_path": assignment_file_path,
+            "answer_key_storage_path": answer_key_path,
+            "context_file_ids": context_file_ids,
+            "due_date": data.get("due_date"),
+        }).execute()
+    except APIError as e:
+        print(f"Failed to insert assignment: {e}", file=sys.stderr)
+        return jsonify({"error": "Failed to create assignment"}), 500
 
     try:
         assignment_file_upload_url = generate_upload_url(ASSIGNMENTS_BUCKET, assignment_file_path)

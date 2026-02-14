@@ -160,7 +160,8 @@ def get_progress(assignment_id: str) -> Tuple[Response, int]:
     if isinstance(sf, tuple):
         return sf
     try:
-        lim, since = _limit(250, 5000), _since()
+        lim = _limit(250, 5000)
+        since = _since()
     except ValueError as exc:
         return _err(str(exc), 400)
     try:
@@ -171,17 +172,17 @@ def get_progress(assignment_id: str) -> Tuple[Response, int]:
     recs = list(pmap.values()) if sf is None else ([pmap[sf]] if sf in pmap else [])
     if g.user_role == "teacher":
         enrich_with_display_names(recs, client)
-    return _progress_resp(client, assignment_id, recs, sf, lim, since)
+    q = ListQuery(assignment_id, lim, sf, since)
+    return _progress_resp(client, recs, q)
 
 
 def _progress_resp(
-    client: Any, aid: str, recs: list[dict[str, Any]],
-    sf: str | None, lim: int, since: datetime | None,
+    client: Any, recs: list[dict[str, Any]], q: ListQuery,
 ) -> Tuple[Response, int]:
-    resp: dict[str, Any] = {"assignment_id": aid, "latest_count": len(recs), "latest_progress": recs}
+    resp: dict[str, Any] = {"assignment_id": q.assignment_id, "latest_count": len(recs), "latest_progress": recs}
     if request.args.get("include_events", "false").lower() == "true":
         try:
-            evts = list_progress_events(client, ListQuery(aid, lim, sf, since))
+            evts = list_progress_events(client, q)
         except APIError as exc:
             print(f"Failed to query events: {exc}", file=sys.stderr)
             return _err("Failed to fetch progress events", 500)
@@ -222,7 +223,8 @@ def _do_insights(
     except APIError as exc:
         print(f"Failed to query insights: {exc}", file=sys.stderr)
         return _err("Failed to fetch insight data", 500)
-    return jsonify(build_teacher_insights(ctx.assignment_id, sids, names, errs, pmap, settings)), 200
+    roster = {sid: names.get(sid, "") for sid in sids}
+    return jsonify(build_teacher_insights(ctx.assignment_id, roster, errs, pmap, settings)), 200
 
 
 @live_monitoring_bp.route(

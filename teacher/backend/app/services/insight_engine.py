@@ -257,17 +257,16 @@ def _empty_insights(aid: str, now: datetime) -> dict[str, Any]:
 
 def build_teacher_insights(
     assignment_id: str,
-    student_ids: list[str],
-    student_display_names: dict[str, str],
+    roster: dict[str, str],
     error_logs: list[dict[str, Any]],
     latest_progress_by_student_id: dict[str, dict[str, Any]],
     settings: InsightSettings,
 ) -> dict[str, Any]:
     now = datetime.now(timezone.utc)
-    enrolled = sorted(set(student_ids))
+    enrolled = sorted(roster.keys())
     if not enrolled:
         return _empty_insights(assignment_id, now)
-    ctx = InsightContext(enrolled, student_display_names, settings)
+    ctx = InsightContext(enrolled, roster, settings)
     agg = _agg_errors(error_logs, set(enrolled))
     n = len(enrolled)
     return {
@@ -275,7 +274,7 @@ def build_teacher_insights(
         "generated_at": now.isoformat(),
         "student_count": n,
         "common_stumbling_blocks": _stumbling_blocks(agg, n, settings),
-        "engagement_metrics": _engagement(ctx, latest_progress_by_student_id, agg, error_logs, now),
+        "engagement_metrics": _engagement(ctx, latest_progress_by_student_id, agg, _latest_error_ts(error_logs), now),
         "concept_mastery": _concept_mastery(agg, n, settings),
     }
 
@@ -307,9 +306,8 @@ def _stuck_key(r: dict[str, Any]) -> tuple[int, int]:
 
 def _engagement(
     ctx: InsightContext, pmap: dict[str, dict[str, Any]],
-    agg: ErrorAgg, error_logs: list[dict[str, Any]], now: datetime,
+    agg: ErrorAgg, ets: dict[str, datetime], now: datetime,
 ) -> dict[str, list[dict[str, Any]]]:
-    ets = _latest_error_ts(error_logs)
     inactive: list[dict[str, Any]] = []
     stuck: list[dict[str, Any]] = []
     for sid in ctx.enrolled_students:

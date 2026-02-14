@@ -17,7 +17,8 @@ CODE_GENERATION_MAX_ATTEMPTS = 3
 @require_role("teacher")
 def create_classroom() -> Response | Tuple[Response, int]:
     data = request.get_json()
-    if not data or not data.get("name"):
+    name = (data.get("name", "") if data else "").strip()
+    if not name:
         return jsonify({"error": "name required"}), 400
 
     client = get_supabase_client()
@@ -26,7 +27,7 @@ def create_classroom() -> Response | Tuple[Response, int]:
         try:
             result = client.table("classrooms").insert({
                 "teacher_id": g.user_id,
-                "name": data["name"],
+                "name": name,
                 "class_code": code,
             }).execute()
             if not result.data:
@@ -38,8 +39,6 @@ def create_classroom() -> Response | Tuple[Response, int]:
             if e.code == POSTGRES_UNIQUE_VIOLATION:
                 return jsonify({"error": "Failed to generate unique class code"}), 500
             return jsonify({"error": str(e)}), 400
-
-    return jsonify({"error": "Failed to generate unique class code"}), 500
 
 
 @classrooms_bp.route("", methods=["GET"])

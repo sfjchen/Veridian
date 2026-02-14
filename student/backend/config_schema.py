@@ -1,6 +1,6 @@
 # Canonical copy: teacher/backend/app/services/config_schema.py
 # Keep in sync manually — no shared package exists.
-# To verify sync: diff this file against the canonical copy (ignoring these comments).
+# To verify sync: run scripts/check_config_schema_sync.sh
 """Assignment/classroom config validation and resolution.
 
 Single source of truth for config field definitions, validation rules,

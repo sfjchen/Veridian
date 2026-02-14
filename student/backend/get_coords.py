@@ -27,6 +27,7 @@ from artifact_service import (
 )
 from assignment_service import get_assignment, get_assignment_settings, get_problem, get_problems
 from auth_middleware import require_auth, require_auth_or_sample, require_auth_or_sample_chat
+from classroom_service import list_assignments_for_classroom, list_classrooms_for_student
 from chat import generate_chat_response
 from chat_service import get_chat_history
 from dotenv import load_dotenv
@@ -1431,6 +1432,24 @@ def analyze_solution() -> Any:
     return jsonify(payload)
 
 
+@app.get("/classrooms")
+@require_auth
+def list_classrooms() -> Any:
+    classrooms = list_classrooms_for_student(g.user_id)
+    return jsonify(classrooms)
+
+
+@app.get("/classrooms/<classroom_id>/assignments")
+@require_auth
+def list_classroom_assignments(classroom_id: str) -> Any:
+    assignments = list_assignments_for_classroom(classroom_id, g.user_id)
+    if not assignments:
+        membership_check = list_classrooms_for_student(g.user_id)
+        if not any(c.get("id") == classroom_id for c in membership_check):
+            return jsonify({"error": "Access denied"}), 403
+    return jsonify(assignments)
+
+
 @app.get("/assignments/<assignment_id>")
 def get_assignment_endpoint(assignment_id: str) -> Any:
     assignment = get_assignment(assignment_id)
@@ -1635,8 +1654,8 @@ def capture_pipeline() -> Any:
                     "stage": "revised_continuation",
                 },
             )
-        except Exception:
-            pass
+        except Exception as exc:
+            log.error("Failed to store continuation artifact: %s", exc, exc_info=True)
 
     if _has_mistake_annotations(annotated_tex):
         try:
@@ -1648,7 +1667,8 @@ def capture_pipeline() -> Any:
             mistakes = coords_payload.get("mistakes", [])
         except (ValueError, RuntimeError):
             mistakes = []
-        except Exception:
+        except Exception as exc:
+            log.error("Mistake coord pipeline failed: %s", exc, exc_info=True)
             mistakes = []
         else:
             try:
@@ -1658,7 +1678,8 @@ def capture_pipeline() -> Any:
                     latex_artifact_id=revised_latex_artifact["id"],
                     result=coords_payload,
                 )
-            except Exception:
+            except Exception as exc:
+                log.error("Failed to create coord run: %s", exc, exc_info=True)
                 coord_run = None
 
     return jsonify(

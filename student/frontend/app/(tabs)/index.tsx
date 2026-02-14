@@ -11,59 +11,60 @@ import {
 } from 'react-native';
 
 import { palette, radius } from '@/constants/palette';
-import { useDocuments, type DocumentMeta } from '@/hooks/useDocuments';
+import { useClassrooms } from '@/hooks/useClassrooms';
+import type { Classroom } from '@/lib/api';
 
-function DocumentRow({
-  doc,
+function ClassroomCard({
+  classroom,
   onPress,
 }: {
-  doc: DocumentMeta;
+  classroom: Classroom;
   onPress: () => void;
 }) {
   return (
     <Pressable
       style={({ pressed }) => [
-        styles.row,
+        styles.card,
         pressed && { backgroundColor: palette.rowPressed, opacity: 0.9 },
       ]}
       onPress={onPress}
       accessibilityRole="button">
-      <View style={styles.rowIcon}>
-        <MaterialCommunityIcons name="file-document-outline" size={28} color={palette.textMuted} />
+      <View style={styles.cardIcon}>
+        <MaterialCommunityIcons name="school-outline" size={32} color={palette.primary} />
       </View>
-      <Text style={styles.rowTitle} numberOfLines={1}>
-        {doc.name}
+      <Text style={styles.cardTitle} numberOfLines={2}>
+        {classroom.name}
       </Text>
+      {classroom.class_code ? (
+        <Text style={styles.cardCode} numberOfLines={1}>
+          {classroom.class_code}
+        </Text>
+      ) : null}
       <MaterialCommunityIcons name="chevron-right" size={24} color={palette.textDisabled} />
     </Pressable>
   );
 }
 
-export default function LibraryScreen() {
+export default function ClassroomsScreen() {
   const router = useRouter();
-  const { documents, loading, addDocument } = useDocuments();
-
-  const handleAdd = async () => {
-    const added = await addDocument();
-    if (added) router.push({ pathname: '/document/[id]', params: { id: added.id } });
-  };
+  const { classrooms, loading, error } = useClassrooms();
 
   if (loading) {
     return (
       <SafeAreaView style={styles.screen}>
         <View style={styles.centered}>
           <ActivityIndicator size="large" color={palette.primary} />
-          <Text style={styles.loadingText}>Loading documents…</Text>
+          <Text style={styles.loadingText}>Loading classrooms…</Text>
         </View>
       </SafeAreaView>
     );
   }
 
-  return (
-    <SafeAreaView style={styles.screen}>
-      <View style={styles.header}>
-        <Text style={styles.title}>Documents</Text>
-        <View style={styles.headerActions}>
+  if (error) {
+    return (
+      <SafeAreaView style={styles.screen}>
+        <View style={styles.header}>
+          <Text style={styles.title}>Classes</Text>
           <Pressable
             style={({ pressed }) => [styles.workspaceButton, pressed && { opacity: 0.7 }]}
             onPress={() => router.push('/WorkspaceScreen')}
@@ -72,36 +73,51 @@ export default function LibraryScreen() {
             <MaterialCommunityIcons name="draw" size={20} color={palette.primary} />
             <Text style={styles.workspaceButtonText}>Workspace</Text>
           </Pressable>
-          <Pressable
-            style={({ pressed }) => [styles.addButton, pressed && { opacity: 0.7 }]}
-            onPress={handleAdd}
-            accessibilityRole="button"
-            accessibilityLabel="Add PDF">
-            <MaterialCommunityIcons name="plus" size={22} color={palette.white} />
-            <Text style={styles.addButtonText}>Add PDF</Text>
-          </Pressable>
         </View>
+        <View style={styles.centered}>
+          <MaterialCommunityIcons name="alert-circle-outline" size={48} color={palette.textMuted} />
+          <Text style={styles.errorText}>{error}</Text>
+          <Text style={styles.emptySubtitle}>
+            Sign in or check your connection to see your classes.
+          </Text>
+        </View>
+      </SafeAreaView>
+    );
+  }
+
+  return (
+    <SafeAreaView style={styles.screen}>
+      <View style={styles.header}>
+        <Text style={styles.title}>Classes</Text>
+        <Pressable
+          style={({ pressed }) => [styles.workspaceButton, pressed && { opacity: 0.7 }]}
+          onPress={() => router.push('/WorkspaceScreen')}
+          accessibilityRole="button"
+          accessibilityLabel="Whiteboard">
+          <MaterialCommunityIcons name="draw" size={20} color={palette.primary} />
+          <Text style={styles.workspaceButtonText}>Workspace</Text>
+        </Pressable>
       </View>
 
-      {documents.length === 0 ? (
+      {classrooms.length === 0 ? (
         <View style={styles.empty}>
-          <MaterialCommunityIcons name="file-document-outline" size={64} color={palette.borderStrong} />
-          <Text style={styles.emptyTitle}>No documents yet</Text>
-          <Text style={styles.emptySubtitle}>Add a PDF to start your math homework</Text>
-          <Pressable
-            style={({ pressed }) => [styles.addButtonLarge, pressed && { opacity: 0.7 }]}
-            onPress={handleAdd}>
-            <Text style={styles.addButtonText}>Add PDF</Text>
-          </Pressable>
+          <MaterialCommunityIcons name="school-outline" size={64} color={palette.borderStrong} />
+          <Text style={styles.emptyTitle}>No classes yet</Text>
+          <Text style={styles.emptySubtitle}>Sign in to see your classes or join a class with a code.</Text>
         </View>
       ) : (
         <FlatList
-          data={documents}
+          data={classrooms}
           keyExtractor={(item) => item.id}
           renderItem={({ item }) => (
-            <DocumentRow
-              doc={item}
-              onPress={() => router.push({ pathname: '/document/[id]', params: { id: item.id } })}
+            <ClassroomCard
+              classroom={item}
+              onPress={() =>
+                router.push({
+                  pathname: '/assignments/[classroomId]',
+                  params: { classroomId: item.id, classroomName: item.name },
+                })
+              }
             />
           )}
           contentContainerStyle={styles.listContent}
@@ -131,11 +147,6 @@ const styles = StyleSheet.create({
     fontWeight: '700',
     color: palette.textPrimary,
   },
-  headerActions: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 8,
-  },
   workspaceButton: {
     flexDirection: 'row',
     alignItems: 'center',
@@ -152,32 +163,11 @@ const styles = StyleSheet.create({
     fontSize: 14,
     fontWeight: '600',
   },
-  addButton: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 6,
-    backgroundColor: palette.primary,
-    paddingVertical: 10,
-    paddingHorizontal: 14,
-    borderRadius: radius.button,
-  },
-  addButtonLarge: {
-    backgroundColor: palette.primary,
-    paddingVertical: 14,
-    paddingHorizontal: 24,
-    borderRadius: radius.button,
-    marginTop: 16,
-  },
-  addButtonText: {
-    color: palette.white,
-    fontSize: 15,
-    fontWeight: '600',
-  },
   listContent: {
     padding: 16,
     paddingBottom: 32,
   },
-  row: {
+  card: {
     flexDirection: 'row',
     alignItems: 'center',
     backgroundColor: palette.card,
@@ -187,14 +177,19 @@ const styles = StyleSheet.create({
     borderWidth: 1,
     borderColor: palette.border,
   },
-  rowIcon: {
+  cardIcon: {
     marginRight: 12,
   },
-  rowTitle: {
+  cardTitle: {
     flex: 1,
     fontSize: 16,
-    fontWeight: '500',
-    color: palette.textSecondary,
+    fontWeight: '600',
+    color: palette.textPrimary,
+  },
+  cardCode: {
+    fontSize: 13,
+    color: palette.textMuted,
+    marginRight: 8,
   },
   centered: {
     flex: 1,
@@ -205,6 +200,11 @@ const styles = StyleSheet.create({
   loadingText: {
     fontSize: 15,
     color: palette.textMuted,
+  },
+  errorText: {
+    fontSize: 15,
+    color: palette.errorText,
+    textAlign: 'center',
   },
   empty: {
     flex: 1,
@@ -222,5 +222,6 @@ const styles = StyleSheet.create({
     fontSize: 14,
     color: palette.textMuted,
     marginTop: 6,
+    textAlign: 'center',
   },
 });

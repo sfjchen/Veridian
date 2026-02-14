@@ -1,16 +1,55 @@
+import sys
+import uuid
 from typing import Tuple
 
-from flask import Blueprint, Response, request, jsonify, g
+from flask import Blueprint, Response, g, jsonify, request
 from postgrest.exceptions import APIError
+from supabase import Client
 
 from app.middleware.auth import require_auth, require_role
-from app.services.supabase_client import get_supabase_admin_client
 from app.services.code_generator import generate_class_code
+from app.services.supabase_client import get_supabase_admin_client
 
 classrooms_bp = Blueprint("classrooms", __name__, url_prefix="/classrooms")
 
 POSTGRES_UNIQUE_VIOLATION = "23505"
 CODE_GENERATION_MAX_ATTEMPTS = 3
+MAX_CLASSROOM_NAME_LENGTH = 200
+
+
+def _validate_uuid(value: str) -> bool:
+    try:
+        uuid.UUID(value)
+        return True
+    except ValueError:
+        return False
+
+
+def _classroom_for_id(client: Client, classroom_id: str) -> dict | None:
+    result = client.table("classrooms").select("*").eq("id", classroom_id).limit(1).execute()
+    if not result.data:
+        return None
+    return result.data[0]
+
+
+def _teacher_owns_classroom(client: Client, classroom_id: str, teacher_id: str) -> bool:
+    classroom = _classroom_for_id(client, classroom_id)
+    if classroom is None:
+        return False
+    return bool(classroom.get("teacher_id") == teacher_id)
+
+
+def _student_is_class_member(client: Client, classroom_id: str, student_id: str) -> bool:
+    membership = client.table("classroom_memberships").select("student_id").eq(
+        "classroom_id", classroom_id
+    ).eq("student_id", student_id).limit(1).execute()
+    return bool(membership.data)
+
+
+def _user_can_access_classroom(client: Client, classroom_id: str, user_id: str, user_role: str) -> bool:
+    if user_role == "teacher":
+        return _teacher_owns_classroom(client, classroom_id, user_id)
+    return _student_is_class_member(client, classroom_id, user_id)
 
 
 @classrooms_bp.route("", methods=["POST"])
@@ -20,6 +59,8 @@ def create_classroom() -> Response | Tuple[Response, int]:
     name = (data.get("name", "") if data else "").strip()
     if not name:
         return jsonify({"error": "name required"}), 400
+    if len(name) > MAX_CLASSROOM_NAME_LENGTH:
+        return jsonify({"error": f"name must be <= {MAX_CLASSROOM_NAME_LENGTH} characters"}), 400
 
     client = get_supabase_admin_client()
     for attempt in range(CODE_GENERATION_MAX_ATTEMPTS):
@@ -67,11 +108,93 @@ def list_classrooms() -> Response | Tuple[Response, int]:
     return jsonify(result.data), 200
 
 
+@classrooms_bp.route("/<classroom_id>", methods=["GET"])
+@require_auth
+def get_classroom(classroom_id: str) -> Response | Tuple[Response, int]:
+    if not _validate_uuid(classroom_id):
+        return jsonify({"error": "Invalid classroom ID"}), 400
+
+    client = get_supabase_admin_client()
+    classroom = _classroom_for_id(client, classroom_id)
+    if classroom is None:
+        return jsonify({"error": "Classroom not found"}), 404
+    if not _user_can_access_classroom(client, classroom_id, g.user_id, g.user_role):
+        return jsonify({"error": "Access denied"}), 403
+
+    memberships = client.table("classroom_memberships").select("student_id").eq(
+        "classroom_id", classroom_id
+    ).execute()
+    assignments = client.table("assignments").select("id").eq(
+        "classroom_id", classroom_id
+    ).execute()
+
+    return jsonify({
+        **classroom,
+        "student_count": len(memberships.data),
+        "assignment_count": len(assignments.data),
+    }), 200
+
+
+@classrooms_bp.route("/<classroom_id>", methods=["PATCH"])
+@require_role("teacher")
+def update_classroom(classroom_id: str) -> Response | Tuple[Response, int]:
+    if not _validate_uuid(classroom_id):
+        return jsonify({"error": "Invalid classroom ID"}), 400
+
+    data = request.get_json()
+    if not data:
+        return jsonify({"error": "No data provided"}), 400
+
+    name = data.get("name")
+    if not isinstance(name, str):
+        return jsonify({"error": "name required"}), 400
+    name = name.strip()
+    if not name:
+        return jsonify({"error": "name required"}), 400
+    if len(name) > MAX_CLASSROOM_NAME_LENGTH:
+        return jsonify({"error": f"name must be <= {MAX_CLASSROOM_NAME_LENGTH} characters"}), 400
+
+    client = get_supabase_admin_client()
+    try:
+        updated = client.table("classrooms").update({"name": name}).eq(
+            "id", classroom_id
+        ).eq("teacher_id", g.user_id).execute()
+    except APIError as e:
+        print(f"Failed to update classroom {classroom_id}: {e}", file=sys.stderr)
+        return jsonify({"error": "Failed to update classroom"}), 500
+
+    if not updated.data:
+        return jsonify({"error": "Classroom not found"}), 404
+    return jsonify(updated.data[0]), 200
+
+
+@classrooms_bp.route("/<classroom_id>", methods=["DELETE"])
+@require_role("teacher")
+def delete_classroom(classroom_id: str) -> Response | Tuple[Response, int]:
+    if not _validate_uuid(classroom_id):
+        return jsonify({"error": "Invalid classroom ID"}), 400
+
+    client = get_supabase_admin_client()
+    try:
+        deleted = client.table("classrooms").delete().eq(
+            "id", classroom_id
+        ).eq("teacher_id", g.user_id).execute()
+    except APIError as e:
+        print(f"Failed to delete classroom {classroom_id}: {e}", file=sys.stderr)
+        return jsonify({"error": "Failed to delete classroom"}), 500
+
+    if not deleted.data:
+        return jsonify({"error": "Classroom not found"}), 404
+    return Response(status=204)
+
+
 @classrooms_bp.route("/<classroom_id>/students", methods=["GET"])
 @require_role("teacher")
 def list_classroom_students(classroom_id: str) -> Response | Tuple[Response, int]:
-    client = get_supabase_admin_client()
+    if not _validate_uuid(classroom_id):
+        return jsonify({"error": "Invalid classroom ID"}), 400
 
+    client = get_supabase_admin_client()
     classroom = client.table("classrooms").select("id").eq(
         "id", classroom_id
     ).eq("teacher_id", g.user_id).execute()
@@ -81,7 +204,6 @@ def list_classroom_students(classroom_id: str) -> Response | Tuple[Response, int
     memberships = client.table("classroom_memberships").select(
         "student_id, joined_at"
     ).eq("classroom_id", classroom_id).order("joined_at", desc=False).execute()
-
     if not memberships.data:
         return jsonify([]), 200
 
@@ -102,8 +224,35 @@ def list_classroom_students(classroom_id: str) -> Response | Tuple[Response, int
             "display_name": profile_by_id.get(membership["student_id"]),
             "joined_at": membership["joined_at"],
         })
-
     return jsonify(result), 200
+
+
+@classrooms_bp.route("/<classroom_id>/students/<student_id>", methods=["DELETE"])
+@require_role("teacher")
+def remove_classroom_student(classroom_id: str, student_id: str) -> Response | Tuple[Response, int]:
+    if not _validate_uuid(classroom_id):
+        return jsonify({"error": "Invalid classroom ID"}), 400
+    if not _validate_uuid(student_id):
+        return jsonify({"error": "Invalid student ID"}), 400
+
+    client = get_supabase_admin_client()
+    if not _teacher_owns_classroom(client, classroom_id, g.user_id):
+        return jsonify({"error": "Classroom not found"}), 404
+
+    try:
+        deleted = client.table("classroom_memberships").delete().eq(
+            "classroom_id", classroom_id
+        ).eq("student_id", student_id).execute()
+    except APIError as e:
+        print(
+            f"Failed to remove student {student_id} from classroom {classroom_id}: {e}",
+            file=sys.stderr,
+        )
+        return jsonify({"error": "Failed to remove student"}), 500
+
+    if not deleted.data:
+        return jsonify({"error": "Student not found in classroom"}), 404
+    return Response(status=204)
 
 
 @classrooms_bp.route("/join", methods=["POST"])
@@ -118,7 +267,6 @@ def join_classroom() -> Response | Tuple[Response, int]:
     classroom = client.table("classrooms").select("id").eq(
         "class_code", class_code
     ).execute()
-
     if not classroom.data:
         return jsonify({"error": "Invalid class code"}), 404
 

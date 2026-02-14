@@ -8,7 +8,7 @@ from supabase import Client
 
 from app.middleware.auth import require_auth, require_role
 from app.services.supabase_client import get_supabase_admin_client
-from app.services.storage import generate_upload_url, generate_download_url
+from app.services.storage import delete_object, generate_download_url, generate_upload_url
 
 assignments_bp = Blueprint("assignments", __name__)
 
@@ -228,6 +228,55 @@ def update_assignment(assignment_id: str) -> Tuple[Response, int]:
         return jsonify({"error": "Update returned no data"}), 500
 
     return jsonify(updated.data[0]), 200
+
+
+@assignments_bp.route("/assignments/<assignment_id>", methods=["DELETE"])
+@require_role("teacher")
+def delete_assignment(assignment_id: str) -> Tuple[Response, int] | Response:
+    client = get_supabase_admin_client()
+
+    assignment = client.table("assignments").select("*").eq(
+        "id", assignment_id
+    ).limit(1).execute()
+    if not assignment.data:
+        return jsonify({"error": "Assignment not found"}), 404
+
+    record = assignment.data[0]
+    classroom = client.table("classrooms").select("teacher_id").eq(
+        "id", record["classroom_id"]
+    ).limit(1).execute()
+    if not classroom.data or g.user_id != classroom.data[0]["teacher_id"]:
+        return jsonify({"error": "Access denied"}), 403
+
+    try:
+        deleted = client.table("assignments").delete().eq("id", assignment_id).execute()
+    except APIError as e:
+        print(f"Failed to delete assignment {assignment_id}: {e}", file=sys.stderr)
+        return jsonify({"error": "Failed to delete assignment"}), 500
+
+    if not deleted.data:
+        return jsonify({"error": "Assignment not found"}), 404
+
+    storage_warnings: list[str] = []
+    for storage_path in [record.get("prompt_storage_path"), record.get("answer_key_storage_path")]:
+        if not storage_path:
+            continue
+        try:
+            delete_object(ASSIGNMENTS_BUCKET, storage_path)
+        except ValueError as e:
+            print(
+                f"Assignment {assignment_id} deleted but failed to remove storage object {storage_path}: {e}",
+                file=sys.stderr,
+            )
+            storage_warnings.append(storage_path)
+
+    if storage_warnings:
+        return jsonify({
+            "assignment_id": assignment_id,
+            "warning": "Assignment deleted but one or more storage objects could not be removed",
+            "failed_paths": storage_warnings,
+        }), 200
+    return Response(status=204)
 
 
 @assignments_bp.route("/assignments/<assignment_id>/reupload", methods=["POST"])

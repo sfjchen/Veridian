@@ -34,6 +34,7 @@ STOP. Before writing any code, follow this checklist:
 ## After Completing Work
 
 - Document any decisions or dead ends in PR description
+- **Update `docs/PLAN.md`**: Mark completed tasks, add new tasks discovered during work, update architecture decisions if any were made
 
 ---
 

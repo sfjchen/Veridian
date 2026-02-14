@@ -49,11 +49,23 @@ def _install_chat_import_stubs() -> None:
 
 
 class ChatThinkingPayloadTests(unittest.TestCase):
+    _MODULE_NAMES = ("chat", "anthropic", "assignment_service", "chat_service")
+
     def setUp(self) -> None:
-        for name in ("chat", "anthropic", "assignment_service", "chat_service"):
+        self._module_backup = {
+            name: sys.modules.get(name) for name in self._MODULE_NAMES
+        }
+        for name in self._MODULE_NAMES:
             sys.modules.pop(name, None)
         _install_chat_import_stubs()
         self.chat = importlib.import_module("chat")
+
+    def tearDown(self) -> None:
+        for name in self._MODULE_NAMES:
+            sys.modules.pop(name, None)
+        for name, module in self._module_backup.items():
+            if module is not None:
+                sys.modules[name] = module
 
     def test_call_claude_uses_enabled_thinking_payload(self) -> None:
         captured: dict[str, Any] = {}

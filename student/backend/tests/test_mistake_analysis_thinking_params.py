@@ -33,7 +33,7 @@ def _install_mistake_analysis_import_stubs() -> None:
             model: str,
             max_tokens: int,
             system: str,
-            messages: list[dict[str, str]],
+            messages: list[dict[str, Any]],
             thinking: dict[str, Any] | None = None,
             temperature: float | int | None = None,
         ) -> _ClaudeResponse:
@@ -58,11 +58,23 @@ def _install_mistake_analysis_import_stubs() -> None:
 
 
 class MistakeAnalysisThinkingPayloadTests(unittest.TestCase):
+    _MODULE_NAMES = ("anthropic", "openai", "mistake_analysis", "mistake_analysis.client")
+
     def setUp(self) -> None:
-        for name in ("anthropic", "openai", "mistake_analysis.client"):
+        self._module_backup = {
+            name: sys.modules.get(name) for name in self._MODULE_NAMES
+        }
+        for name in self._MODULE_NAMES:
             sys.modules.pop(name, None)
         _install_mistake_analysis_import_stubs()
         self.client_module = importlib.import_module("mistake_analysis.client")
+
+    def tearDown(self) -> None:
+        for name in self._MODULE_NAMES:
+            sys.modules.pop(name, None)
+        for name, module in self._module_backup.items():
+            if module is not None:
+                sys.modules[name] = module
 
     def test_request_text_uses_adaptive_thinking_when_enabled(self) -> None:
         analyzer = self.client_module.MistakeAnalyzer(use_extended_thinking=True)

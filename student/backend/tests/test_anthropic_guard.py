@@ -39,6 +39,12 @@ class AnthropicGuardTests(unittest.TestCase):
     def test_accepts_supported_version(self) -> None:
         ensure_supported_anthropic_version("0.79.0")
 
+    def test_accepts_postrelease_version_format(self) -> None:
+        ensure_supported_anthropic_version("0.79.0.post1")
+
+    def test_accepts_local_version_format(self) -> None:
+        ensure_supported_anthropic_version("0.79.1+local")
+
     def test_rejects_prerelease_version_format(self) -> None:
         with self.assertRaisesRegex(RuntimeError, "version is unreadable"):
             ensure_supported_anthropic_version("0.79.0-beta1")
@@ -61,6 +67,10 @@ class AnthropicGuardTests(unittest.TestCase):
     def test_enabled_thinking_requires_budget_less_than_max(self) -> None:
         with self.assertRaisesRegex(ValueError, "must be less than max_tokens"):
             build_enabled_thinking(max_tokens=2000, budget_tokens=2000)
+
+    def test_enabled_thinking_rejects_budget_greater_than_max(self) -> None:
+        with self.assertRaisesRegex(ValueError, "must be less than max_tokens"):
+            build_enabled_thinking(max_tokens=2000, budget_tokens=2001)
 
 
 if __name__ == "__main__":

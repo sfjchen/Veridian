@@ -62,6 +62,17 @@ create index idx_classrooms_code on public.classrooms(class_code);
 
 alter table public.classrooms enable row level security;
 
+-- Security definer function to check role without triggering profiles RLS
+create or replace function public.get_user_role(user_uuid uuid)
+returns text
+language sql
+security definer
+set search_path = public
+stable
+as $$
+    select role from profiles where id = user_uuid;
+$$;
+
 -- Teachers manage own classrooms (split by operation to avoid RLS recursion)
 create policy "teachers_select_own_classrooms" on public.classrooms
     for select using (auth.uid() = teacher_id);
@@ -69,10 +80,7 @@ create policy "teachers_select_own_classrooms" on public.classrooms
 create policy "teachers_insert_own_classrooms" on public.classrooms
     for insert with check (
         auth.uid() = teacher_id
-        and exists (
-            select 1 from public.profiles
-            where id = auth.uid() and role = 'teacher'
-        )
+        and public.get_user_role(auth.uid()) = 'teacher'
     );
 
 create policy "teachers_update_own_classrooms" on public.classrooms

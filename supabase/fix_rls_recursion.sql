@@ -12,17 +12,26 @@ drop policy if exists "teachers_insert_own_classrooms" on public.classrooms;
 drop policy if exists "teachers_update_own_classrooms" on public.classrooms;
 drop policy if exists "teachers_delete_own_classrooms" on public.classrooms;
 
+-- Security definer function to check role without triggering profiles RLS
+-- (profiles has cross-table policies that query classrooms, causing recursion)
+create or replace function public.get_user_role(user_uuid uuid)
+returns text
+language sql
+security definer
+set search_path = public
+stable
+as $$
+    select role from profiles where id = user_uuid;
+$$;
+
 create policy "teachers_select_own_classrooms" on public.classrooms
     for select using (auth.uid() = teacher_id);
 
--- Role check: only users with role='teacher' can create classrooms
+-- Role check via security definer to avoid RLS recursion through profiles
 create policy "teachers_insert_own_classrooms" on public.classrooms
     for insert with check (
         auth.uid() = teacher_id
-        and exists (
-            select 1 from public.profiles
-            where id = auth.uid() and role = 'teacher'
-        )
+        and public.get_user_role(auth.uid()) = 'teacher'
     );
 
 create policy "teachers_update_own_classrooms" on public.classrooms

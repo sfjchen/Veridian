@@ -12,7 +12,7 @@ Full platform monorepo: teacher + student. One Supabase project for both. Migrat
 | Student Expo app | `student/frontend/` |
 | Teacher migrations | `supabase/` |
 | Student migrations | `student/supabase/migrations/` |
-| Running docs | `AGENTS.md`, `CLAUDE.md`, `PLAN.md`, `README.md` |
+| Running docs | `AGENTS.md`, `CLAUDE.md`, `PLAN.md`, `README.md`, `MIGRATION_GUIDE.md` |
 | Feature plans | `plans/` |
 | Student roadmap | `student/PLAN.md` |
 

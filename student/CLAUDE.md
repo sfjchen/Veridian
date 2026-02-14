@@ -1,6 +1,6 @@
 # CLAUDE.md
 
-**Running docs**: This file, `AGENTS.md`, `README.md`, and `PLAN.md` are the project's living documentation. Update them when features, architecture, or conventions change.
+**Running docs**: Root `AGENTS.md`, `CLAUDE.md`, `README.md`, `PLAN.md`, `MIGRATION_GUIDE.md`; student: this file, `AGENTS.md`, `README.md`, `PLAN.md`. Update them when features, architecture, or conventions change.
 
 ## Project Overview
 

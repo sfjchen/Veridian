@@ -8,8 +8,10 @@ interface UploadOptions {
   file?: File;
 }
 
+const isWeb = (Platform.OS as string) === "web";
+
 export async function uploadFile({ uri, uploadUrl, mimeType, file }: UploadOptions): Promise<void> {
-  if (Platform.OS === "web") {
+  if (isWeb) {
     if (!file) {
       throw new Error("File object required for web uploads");
     }

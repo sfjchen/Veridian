@@ -7,6 +7,7 @@ from typing import Any, Dict, List, TypedDict
 
 from anthropic import Anthropic
 
+from anthropic_guard import validate_anthropic_thinking_support
 from assignment_service import get_problem
 from chat_service import (
     ChatMessageInsert,
@@ -45,7 +46,9 @@ def _get_anthropic_client() -> Anthropic:
     api_key = os.getenv("ANTHROPIC_API_KEY")
     if not api_key:
         raise RuntimeError("Missing ANTHROPIC_API_KEY in environment/.env")
-    return Anthropic(api_key=api_key)
+    client = Anthropic(api_key=api_key)
+    validate_anthropic_thinking_support(client)
+    return client
 
 
 def _format_context_block(context: Dict[str, Any]) -> str:

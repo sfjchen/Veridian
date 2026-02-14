@@ -25,6 +25,7 @@ from pathlib import Path
 
 from openai import OpenAI
 
+from anthropic_guard import validate_anthropic_thinking_support
 from .constants import TAG_BANK, SEVERITIES, TAG_TO_SEVERITY, ALL_TAGS
 from .prompts import ANALYSIS_SYSTEM_PROMPT, GRADER_SYSTEM_PROMPT, CONTINUATION_SYSTEM_PROMPT
 from .helpers import escape_latex_text, extract_json_from_llm_response, extract_text, find_snippet, in_math_mode as _in_math_mode
@@ -48,6 +49,10 @@ class MistakeAnalyzer:
         max_tokens: int | None = None,
     ):
         self.client = anthropic.Anthropic()  # uses ANTHROPIC_API_KEY env var
+        validate_anthropic_thinking_support(
+            self.client,
+            anthropic_version=getattr(anthropic, "__version__", None),
+        )
         self.mistakes_path = Path(mistakes_json_path)
         self.analysis_model = analysis_model
         self.grader_model = grader_model

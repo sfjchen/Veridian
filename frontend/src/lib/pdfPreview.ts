@@ -15,6 +15,10 @@ const GIF89A_SIGNATURE = [0x47, 0x49, 0x46, 0x38, 0x39, 0x61];
 const BMP_SIGNATURE = [0x42, 0x4d];
 const RIFF_SIGNATURE = [0x52, 0x49, 0x46, 0x46];
 const WEBP_SIGNATURE = [0x57, 0x45, 0x42, 0x50];
+const ZIP_SIGNATURE = [0x50, 0x4b, 0x03, 0x04];
+const GZIP_SIGNATURE = [0x1f, 0x8b, 0x08];
+const SEVEN_Z_SIGNATURE = [0x37, 0x7a, 0xbc, 0xaf, 0x27, 0x1c];
+const MP4_FTYP_SIGNATURE = [0x66, 0x74, 0x79, 0x70];
 const TEXT_MIME_HINTS = [
   "text/",
   "application/json",
@@ -35,6 +39,16 @@ function hasSignature(bytes: Uint8Array, signature: number[], offset: number = 0
     return false;
   }
   return signature.every((byte, idx) => bytes[offset + idx] === byte);
+}
+
+function looksLikeKnownBinary(bytes: Uint8Array): boolean {
+  if (hasSignature(bytes, ZIP_SIGNATURE) || hasSignature(bytes, GZIP_SIGNATURE)) {
+    return true;
+  }
+  if (hasSignature(bytes, SEVEN_Z_SIGNATURE)) {
+    return true;
+  }
+  return hasSignature(bytes, MP4_FTYP_SIGNATURE, 4);
 }
 
 export function looksLikePdf(contentType: string, bytes: Uint8Array): boolean {
@@ -63,7 +77,11 @@ export function looksLikeImage(contentType: string, bytes: Uint8Array): boolean 
 export function looksLikeText(contentType: string, bytes: Uint8Array): boolean {
   const normalizedType = contentType.toLowerCase();
 
-  if (looksLikePdf(normalizedType, bytes) || looksLikeImage(normalizedType, bytes)) {
+  if (
+    looksLikePdf(normalizedType, bytes) ||
+    looksLikeImage(normalizedType, bytes) ||
+    looksLikeKnownBinary(bytes)
+  ) {
     return false;
   }
 
@@ -71,21 +89,29 @@ export function looksLikeText(contentType: string, bytes: Uint8Array): boolean {
     return true;
   }
 
+  if (normalizedType && normalizedType !== "application/octet-stream") {
+    return false;
+  }
+
   if (bytes.length === 0) {
     return false;
   }
 
-  const sample = bytes.slice(0, 256);
-  let printableCount = 0;
+  const sample = bytes.slice(0, 512);
+  let controlCount = 0;
+  let highByteCount = 0;
   for (const byte of sample) {
     if (byte === 0) {
       return false;
     }
-    if (byte === 9 || byte === 10 || byte === 13 || (byte >= 32 && byte <= 126)) {
-      printableCount += 1;
+    if (byte < 32 && byte !== 9 && byte !== 10 && byte !== 13) {
+      controlCount += 1;
+    }
+    if (byte >= 0x80) {
+      highByteCount += 1;
     }
   }
-  return printableCount / sample.length > 0.85;
+  return controlCount / sample.length < 0.05 && highByteCount / sample.length < 0.25;
 }
 
 export async function createPdfPreviewDataUri(pdfBlob: Blob): Promise<string> {

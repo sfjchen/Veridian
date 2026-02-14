@@ -4,6 +4,7 @@ from typing import Tuple
 
 from flask import Blueprint, Response, request, jsonify, g
 from postgrest.exceptions import APIError
+from supabase import Client
 
 from app.middleware.auth import require_auth, require_role
 from app.services.supabase_client import get_supabase_admin_client
@@ -18,7 +19,7 @@ POSTGRES_UNIQUE_VIOLATION = "23505"
 
 
 def _verify_classroom_access(
-    client: object, classroom_id: str, user_id: str, role: str,
+    client: Client, classroom_id: str, user_id: str, role: str,
 ) -> bool:
     if role == "teacher":
         result = client.table("classrooms").select("id").eq(
@@ -32,7 +33,7 @@ def _verify_classroom_access(
 
 
 def _validate_context_file_ids(
-    client: object, classroom_id: str, file_ids: list[str],
+    client: Client, classroom_id: str, file_ids: list[str],
 ) -> bool:
     if not file_ids:
         return True
@@ -343,27 +344,60 @@ def list_submissions(assignment_id: str) -> Tuple[Response, int]:
 def create_submission(assignment_id: str) -> Tuple[Response, int]:
     client = get_supabase_admin_client()
 
-    def _resume_or_reject_existing_submission(existing_record: dict) -> Tuple[Response, int]:
+    def _delete_submission_row(submission_id: str) -> bool:
+        try:
+            client.table("submissions").delete().eq("id", submission_id).execute()
+        except Exception as e:
+            print(f"Failed to delete broken submission {submission_id}: {e}", file=sys.stderr)
+            return False
+        return True
+
+    def _resume_or_recover_existing_submission(existing_record: dict) -> Tuple[Response, int] | None:
+        """Return a terminal response, or None when the caller should create a fresh row."""
+        submission_id = existing_record.get("id")
+        if not submission_id:
+            return jsonify({
+                "error": "Data integrity error: submission exists without id. Contact support.",
+            }), 500
+
         storage_path = existing_record.get("storage_path")
         if not storage_path:
-            return jsonify({"error": "Existing submission is missing storage path"}), 500
+            if _delete_submission_row(submission_id):
+                return None
+            return jsonify({
+                "error": "Data integrity error: submission exists without storage path. Contact support.",
+            }), 500
 
         try:
             download_url = generate_download_url(SUBMISSIONS_BUCKET, storage_path)
             return jsonify({
                 "error": "Submission already exists for this assignment",
-                "submission_id": existing_record.get("id"),
+                "submission_id": submission_id,
                 "download_url": download_url,
             }), 409
         except ValueError:
             try:
                 upload_url = generate_upload_url(SUBMISSIONS_BUCKET, storage_path)
-            except ValueError:
-                return jsonify({"error": "Failed to generate upload URL"}), 500
+            except ValueError as e:
+                print(
+                    f"Failed to generate resume upload URL for submission {submission_id}: {e}",
+                    file=sys.stderr,
+                )
+                if _delete_submission_row(submission_id):
+                    return None
+                return jsonify({"error": "Failed to resume existing submission"}), 500
             return jsonify({
                 **existing_record,
                 "upload_url": upload_url,
             }), 200
+
+    def _insert_submission_row(submission_id: str, storage_path: str) -> object:
+        return client.table("submissions").insert({
+            "id": submission_id,
+            "assignment_id": assignment_id,
+            "student_id": g.user_id,
+            "storage_path": storage_path,
+        }).execute()
 
     assignment = client.table("assignments").select("id, classroom_id").eq(
         "id", assignment_id
@@ -383,32 +417,47 @@ def create_submission(assignment_id: str) -> Tuple[Response, int]:
         "assignment_id", assignment_id
     ).eq("student_id", g.user_id).limit(1).execute()
     if existing_submission.data:
-        return _resume_or_reject_existing_submission(existing_submission.data[0])
+        resume_result = _resume_or_recover_existing_submission(existing_submission.data[0])
+        if resume_result is not None:
+            return resume_result
 
-    submission_id = str(uuid.uuid4())
-    storage_path = f"{classroom_id}/{g.user_id}/{submission_id}"
+    record = None
+    submission_id = ""
+    storage_path = ""
+    for _ in range(2):
+        submission_id = str(uuid.uuid4())
+        storage_path = f"{classroom_id}/{g.user_id}/{submission_id}"
+        try:
+            record = _insert_submission_row(submission_id, storage_path)
+            break
+        except APIError as e:
+            if e.code != POSTGRES_UNIQUE_VIOLATION:
+                print(f"Failed to insert submission: {e}", file=sys.stderr)
+                return jsonify({"error": "Failed to create submission"}), 500
 
-    try:
-        record = client.table("submissions").insert({
-            "id": submission_id,
-            "assignment_id": assignment_id,
-            "student_id": g.user_id,
-            "storage_path": storage_path,
-        }).execute()
-    except APIError as e:
-        if e.code == POSTGRES_UNIQUE_VIOLATION:
             existing = client.table("submissions").select("*").eq(
                 "assignment_id", assignment_id
             ).eq("student_id", g.user_id).limit(1).execute()
-            if existing.data:
-                return _resume_or_reject_existing_submission(existing.data[0])
-            return jsonify({"error": "Submission already exists for this assignment"}), 409
-        print(f"Failed to insert submission: {e}", file=sys.stderr)
+            if not existing.data:
+                continue
+
+            resume_result = _resume_or_recover_existing_submission(existing.data[0])
+            if resume_result is not None:
+                return resume_result
+
+    if record is None:
         return jsonify({"error": "Failed to create submission"}), 500
+    if not record.data:
+        return jsonify({"error": "Insert returned no data"}), 500
 
     try:
         upload_url = generate_upload_url(SUBMISSIONS_BUCKET, storage_path)
-    except ValueError:
+    except ValueError as e:
+        print(
+            f"Failed to generate upload URL for new submission {submission_id}: {e}",
+            file=sys.stderr,
+        )
+        _delete_submission_row(submission_id)
         return jsonify({"error": "Failed to generate upload URL"}), 500
 
     return jsonify({

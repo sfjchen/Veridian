@@ -1,5 +1,5 @@
 -- Ensure one submission record per (assignment, student).
--- Prefer rows with actual uploaded storage objects, then newest timestamp.
+-- Prefer rows with actual uploaded storage objects, then oldest timestamp.
 with ranked_submissions as (
     select
         s.id,
@@ -7,8 +7,8 @@ with ranked_submissions as (
             partition by s.assignment_id, s.student_id
             order by
                 case when so.id is null then 0 else 1 end desc,
-                s.submitted_at desc,
-                s.id desc
+                s.submitted_at asc,
+                s.id asc
         ) as row_num
     from public.submissions s
     left join storage.objects so

@@ -13,8 +13,8 @@ from app.services.supabase_client import get_supabase_admin_client
 corpus_bp = Blueprint("corpus", __name__)
 
 CORPUS_BUCKET = "corpus"
-ALLOWED_FILE_TYPES = {"pdf", "txt", "docx", "doc", "md", "tex", "rtf", "csv", "json", "ipynb"}
-MAX_DISPLAY_NAME_LENGTH = 300
+ALLOWED_FILE_TYPES = frozenset({"pdf", "txt", "docx", "doc", "md", "tex", "rtf", "csv", "json", "ipynb"})
+MAX_DISPLAY_NAME_LENGTH = 300  # DB column limit; matches frontend validation
 
 
 def _validate_uuid(value: str) -> bool:
@@ -33,6 +33,8 @@ def _normalize_folder_path(raw_value: Any) -> str:
     stripped = raw_value.strip().strip("/")
     if not stripped:
         return ""
+    if "//" in stripped:
+        raise ValueError("folder_path cannot contain consecutive slashes")
     parts = [part.strip() for part in stripped.split("/") if part.strip()]
     for part in parts:
         if part in {".", ".."} or ".." in part:
@@ -42,7 +44,9 @@ def _normalize_folder_path(raw_value: Any) -> str:
 
 def _storage_components(classroom_id: str, storage_path: str) -> tuple[str, str]:
     prefix = classroom_id + "/"
-    relative_path = storage_path[len(prefix):] if storage_path.startswith(prefix) else storage_path
+    if not storage_path.startswith(prefix):
+        raise ValueError(f"storage_path {storage_path!r} does not match classroom {classroom_id!r}")
+    relative_path = storage_path[len(prefix):]
     if "/" not in relative_path:
         return "", relative_path
     folder_path, filename = relative_path.rsplit("/", 1)
@@ -76,8 +80,8 @@ def _user_can_access_classroom(
 
 def _base_file_metadata(file_record: dict[str, Any]) -> dict[str, Any]:
     file_copy = dict(file_record)
-    classroom_id = str(file_copy.get("classroom_id") or "")
-    storage_path = str(file_copy.get("storage_path") or "")
+    classroom_id = str(file_copy["classroom_id"])
+    storage_path = str(file_copy["storage_path"])
     folder_path, filename = _storage_components(classroom_id, storage_path)
     file_copy["folder_path"] = folder_path
     file_copy["file_name"] = filename
@@ -87,12 +91,13 @@ def _base_file_metadata(file_record: dict[str, Any]) -> dict[str, Any]:
 
 def _serialize_file(file_record: dict[str, Any]) -> dict[str, Any]:
     file_copy = _base_file_metadata(file_record)
-    storage_path = str(file_copy.get("storage_path") or "")
+    storage_path = str(file_copy["storage_path"])
     try:
         file_copy["download_url"] = generate_download_url(CORPUS_BUCKET, storage_path)
     except Exception as e:
         print(f"Failed to generate corpus download URL for {storage_path}: {e}", file=sys.stderr)
         file_copy["download_url"] = None
+        file_copy["download_url_error"] = str(e)
     return file_copy
 
 
@@ -132,7 +137,10 @@ def _build_corpus_tree(file_records: list[dict[str, Any]]) -> list[dict[str, Any
     def sort_tree(node: dict[str, Any]) -> None:
         children = node.get("children", [])
         children.sort(
-            key=lambda item: (item.get("type") != "folder", item.get("name") or item.get("display_name", "")),
+            key=lambda item: (
+                0 if item.get("type") == "folder" else 1,
+                item.get("name") or item.get("display_name", ""),
+            ),
         )
         for child in children:
             if child.get("type") == "folder":
@@ -198,6 +206,7 @@ def create_corpus_file(classroom_id: str) -> tuple[Response, int]:
             client.table("corpus_files").delete().eq("id", file_id).execute()
         except Exception as cleanup_err:
             print(f"Failed to clean up orphaned corpus_file {file_id}: {cleanup_err}", file=sys.stderr)
+            return jsonify({"error": "Failed to generate upload URL", "orphaned_file_id": file_id}), 500
         return jsonify({"error": "Failed to generate upload URL"}), 500
 
     return jsonify({
@@ -313,7 +322,7 @@ def update_corpus_file(file_id: str) -> tuple[Response, int]:
             updates["storage_path"] = new_storage_path
 
     if not updates:
-        return jsonify({"error": "No valid fields to update"}), 400
+        return jsonify({"error": "No changes detected"}), 400
 
     try:
         updated = client.table("corpus_files").update(updates).eq("id", file_id).execute()
@@ -323,9 +332,14 @@ def update_corpus_file(file_id: str) -> tuple[Response, int]:
                 move_object(CORPUS_BUCKET, new_storage_path, old_storage_path)
             except ValueError as rollback_error:
                 print(
-                    f"Failed to rollback moved corpus object {new_storage_path} -> {old_storage_path}: {rollback_error}",
+                    f"CRITICAL: Failed to rollback storage move {new_storage_path} -> {old_storage_path}: "
+                    f"{rollback_error}",
                     file=sys.stderr,
                 )
+                return jsonify({
+                    "error": "Failed to update corpus file; storage rollback also failed",
+                    "file_id": file_id,
+                }), 500
         print(f"Failed to update corpus file {file_id}: {e}", file=sys.stderr)
         return jsonify({"error": "Failed to update corpus file"}), 500
 
@@ -351,19 +365,16 @@ def delete_corpus_file(file_id: str) -> tuple[Response, int]:
         return jsonify({"error": "Access denied"}), 403
 
     try:
-        deleted = client.table("corpus_files").delete().eq("id", file_id).execute()
-    except APIError as e:
-        print(f"Failed to delete corpus file record {file_id}: {e}", file=sys.stderr)
-        return jsonify({"error": "Failed to delete corpus file"}), 500
-    if not deleted.data:
-        return jsonify({"error": "File not found"}), 404
-
-    try:
         delete_object(CORPUS_BUCKET, file_record["storage_path"])
     except ValueError as e:
-        print(f"Deleted corpus DB row but failed to remove storage object for {file_id}: {e}", file=sys.stderr)
-        return jsonify({
-            "file_id": file_id,
-            "warning": "File metadata deleted but storage object cleanup failed",
-        }), 200
+        print(f"Failed to delete storage object for {file_id}: {e}", file=sys.stderr)
+        return jsonify({"error": "Failed to delete file from storage"}), 500
+
+    try:
+        deleted = client.table("corpus_files").delete().eq("id", file_id).execute()
+    except APIError as e:
+        print(f"Storage deleted but DB delete failed for {file_id}: {e}", file=sys.stderr)
+        return jsonify({"error": "Failed to delete file record"}), 500
+    if not deleted.data:
+        return jsonify({"error": "File not found"}), 404
     return Response(status=204)

@@ -27,6 +27,7 @@ import { useAssignment } from '@/hooks/useAssignment';
 import { useAutoAnalysis } from '@/hooks/useAutoAnalysis';
 import { useDocuments, isDefaultDocument } from '@/hooks/useDocuments';
 import type { AnalysisResult, Mistake } from '@/lib/api';
+import type { CaptureResult } from '@/lib/capture-types';
 import { buildAnalysisFormData } from '@/lib/image-upload';
 import { captureStrokesAsDataUri } from '@/lib/capture-web';
 import { PDF_VIEWER_HTML } from '@/lib/pdf-viewer-html';
@@ -181,6 +182,10 @@ export default function DocumentScreen() {
   const viewShotRef = useRef<ViewShot | null>(null);
   const [canvasDims, setCanvasDims] = useState<{ w: number; h: number } | null>(null);
 
+  useEffect(() => {
+    setCanvasDims(null);
+  }, [pageIndex]);
+
   const STROKES_KEY = id ? `veridian_strokes:${id}` : null;
 
   const pageIndex = currentPage - 1;
@@ -297,25 +302,24 @@ export default function DocumentScreen() {
   const goToPage = (page: number) => setCurrentPage(Math.max(1, Math.min(totalPages, page)));
 
   // --- Screenshot capture ---
-  const captureScreenshot = useCallback(async (): Promise<string | null> => {
+  const captureScreenshot = useCallback(async (): Promise<CaptureResult> => {
     if (Platform.OS === 'web') {
-      if (!canvasDims) return null;
-      return captureStrokesAsDataUri(currentStrokes, canvasDims.w, canvasDims.h);
+      if (!canvasDims) return { error: 'unavailable' };
+      try {
+        const uri = captureStrokesAsDataUri(currentStrokes, canvasDims.w, canvasDims.h);
+        return { uri };
+      } catch {
+        return { error: 'failed' };
+      }
     }
     const viewShot = viewShotRef.current;
-    if (!viewShot || typeof viewShot.capture !== 'function') {
-      showAlert('Capture failed', 'Capture is not supported on this platform (e.g. web). Try the iOS or Android app.');
-      return null;
-    }
+    if (!viewShot || typeof viewShot.capture !== 'function') return { error: 'unavailable' };
     try {
       const uri = await viewShot.capture();
-      if (!uri) {
-        showAlert('Capture failed', 'No image URI returned.');
-      }
-      return uri ?? null;
+      if (!uri) return { error: 'failed' };
+      return { uri };
     } catch {
-      showAlert('Capture failed', 'Screenshot capture failed unexpectedly.');
-      return null;
+      return { error: 'failed' };
     }
   }, [canvasDims, currentStrokes]);
 
@@ -332,6 +336,7 @@ export default function DocumentScreen() {
   const {
     isAnalyzing,
     lastResult,
+    error: analysisError,
     triggerNow,
     markDirty,
   } = useAutoAnalysis({
@@ -339,7 +344,7 @@ export default function DocumentScreen() {
     problemNum: currentProblem?.num,
     isSample: isDefault,
     debounceMs,
-    enabled: isProblemMode && (assignment?.auto_analyze ?? isDefault),
+    enabled: isProblemMode && (assignment?.auto_analyze ?? isDefault) && !!canvasDims,
     captureScreenshot,
     onError: (msg) => showAlert('Analysis failed', msg),
     onStaleResult,
@@ -367,8 +372,12 @@ export default function DocumentScreen() {
       return;
     }
     // Legacy: full-page analysis for non-assignment documents.
-    const uri = await captureScreenshot();
-    if (!uri) return;
+    const result = await captureScreenshot();
+    if ('error' in result) {
+      showAlert('Capture failed', result.error === 'unavailable' ? 'Capture unavailable' : 'Capture failed');
+      return;
+    }
+    const uri = result.uri;
     const apiUrl = process.env.EXPO_PUBLIC_BACKEND_URL ?? '';
     if (!apiUrl) {
       showAlert('Submit failed', 'Set EXPO_PUBLIC_BACKEND_URL in .env and restart Expo.');
@@ -551,6 +560,14 @@ export default function DocumentScreen() {
         <View style={styles.analyzingBar}>
           <ActivityIndicator size="small" color={palette.textMuted} />
           <Text style={styles.analyzingText}>Analyzing...</Text>
+        </View>
+      )}
+
+      {/* Capture / analysis error status */}
+      {analysisError !== null && !isAnalyzing && (
+        <View style={styles.analyzingBar}>
+          <MaterialCommunityIcons name="alert-outline" size={18} color={palette.textMuted} />
+          <Text style={styles.analyzingText}>{analysisError}</Text>
         </View>
       )}
 

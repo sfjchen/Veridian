@@ -1,6 +1,9 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
 
 import { submitAnalysis, type AnalysisResult } from '@/lib/api';
+import type { CaptureResult } from '@/lib/capture-types';
+
+export type { CaptureResult } from '@/lib/capture-types';
 
 type AutoAnalysisOpts = {
   assignmentId?: string;
@@ -8,7 +11,7 @@ type AutoAnalysisOpts = {
   isSample?: boolean;
   debounceMs?: number;
   enabled?: boolean;
-  captureScreenshot: () => Promise<string | null>;
+  captureScreenshot: () => Promise<CaptureResult>;
   onError?: (error: string) => void;
   onStaleResult?: (result: AnalysisResult) => void;
 };
@@ -62,13 +65,18 @@ export function useAutoAnalysis({
     const context = { assignmentId, problemNum };
 
     try {
-      const uri = await captureScreenshot();
-      if (!uri) {
-        onError?.('Capture failed. Canvas may not be ready yet.');
-        setIsAnalyzing(false);
+      const capture = await captureScreenshot();
+      if ('error' in capture) {
+        const msg = capture.error === 'unavailable' ? 'Capture unavailable' : 'Capture failed';
+        setError(msg);
+        onError?.(msg);
+        if (runId === runIdRef.current) {
+          setIsAnalyzing(false);
+          analyzingRef.current = false;
+        }
         return;
       }
-      const result = await submitAnalysis(uri, { assignmentId, problemNum, isSample });
+      const result = await submitAnalysis(capture.uri, { assignmentId, problemNum, isSample });
       if (runId !== runIdRef.current) return;
       const current = contextRef.current;
       if (contextMatches(result, current.assignmentId, current.problemNum)) {

@@ -49,7 +49,8 @@ def _fetch_classroom_config(classroom_id: str) -> Dict[str, Any]:
     rows = unwrap_supabase_data(response) or []
     if not isinstance(rows, list) or not rows:
         return {}
-    return rows[0].get("config") or {}
+    config = rows[0].get("config")
+    return config if isinstance(config, dict) else {}
 
 
 def get_resolved_config(assignment_id: str) -> Dict[str, Any]:
@@ -59,4 +60,6 @@ def get_resolved_config(assignment_id: str) -> Dict[str, Any]:
     classroom_id = assignment.get("classroom_id")
     classroom_config = _fetch_classroom_config(classroom_id) if classroom_id else {}
     assignment_config = assignment.get("config") or {}
+    if not isinstance(assignment_config, dict):
+        assignment_config = {}
     return validate_config(resolve_config(classroom_config, assignment_config))

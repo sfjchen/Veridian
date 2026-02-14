@@ -1,7 +1,8 @@
 import React, { useState } from "react";
-import { View, Text, TouchableOpacity, StyleSheet, Alert, ActivityIndicator } from "react-native";
+import { View, Text, TouchableOpacity, StyleSheet, ActivityIndicator } from "react-native";
 import * as DocumentPicker from "expo-document-picker";
-import * as FileSystem from "expo-file-system";
+import { uploadFile } from "../lib/upload";
+import { alert } from "../lib/alert";
 
 const SAFE_DEFAULT_TYPES = ["application/pdf", "text/*", "image/*"];
 
@@ -34,20 +35,11 @@ export function FileUploader({ onUploadComplete, uploadUrl, label = "Upload File
         console.error(`FileUploader: unknown MIME type for ${file.name}, using octet-stream`);
       }
 
-      const response = await FileSystem.uploadAsync(uploadUrl, file.uri, {
-        httpMethod: "PUT",
-        uploadType: FileSystem.FileSystemUploadType.BINARY_CONTENT,
-        headers: { "Content-Type": contentType },
-      });
-
-      if (response.status >= 200 && response.status < 300) {
-        const storageUrl = uploadUrl.split("?")[0];
-        onUploadComplete(storageUrl);
-      } else {
-        Alert.alert("Upload Failed", `Server returned ${response.status}`);
-      }
+      await uploadFile({ uri: file.uri, uploadUrl, mimeType: contentType, file: file.file });
+      const storageUrl = uploadUrl.split("?")[0];
+      onUploadComplete(storageUrl);
     } catch (e: any) {
-      Alert.alert("Upload Error", e.message);
+      alert("Upload Error", e.message);
     } finally {
       setUploading(false);
     }

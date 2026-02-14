@@ -1,10 +1,11 @@
 import React, { useState } from "react";
 import {
   View, Text, FlatList, TouchableOpacity, TextInput,
-  StyleSheet, Alert, ActivityIndicator,
+  StyleSheet, ActivityIndicator,
 } from "react-native";
 import { useClassrooms } from "../../hooks/useClassrooms";
 import { useAuth } from "../../stores/auth";
+import { alert } from "../../lib/alert";
 
 export function TeacherDashboardScreen({ navigation }: { navigation: any }) {
   const { classrooms, loading, error, create } = useClassrooms();
@@ -15,7 +16,7 @@ export function TeacherDashboardScreen({ navigation }: { navigation: any }) {
   const handleCreate = async () => {
     const trimmed = newName.trim();
     if (!trimmed) {
-      Alert.alert("Error", "Classroom name cannot be empty");
+      alert("Error", "Classroom name cannot be empty");
       return;
     }
     setCreating(true);
@@ -23,7 +24,7 @@ export function TeacherDashboardScreen({ navigation }: { navigation: any }) {
       await create(trimmed);
       setNewName("");
     } catch (e: any) {
-      Alert.alert("Error", e.message);
+      alert("Error", e.message);
     } finally {
       setCreating(false);
     }

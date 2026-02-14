@@ -1,6 +1,6 @@
 import sys
 import uuid
-from typing import Tuple
+from typing import Any, Tuple
 
 from flask import Blueprint, Response, g, jsonify, request
 from postgrest.exceptions import APIError
@@ -63,7 +63,7 @@ def create_classroom() -> Response | Tuple[Response, int]:
     for attempt in range(CODE_GENERATION_MAX_ATTEMPTS):
         code = generate_class_code()
         try:
-            insert_data: dict = {
+            insert_data: dict[str, Any] = {
                 "teacher_id": g.user_id,
                 "name": name,
                 "class_code": code,
@@ -147,7 +147,7 @@ def update_classroom(classroom_id: str) -> Response | Tuple[Response, int]:
     if not data:
         return jsonify({"error": "No data provided"}), 400
 
-    updates: dict = {}
+    updates: dict[str, Any] = {}
     name = data.get("name")
     if name is not None:
         if not isinstance(name, str):

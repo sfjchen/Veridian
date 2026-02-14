@@ -34,11 +34,15 @@ _INT_RANGES: dict[str, tuple[int, int]] = {
 }
 
 
-def validate_config(config: dict[str, Any]) -> dict[str, Any]:
+def validate_config(config: dict[str, Any] | None) -> dict[str, Any]:
     """Validate and return a cleaned sparse config dict.
 
     Raises ValueError on unknown fields or invalid values.
     """
+    if config is None:
+        return {}
+    if not isinstance(config, dict):
+        raise ValueError("config must be a dict")
     cleaned: dict[str, Any] = {}
     for key, value in config.items():
         if key not in HARDCODED_DEFAULTS:

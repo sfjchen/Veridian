@@ -1,8 +1,9 @@
 import React, { useState } from "react";
-import { View, Text, TextInput, TouchableOpacity, StyleSheet, Alert } from "react-native";
+import { View, Text, TextInput, TouchableOpacity, StyleSheet } from "react-native";
 import { NativeStackNavigationProp } from "@react-navigation/native-stack";
 import { useAuth } from "../../stores/auth";
 import { UserRole } from "../../types";
+import { alert } from "../../lib/alert";
 
 const EMAIL_REGEX = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
 const MIN_PASSWORD_LENGTH = 8;
@@ -26,15 +27,15 @@ export function SignupScreen({ navigation }: SignupScreenProps) {
 
   const handleSignup = async () => {
     if (!displayName.trim() || !email.trim() || !password) {
-      Alert.alert("Validation Error", "Please fill in all fields.");
+      alert("Validation Error", "Please fill in all fields.");
       return;
     }
     if (!EMAIL_REGEX.test(email.trim())) {
-      Alert.alert("Invalid Email", "Please enter a valid email address.");
+      alert("Invalid Email", "Please enter a valid email address.");
       return;
     }
     if (password.length < MIN_PASSWORD_LENGTH) {
-      Alert.alert("Weak Password", `Password must be at least ${MIN_PASSWORD_LENGTH} characters.`);
+      alert("Weak Password", `Password must be at least ${MIN_PASSWORD_LENGTH} characters.`);
       return;
     }
     setLoading(true);
@@ -43,10 +44,10 @@ export function SignupScreen({ navigation }: SignupScreenProps) {
       // If we reach here, auto-confirm happened — auth state change will unmount this screen
     } catch (e: any) {
       if (e.message?.includes("check your email")) {
-        Alert.alert("Account Created", e.message);
+        alert("Account Created", e.message);
         navigation.navigate("Login");
       } else {
-        Alert.alert("Signup Failed", e.message);
+        alert("Signup Failed", e.message);
       }
       setLoading(false);
     }

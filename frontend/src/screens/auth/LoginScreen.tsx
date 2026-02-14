@@ -1,7 +1,8 @@
 import React, { useState } from "react";
-import { View, Text, TextInput, TouchableOpacity, StyleSheet, Alert } from "react-native";
+import { View, Text, TextInput, TouchableOpacity, StyleSheet } from "react-native";
 import { NativeStackNavigationProp } from "@react-navigation/native-stack";
 import { useAuth } from "../../stores/auth";
+import { alert } from "../../lib/alert";
 
 type AuthStackParamList = {
   Login: undefined;
@@ -20,7 +21,7 @@ export function LoginScreen({ navigation }: LoginScreenProps) {
 
   const handleLogin = async () => {
     if (!email.trim() || !password) {
-      Alert.alert("Validation Error", "Please enter both email and password.");
+      alert("Validation Error", "Please enter both email and password.");
       return;
     }
     setLoading(true);
@@ -28,7 +29,7 @@ export function LoginScreen({ navigation }: LoginScreenProps) {
       await signIn(email.trim(), password);
       // Component unmounts on success — no setState needed
     } catch (e: any) {
-      Alert.alert("Login Failed", e.message);
+      alert("Login Failed", e.message);
       setLoading(false);
     }
   };

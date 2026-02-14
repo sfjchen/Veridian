@@ -1,11 +1,12 @@
 import React, { useState } from "react";
 import {
   View, Text, TextInput, TouchableOpacity, StyleSheet,
-  Alert, ScrollView, ActivityIndicator,
+  ScrollView, ActivityIndicator,
 } from "react-native";
 import * as DocumentPicker from "expo-document-picker";
 import * as FileSystem from "expo-file-system";
 import { api } from "../../lib/api";
+import { alert } from "../../lib/alert";
 
 const DATE_PATTERN = /^\d{4}-\d{2}-\d{2}$/;
 
@@ -50,19 +51,19 @@ export function CreateAssignmentScreen({ route, navigation }: { route: any; navi
 
   const handleCreate = async () => {
     if (!title.trim()) {
-      Alert.alert("Error", "Title is required");
+      alert("Error", "Title is required");
       return;
     }
 
     let dueDateValue: string | undefined;
     if (dueDate.trim()) {
       if (!DATE_PATTERN.test(dueDate.trim())) {
-        Alert.alert("Error", "Due date must be in YYYY-MM-DD format");
+        alert("Error", "Due date must be in YYYY-MM-DD format");
         return;
       }
       const parsed = new Date(dueDate.trim());
       if (isNaN(parsed.getTime())) {
-        Alert.alert("Error", "Invalid date");
+        alert("Error", "Invalid date");
         return;
       }
       dueDateValue = dueDate.trim();
@@ -90,11 +91,11 @@ export function CreateAssignmentScreen({ route, navigation }: { route: any; navi
         await Promise.all(uploads);
       }
 
-      Alert.alert("Success", "Assignment created!", [
+      alert("Success", "Assignment created!", [
         { text: "OK", onPress: () => navigation.goBack() },
       ]);
     } catch (e: any) {
-      Alert.alert("Error", e instanceof Error ? e.message : "Failed to create assignment");
+      alert("Error", e instanceof Error ? e.message : "Failed to create assignment");
     } finally {
       setCreating(false);
     }

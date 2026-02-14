@@ -1,5 +1,6 @@
 import React, { useState } from "react";
-import { View, TextInput, TouchableOpacity, Text, StyleSheet, Alert } from "react-native";
+import { View, TextInput, TouchableOpacity, Text, StyleSheet } from "react-native";
+import { alert } from "../lib/alert";
 
 const CLASS_CODE_LENGTH = 6;
 const CLASS_CODE_PATTERN = /^[A-Z0-9]{6}$/;
@@ -15,11 +16,11 @@ export function ClassCodeInput({ onSubmit }: Props) {
   const handleSubmit = async () => {
     const trimmed = code.trim().toUpperCase();
     if (trimmed.length !== CLASS_CODE_LENGTH) {
-      Alert.alert("Invalid Code", `Class code must be ${CLASS_CODE_LENGTH} characters`);
+      alert("Invalid Code", `Class code must be ${CLASS_CODE_LENGTH} characters`);
       return;
     }
     if (!CLASS_CODE_PATTERN.test(trimmed)) {
-      Alert.alert("Invalid Code", "Class code must contain only letters and numbers");
+      alert("Invalid Code", "Class code must contain only letters and numbers");
       return;
     }
     setLoading(true);
@@ -27,7 +28,7 @@ export function ClassCodeInput({ onSubmit }: Props) {
       await onSubmit(trimmed);
       setCode("");
     } catch (e: any) {
-      Alert.alert("Error", e.message);
+      alert("Error", e.message);
     } finally {
       setLoading(false);
     }

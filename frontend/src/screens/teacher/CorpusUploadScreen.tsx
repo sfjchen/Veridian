@@ -1,11 +1,12 @@
 import React, { useState } from "react";
 import {
   View, Text, TextInput, TouchableOpacity, StyleSheet,
-  Alert, ActivityIndicator,
+  ActivityIndicator,
 } from "react-native";
 import * as DocumentPicker from "expo-document-picker";
 import * as FileSystem from "expo-file-system";
 import { api } from "../../lib/api";
+import { alert } from "../../lib/alert";
 
 interface PickedFile {
   name: string;
@@ -56,11 +57,11 @@ export function CorpusUploadScreen({ route, navigation }: { route: any; navigati
 
   const handleUpload = async () => {
     if (!displayName.trim()) {
-      Alert.alert("Error", "Display name required");
+      alert("Error", "Display name required");
       return;
     }
     if (!file) {
-      Alert.alert("Error", "Please select a file first");
+      alert("Error", "Please select a file first");
       return;
     }
 
@@ -68,7 +69,7 @@ export function CorpusUploadScreen({ route, navigation }: { route: any; navigati
     try {
       const fileType = inferFileType(file.name, file.mimeType);
       if (!fileType) {
-        Alert.alert("Error", "Unsupported file type. Allowed: pdf, txt, docx, doc, md, tex, rtf");
+        alert("Error", "Unsupported file type. Allowed: pdf, txt, docx, doc, md, tex, rtf");
         return;
       }
       const result = await api<{ upload_url: string }>(`/classrooms/${classroomId}/corpus`, {
@@ -86,11 +87,11 @@ export function CorpusUploadScreen({ route, navigation }: { route: any; navigati
         throw new Error(`Upload failed with status ${response.status}`);
       }
 
-      Alert.alert("Success", "File uploaded!", [
+      alert("Success", "File uploaded!", [
         { text: "OK", onPress: () => navigation.goBack() },
       ]);
     } catch (e: any) {
-      Alert.alert("Error", e instanceof Error ? e.message : "Upload failed");
+      alert("Error", e instanceof Error ? e.message : "Upload failed");
     } finally {
       setUploading(false);
     }

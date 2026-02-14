@@ -25,7 +25,7 @@ log = logging.getLogger(__name__)
 
 CHAT_MODEL = "claude-sonnet-4-5-20250929"
 CHAT_MAX_TOKENS = 16000  # room for extended thinking + detailed tutoring response
-BUDGET_TOKENS = 8000  # enough for ~10 back-and-forth exchanges of thinking
+BUDGET_TOKENS = CHAT_MAX_TOKENS // 2  # keep thinking budget proportional to output budget
 CHAT_PERSIST_BACKOFF_SECONDS = (0.1, 0.5, 2.0)
 
 SYSTEM_PROMPT = """You are a Socratic math tutor. Your goal is to help students understand and reach the answer themselves.

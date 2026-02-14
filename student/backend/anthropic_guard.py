@@ -5,6 +5,7 @@ from typing import Any, Literal, Protocol, TypedDict
 # Minimum version that supports `thinking` on messages.create().
 MIN_ANTHROPIC_VERSION = (0, 79, 0)
 MIN_ANTHROPIC_VERSION_STR = ".".join(str(part) for part in MIN_ANTHROPIC_VERSION)
+MIN_THINKING_BUDGET_TOKENS = 1024
 REMEDIATION_COMMAND = 'pip install -U "anthropic>=0.79.0"'
 _VERSION_PATTERN = re.compile(
     r"^(?P<major>\d+)\.(?P<minor>\d+)\.(?P<micro>\d+)"
@@ -115,10 +116,20 @@ def build_enabled_thinking(
     max_tokens: int,
     budget_tokens: int,
 ) -> ThinkingEnabledConfig:
-    if max_tokens < 1025:
-        raise ValueError(f"max_tokens must be >= 1025, got {max_tokens}")
-    if budget_tokens < 1024:
-        raise ValueError(f"budget_tokens must be >= 1024, got {budget_tokens}")
+    if not isinstance(max_tokens, int) or max_tokens <= 0:
+        raise TypeError(f"max_tokens must be a positive integer, got {max_tokens!r}")
+    if not isinstance(budget_tokens, int) or budget_tokens <= 0:
+        raise TypeError(f"budget_tokens must be a positive integer, got {budget_tokens!r}")
+    if max_tokens <= MIN_THINKING_BUDGET_TOKENS:
+        raise ValueError(
+            "max_tokens must be greater than "
+            f"{MIN_THINKING_BUDGET_TOKENS} to allow "
+            f"minimum budget_tokens={MIN_THINKING_BUDGET_TOKENS}; got {max_tokens}"
+        )
+    if budget_tokens < MIN_THINKING_BUDGET_TOKENS:
+        raise ValueError(
+            f"budget_tokens must be >= {MIN_THINKING_BUDGET_TOKENS}, got {budget_tokens}"
+        )
     if budget_tokens >= max_tokens:
         raise ValueError(
             "budget_tokens must be less than max_tokens; "

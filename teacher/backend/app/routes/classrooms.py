@@ -34,24 +34,11 @@ def _classroom_for_id(client: Client, classroom_id: str) -> dict | None:
     return result.data[0]
 
 
-def _teacher_owns_classroom(client: Client, classroom_id: str, teacher_id: str) -> bool:
-    classroom = _classroom_for_id(client, classroom_id)
-    if classroom is None:
-        return False
-    return bool(classroom.get("teacher_id") == teacher_id)
-
-
-def _student_is_class_member(client: Client, classroom_id: str, student_id: str) -> bool:
+def _is_class_member(client: Client, classroom_id: str, student_id: str) -> bool:
     membership = client.table("classroom_memberships").select("student_id").eq(
         "classroom_id", classroom_id
     ).eq("student_id", student_id).limit(1).execute()
     return bool(membership.data)
-
-
-def _user_can_access_classroom(client: Client, classroom_id: str, user_id: str, user_role: str) -> bool:
-    if user_role == "teacher":
-        return _teacher_owns_classroom(client, classroom_id, user_id)
-    return _student_is_class_member(client, classroom_id, user_id)
 
 
 @classrooms_bp.route("", methods=["POST"])
@@ -120,7 +107,9 @@ def get_classroom(classroom_id: str) -> Response | Tuple[Response, int]:
     classroom = _classroom_for_id(client, classroom_id)
     if classroom is None:
         return jsonify({"error": "Classroom not found"}), 404
-    if not _user_can_access_classroom(client, classroom_id, g.user_id, g.user_role):
+
+    is_owner = g.user_role == "teacher" and classroom.get("teacher_id") == g.user_id
+    if not is_owner and not _is_class_member(client, classroom_id, g.user_id):
         return jsonify({"error": "Access denied"}), 403
 
     memberships = client.table("classroom_memberships").select("student_id").eq(

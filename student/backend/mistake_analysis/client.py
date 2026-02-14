@@ -26,12 +26,18 @@ from pathlib import Path
 from openai import OpenAI
 
 try:
-    from anthropic_guard import validate_anthropic_thinking_support
+    from anthropic_guard import (
+        build_adaptive_thinking,
+        validate_anthropic_thinking_support,
+    )
 except ModuleNotFoundError:
     import sys
 
     sys.path.insert(0, str(Path(__file__).resolve().parent.parent))
-    from anthropic_guard import validate_anthropic_thinking_support
+    from anthropic_guard import (
+        build_adaptive_thinking,
+        validate_anthropic_thinking_support,
+    )
 from .constants import TAG_BANK, SEVERITIES, TAG_TO_SEVERITY, ALL_TAGS
 from .prompts import ANALYSIS_SYSTEM_PROMPT, GRADER_SYSTEM_PROMPT, CONTINUATION_SYSTEM_PROMPT
 from .helpers import escape_latex_text, extract_json_from_llm_response, extract_text, find_snippet, in_math_mode as _in_math_mode
@@ -122,7 +128,7 @@ class MistakeAnalyzer:
             }
             if use_thinking:
                 kwargs["temperature"] = 1
-                kwargs["thinking"] = {"type": "adaptive"}
+                kwargs["thinking"] = build_adaptive_thinking()
             response = self._call_api(context, **kwargs)
             return extract_text(response)
         if self._openai_client is None:

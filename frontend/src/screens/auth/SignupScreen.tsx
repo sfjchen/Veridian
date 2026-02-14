@@ -1,5 +1,5 @@
 import React, { useState } from "react";
-import { View, Text, TextInput, TouchableOpacity, StyleSheet } from "react-native";
+import { View, Text, TextInput, TouchableOpacity, StyleSheet, ScrollView } from "react-native";
 import { NativeStackNavigationProp } from "@react-navigation/native-stack";
 import { useAuth } from "../../stores/auth";
 import { UserRole } from "../../types";
@@ -54,7 +54,7 @@ export function SignupScreen({ navigation }: SignupScreenProps) {
   };
 
   return (
-    <View style={styles.container}>
+    <ScrollView contentContainerStyle={styles.container}>
       <Text style={styles.title}>Create Account</Text>
       <TextInput
         style={styles.input}
@@ -100,12 +100,12 @@ export function SignupScreen({ navigation }: SignupScreenProps) {
       <TouchableOpacity onPress={() => navigation.navigate("Login")}>
         <Text style={styles.link}>Already have an account? Sign In</Text>
       </TouchableOpacity>
-    </View>
+    </ScrollView>
   );
 }
 
 const styles = StyleSheet.create({
-  container: { flex: 1, justifyContent: "center", padding: 24, backgroundColor: "#fff" },
+  container: { flexGrow: 1, justifyContent: "center", padding: 24, backgroundColor: "#fff" },
   title: { fontSize: 28, fontWeight: "bold", marginBottom: 32, textAlign: "center" },
   input: {
     borderWidth: 1, borderColor: "#ddd", borderRadius: 8, padding: 14,

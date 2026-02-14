@@ -39,7 +39,7 @@ pip install -r requirements.txt
 
 #### 2. Environment Variables
 
-Create a `.env` file in the project root:
+Create a `.env` file in `backend/`:
 
 ```bash
 # Required
@@ -63,7 +63,7 @@ SUPABASE_COORD_RUNS_TABLE=veridian_mistake_coord_runs
 Apply the migration using Supabase CLI or dashboard:
 
 ```bash
-supabase/migrations/202602140001_veridian_artifacts.sql   # artifacts + storage bucket
+student/supabase/migrations/202602140001_veridian_artifacts.sql   # artifacts + storage bucket
 ```
 
 Ensure the `veridian-artifacts` storage bucket exists with proper RLS policies. See `SUPABASE_INTEGRATION.md` for details.
@@ -73,7 +73,7 @@ Ensure the `veridian-artifacts` storage bucket exists with proper RLS policies. 
 #### 1. Install Dependencies
 
 ```bash
-cd frontend
+cd frontend/
 npm install
 ```
 
@@ -94,7 +94,7 @@ EXPO_PUBLIC_BACKEND_URL=http://localhost:8000
 ### Backend Server
 
 ```bash
-python get_coords.py
+cd backend && python3 get_coords.py
 ```
 
 The server starts on `http://0.0.0.0:8000` (accessible at `http://localhost:8000`).
@@ -120,7 +120,7 @@ In the output, you'll find options to open the app in a development build, Andro
 ### Demo Flow (image-to-latex → mistake analysis → highlighting)
 
 1. **Backend:** `python get_coords.py` (requires `OPENAI_API_KEY`, `ANTHROPIC_API_KEY`, `CLAUDE_MODEL`, Supabase vars)
-2. **Frontend:** `cd frontend && npx expo start` (requires `EXPO_PUBLIC_BACKEND_URL=http://localhost:8000` in `frontend/.env`)
+2. **Frontend:** `cd frontend && npx expo start` (requires `EXPO_PUBLIC_BACKEND_URL=http://localhost:8000` in `frontend/.env`). Run from `student/` directory.
 3. **Document flow:** Open "Sample Algebra Problems" → work on problems with ink → tap **Done** → backend runs image-to-latex + MistakeAnalyzer → mistake boxes overlay on screen
 4. **Workspace flow:** Tap **Workspace** in header → draw on whiteboard → tap **Done** → same analysis pipeline → mistake boxes overlay
 

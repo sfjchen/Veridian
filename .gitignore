@@ -27,7 +27,7 @@ web-build/
 *.mobileprovision
 *.orig.*
 
-# Environment (applies to backend/, frontend/, student-platform/, student-platform/frontend/)
+# Environment (applies to teacher/, student/)
 .env
 .env.local
 .env.*.local
@@ -44,4 +44,5 @@ web-build/
 Thumbs.db
 
 # Student platform local output
-student-platform/mistakes.json
+student/backend/mistakes.json
+student/backend/.result_persist_dlq.jsonl*

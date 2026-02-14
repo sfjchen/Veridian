@@ -13,14 +13,14 @@ These directly improve core assignment workflow reliability and make the current
 
 ## Files to modify
 
-- `backend/app/routes/assignments.py`
-- `backend/app/routes/classrooms.py`
-- `frontend/src/types/index.ts`
-- `frontend/src/screens/teacher/ClassroomScreen.tsx`
-- `frontend/src/screens/teacher/AssignmentScreen.tsx`
-- `frontend/src/screens/student/AssignmentScreen.tsx`
-- `frontend/src/hooks/useSubmissions.ts` (if needed for payload compatibility)
-- `frontend/src/hooks/useClassroomStudents.ts` (new)
+- `teacher/backend/app/routes/assignments.py`
+- `teacher/backend/app/routes/classrooms.py`
+- `teacher/frontend/src/types/index.ts`
+- `teacher/frontend/src/screens/teacher/ClassroomScreen.tsx`
+- `teacher/frontend/src/screens/teacher/AssignmentScreen.tsx`
+- `teacher/frontend/src/screens/student/AssignmentScreen.tsx`
+- `teacher/frontend/src/hooks/useSubmissions.ts` (if needed for payload compatibility)
+- `teacher/frontend/src/hooks/useClassroomStudents.ts` (new)
 - `supabase/migrations/20260214000008_add_unique_submission_per_student_assignment.sql` (new)
 - `supabase/all_migrations.sql`
 

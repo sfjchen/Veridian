@@ -1,10 +1,10 @@
 # CLAUDE.md
 
-**Running docs**: This file, `AGENTS.md`, `README.md`, and `PLAN.md` are the project's living documentation. Update them when features, architecture, or conventions change.
+**Running docs**: Root `AGENTS.md`, `CLAUDE.md`, `README.md`, `PLAN.md`, `MIGRATION_GUIDE.md`; student: this file, `AGENTS.md`, `README.md`, `PLAN.md`. Update them when features, architecture, or conventions change.
 
 ## Project Overview
 
-Student platform — AI-powered math tutoring pipeline. Backend services for mistake analysis, math OCR, and coordinate detection. Includes a React Native/Expo frontend (`frontend/`).
+Student platform — AI-powered math tutoring pipeline. Backend (`backend/`) for mistake analysis, math OCR, coordinate detection. Frontend (`frontend/`) — React Native/Expo.
 
 ## Code Review Process
 
@@ -20,7 +20,7 @@ Address both reviewers' feedback before merging. **Always tag `@claude` and @cod
 - `mistake_analysis/` — Python package: LLM-based mistake detection, annotation, and continuation
 - `src/math_screenshot_to_latex/` — OpenAI-based math OCR (screenshot → LaTeX)
 - `get_coords.py` — Flask server: mistake bounding box detection via Claude vision
-- `frontend/` — React Native/Expo frontend app
+- `frontend/` — React Native/Expo app (run from `student/` root)
 - `scripts/` — Backend capture servers (Claude, Gemini, OpenRouter)
 
 ## Conventions (from AGENTS.md)

@@ -1,13 +1,13 @@
 # CLAUDE.md
 
-**Running docs**: `AGENTS.md`, `CLAUDE.md`, `README.md`, `PLAN.md`, `MIGRATION_GUIDE.md`. Update them when features, architecture, or conventions change.
+**Running docs**: `AGENTS.md`, `CLAUDE.md`, `README.md`, `PLAN.md`, `MIGRATION_GUIDE.md`. Update when features, architecture, or conventions change.
 
 ## Project Overview
 
 Math Mistake Analysis Platform — full monorepo (teacher + student). Shared Supabase.
 
-- **Teacher**: `backend/`, `frontend/` — Flask + React. Classrooms, assignments, corpus, submissions.
-- **Student**: `student-platform/` — backend (`get_coords.py`) + frontend (`frontend/`). Canvas, mistake analysis, Socratic chat.
+- **Teacher**: `teacher/backend/`, `teacher/frontend/` — Flask + React. Classrooms, assignments, corpus, submissions.
+- **Student**: `student/backend/`, `student/frontend/` — Flask + Expo. Canvas, mistake analysis, Socratic chat.
 
 ## Code Review Process
 
@@ -22,13 +22,13 @@ Address both reviewers' feedback before merging. **Always tag @codex and @claude
 
 | Path | Purpose |
 |------|---------|
-| `backend/` | Teacher Flask app (assignments, classrooms, corpus, convert) |
-| `frontend/` | Teacher React app (screens, hooks, components) |
-| `student-platform/` | Student Flask + Expo (mistake analysis, OCR, chat) |
-| `student-platform/get_coords.py` | Main student API server |
-| `student-platform/mistake_analysis/` | LLM mistake detection (Claude) |
-| `student-platform/src/math_screenshot_to_latex/` | Math OCR (OpenAI) |
-| `student-platform/frontend/` | Student Expo app (canvas, document, workspace) |
+| `teacher/backend/` | Teacher Flask app (assignments, classrooms, corpus, convert) |
+| `teacher/frontend/` | Teacher React app (screens, hooks, components) |
+| `student/backend/` | Student Flask (mistake analysis, OCR, chat) |
+| `student/backend/get_coords.py` | Main student API server |
+| `student/backend/mistake_analysis/` | LLM mistake detection (Claude) |
+| `student/backend/src/math_screenshot_to_latex/` | Math OCR (OpenAI) |
+| `student/frontend/` | Student Expo app (canvas, document, workspace) |
 | `supabase/` | Shared migrations |
 
 ## Conventions (from AGENTS.md)

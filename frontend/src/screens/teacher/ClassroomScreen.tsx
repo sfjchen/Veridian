@@ -9,8 +9,8 @@ type Tab = "assignments" | "corpus" | "students";
 export function TeacherClassroomScreen({ route, navigation }: { route: any; navigation: any }) {
   const classroom: Classroom = route.params.classroom;
   const [activeTab, setActiveTab] = useState<Tab>("assignments");
-  const { files, loading: corpusLoading } = useCorpus(classroom.id);
-  const { assignments, loading: assignmentsLoading } = useAssignments(classroom.id);
+  const { files, loading: corpusLoading, error: corpusError } = useCorpus(classroom.id);
+  const { assignments, loading: assignmentsLoading, error: assignmentsError } = useAssignments(classroom.id);
 
   return (
     <View style={styles.container}>
@@ -41,6 +41,8 @@ export function TeacherClassroomScreen({ route, navigation }: { route: any; navi
           </TouchableOpacity>
           {assignmentsLoading ? (
             <ActivityIndicator />
+          ) : assignmentsError ? (
+            <Text style={styles.errorText}>{assignmentsError}</Text>
           ) : (
             <FlatList
               data={assignments}
@@ -49,7 +51,11 @@ export function TeacherClassroomScreen({ route, navigation }: { route: any; navi
                 <View style={styles.listItem}>
                   <Text style={styles.itemTitle}>{item.title}</Text>
                   <Text style={styles.itemSub}>
-                    {item.due_date ? `Due: ${new Date(item.due_date).toLocaleDateString()}` : "No due date"}
+                    {item.due_date
+                      ? `Due: ${new Date(item.due_date).toLocaleDateString("en-US", {
+                          year: "numeric", month: "short", day: "numeric", timeZone: "UTC",
+                        })}`
+                      : "No due date"}
                   </Text>
                 </View>
               )}
@@ -69,6 +75,8 @@ export function TeacherClassroomScreen({ route, navigation }: { route: any; navi
           </TouchableOpacity>
           {corpusLoading ? (
             <ActivityIndicator />
+          ) : corpusError ? (
+            <Text style={styles.errorText}>{corpusError}</Text>
           ) : (
             <FlatList
               data={files}
@@ -116,4 +124,5 @@ const styles = StyleSheet.create({
   itemTitle: { fontSize: 16, fontWeight: "500" },
   itemSub: { fontSize: 13, color: "#6B7280", marginTop: 4 },
   empty: { textAlign: "center", color: "#9CA3AF", marginTop: 20 },
+  errorText: { textAlign: "center", color: "#EF4444", marginTop: 20 },
 });

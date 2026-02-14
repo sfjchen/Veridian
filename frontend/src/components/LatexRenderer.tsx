@@ -44,7 +44,8 @@ export function LatexRenderer({ latex, style }: Props) {
         source={{ html }}
         style={styles.webview}
         scrollEnabled={true}
-        originWhitelist={["*"]}
+        originWhitelist={["about:blank"]}
+        javaScriptEnabled={true}
       />
     </View>
   );

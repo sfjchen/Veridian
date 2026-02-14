@@ -5,13 +5,17 @@ import { Classroom } from "../types";
 export function useClassrooms() {
   const [classrooms, setClassrooms] = useState<Classroom[]>([]);
   const [loading, setLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
 
   const refresh = useCallback(async () => {
     setLoading(true);
+    setError(null);
     try {
       const data = await api<Classroom[]>("/classrooms");
       setClassrooms(data);
     } catch (e) {
+      const message = e instanceof Error ? e.message : "Failed to fetch classrooms";
+      setError(message);
       console.error("Failed to fetch classrooms:", e);
     } finally {
       setLoading(false);
@@ -37,5 +41,5 @@ export function useClassrooms() {
     await refresh();
   };
 
-  return { classrooms, loading, refresh, create, join };
+  return { classrooms, loading, error, refresh, create, join };
 }

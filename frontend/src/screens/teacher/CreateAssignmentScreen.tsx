@@ -1,7 +1,9 @@
-import React, { useState } from "react";
+import React, { useState, useEffect } from "react";
 import { View, Text, TextInput, TouchableOpacity, StyleSheet, Alert, ScrollView } from "react-native";
 import { api } from "../../lib/api";
 import { FileUploader } from "../../components/FileUploader";
+
+const DATE_PATTERN = /^\d{4}-\d{2}-\d{2}$/;
 
 export function CreateAssignmentScreen({ route, navigation }: { route: any; navigation: any }) {
   const { classroomId } = route.params;
@@ -11,11 +13,36 @@ export function CreateAssignmentScreen({ route, navigation }: { route: any; navi
   const [promptUploaded, setPromptUploaded] = useState(false);
   const [answerKeyUploaded, setAnswerKeyUploaded] = useState(false);
 
+  const allDone = promptUploaded && answerKeyUploaded;
+
+  useEffect(() => {
+    if (allDone) {
+      Alert.alert("Success", "Assignment created!", [
+        { text: "OK", onPress: () => navigation.goBack() },
+      ]);
+    }
+  }, [allDone, navigation]);
+
   const handleCreate = async () => {
     if (!title.trim()) {
       Alert.alert("Error", "Title required");
       return;
     }
+
+    let dueDateValue: string | undefined;
+    if (dueDate.trim()) {
+      if (!DATE_PATTERN.test(dueDate.trim())) {
+        Alert.alert("Error", "Due date must be in YYYY-MM-DD format");
+        return;
+      }
+      const parsed = new Date(dueDate.trim());
+      if (isNaN(parsed.getTime())) {
+        Alert.alert("Error", "Invalid date");
+        return;
+      }
+      dueDateValue = dueDate.trim();
+    }
+
     try {
       const result = await api<{
         prompt_upload_url: string;
@@ -24,7 +51,7 @@ export function CreateAssignmentScreen({ route, navigation }: { route: any; navi
         method: "POST",
         body: {
           title: title.trim(),
-          due_date: dueDate || undefined,
+          due_date: dueDateValue,
         },
       });
       setUrls({ prompt: result.prompt_upload_url, answer_key: result.answer_key_upload_url });
@@ -32,8 +59,6 @@ export function CreateAssignmentScreen({ route, navigation }: { route: any; navi
       Alert.alert("Error", e.message);
     }
   };
-
-  const allDone = promptUploaded && answerKeyUploaded;
 
   return (
     <ScrollView style={styles.container}>
@@ -68,18 +93,6 @@ export function CreateAssignmentScreen({ route, navigation }: { route: any; navi
             label="Select Answer Key"
             onUploadComplete={() => setAnswerKeyUploaded(true)}
           />
-          {allDone && (
-            <TouchableOpacity
-              style={[styles.button, { backgroundColor: "#10B981", marginTop: 16 }]}
-              onPress={() => {
-                Alert.alert("Success", "Assignment created!", [
-                  { text: "OK", onPress: () => navigation.goBack() },
-                ]);
-              }}
-            >
-              <Text style={styles.buttonText}>Done</Text>
-            </TouchableOpacity>
-          )}
         </View>
       )}
     </ScrollView>

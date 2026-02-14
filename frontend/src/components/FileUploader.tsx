@@ -3,8 +3,10 @@ import { View, Text, TouchableOpacity, StyleSheet, Alert, ActivityIndicator } fr
 import * as DocumentPicker from "expo-document-picker";
 import * as FileSystem from "expo-file-system";
 
+const SAFE_DEFAULT_TYPES = ["application/pdf", "text/*", "image/*"];
+
 interface Props {
-  onUploadComplete: (uri: string) => void;
+  onUploadComplete: (storageUrl: string) => void;
   uploadUrl: string;
   label?: string;
   accept?: string[];
@@ -17,7 +19,7 @@ export function FileUploader({ onUploadComplete, uploadUrl, label = "Upload File
   const handlePick = async () => {
     try {
       const result = await DocumentPicker.getDocumentAsync({
-        type: accept ?? ["*/*"],
+        type: accept ?? SAFE_DEFAULT_TYPES,
         copyToCacheDirectory: true,
       });
 
@@ -27,13 +29,19 @@ export function FileUploader({ onUploadComplete, uploadUrl, label = "Upload File
       setFileName(file.name);
       setUploading(true);
 
+      const contentType = file.mimeType ?? "application/octet-stream";
+      if (contentType === "application/octet-stream") {
+        console.error(`FileUploader: unknown MIME type for ${file.name}, using octet-stream`);
+      }
+
       const response = await FileSystem.uploadAsync(uploadUrl, file.uri, {
         httpMethod: "PUT",
-        headers: { "Content-Type": file.mimeType ?? "application/octet-stream" },
+        headers: { "Content-Type": contentType },
       });
 
       if (response.status >= 200 && response.status < 300) {
-        onUploadComplete(file.uri);
+        const storageUrl = uploadUrl.split("?")[0];
+        onUploadComplete(storageUrl);
       } else {
         Alert.alert("Upload Failed", `Server returned ${response.status}`);
       }

@@ -1,6 +1,9 @@
 import React, { useState } from "react";
 import { View, TextInput, TouchableOpacity, Text, StyleSheet, Alert } from "react-native";
 
+const CLASS_CODE_LENGTH = 6;
+const CLASS_CODE_PATTERN = /^[A-Z0-9]{6}$/;
+
 interface Props {
   onSubmit: (code: string) => Promise<void>;
 }
@@ -11,8 +14,12 @@ export function ClassCodeInput({ onSubmit }: Props) {
 
   const handleSubmit = async () => {
     const trimmed = code.trim().toUpperCase();
-    if (trimmed.length !== 6) {
-      Alert.alert("Invalid Code", "Class code must be 6 characters");
+    if (trimmed.length !== CLASS_CODE_LENGTH) {
+      Alert.alert("Invalid Code", `Class code must be ${CLASS_CODE_LENGTH} characters`);
+      return;
+    }
+    if (!CLASS_CODE_PATTERN.test(trimmed)) {
+      Alert.alert("Invalid Code", "Class code must contain only letters and numbers");
       return;
     }
     setLoading(true);
@@ -34,7 +41,7 @@ export function ClassCodeInput({ onSubmit }: Props) {
         value={code}
         onChangeText={setCode}
         autoCapitalize="characters"
-        maxLength={6}
+        maxLength={CLASS_CODE_LENGTH}
       />
       <TouchableOpacity style={styles.button} onPress={handleSubmit} disabled={loading}>
         <Text style={styles.buttonText}>{loading ? "Joining..." : "Join"}</Text>

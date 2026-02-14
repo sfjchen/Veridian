@@ -5,13 +5,17 @@ import { CorpusFile } from "../types";
 export function useCorpus(classroomId: string) {
   const [files, setFiles] = useState<CorpusFile[]>([]);
   const [loading, setLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
 
   const refresh = useCallback(async () => {
     setLoading(true);
+    setError(null);
     try {
       const data = await api<CorpusFile[]>(`/classrooms/${classroomId}/corpus`);
       setFiles(data);
     } catch (e) {
+      const message = e instanceof Error ? e.message : "Failed to fetch corpus";
+      setError(message);
       console.error("Failed to fetch corpus:", e);
     } finally {
       setLoading(false);
@@ -20,5 +24,5 @@ export function useCorpus(classroomId: string) {
 
   useEffect(() => { refresh(); }, [refresh]);
 
-  return { files, loading, refresh };
+  return { files, loading, error, refresh };
 }

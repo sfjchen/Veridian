@@ -5,9 +5,10 @@ import {
 import { useClassrooms } from "../../hooks/useClassrooms";
 import { useAuth } from "../../stores/auth";
 import { ClassCodeInput } from "../../components/ClassCodeInput";
+import { Classroom } from "../../types";
 
 export function StudentDashboardScreen({ navigation }: { navigation: any }) {
-  const { classrooms, loading, join } = useClassrooms();
+  const { classrooms, loading, error, join } = useClassrooms();
   const { signOut } = useAuth();
 
   return (
@@ -23,21 +24,20 @@ export function StudentDashboardScreen({ navigation }: { navigation: any }) {
 
       {loading ? (
         <ActivityIndicator size="large" style={styles.loader} />
+      ) : error ? (
+        <Text style={styles.errorText}>{error}</Text>
       ) : (
         <FlatList
           data={classrooms}
-          keyExtractor={(item: any) => item.classroom_id ?? item.id}
-          renderItem={({ item }: { item: any }) => {
-            const classroom = item.classrooms ?? item;
-            return (
-              <TouchableOpacity
-                style={styles.card}
-                onPress={() => navigation.navigate("StudentClassroom", { classroom })}
-              >
-                <Text style={styles.cardTitle}>{classroom.name}</Text>
-              </TouchableOpacity>
-            );
-          }}
+          keyExtractor={(item: Classroom) => item.id}
+          renderItem={({ item }: { item: Classroom }) => (
+            <TouchableOpacity
+              style={styles.card}
+              onPress={() => navigation.navigate("StudentClassroom", { classroom: item })}
+            >
+              <Text style={styles.cardTitle}>{item.name}</Text>
+            </TouchableOpacity>
+          )}
           ListEmptyComponent={<Text style={styles.empty}>No classes yet. Join one above!</Text>}
         />
       )}
@@ -58,4 +58,5 @@ const styles = StyleSheet.create({
   },
   cardTitle: { fontSize: 18, fontWeight: "600" },
   empty: { textAlign: "center", color: "#9CA3AF", marginTop: 40, fontSize: 16 },
+  errorText: { textAlign: "center", color: "#EF4444", marginTop: 40, fontSize: 16 },
 });

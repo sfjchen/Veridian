@@ -6,7 +6,7 @@ import { FileUploader } from "../../components/FileUploader";
 export function CorpusUploadScreen({ route, navigation }: { route: any; navigation: any }) {
   const { classroomId } = route.params;
   const [displayName, setDisplayName] = useState("");
-  const [fileType, setFileType] = useState("pdf");
+  const [fileType, setFileType] = useState("");
   const [uploadUrl, setUploadUrl] = useState<string | null>(null);
 
   const handleCreateRecord = async () => {
@@ -14,10 +14,14 @@ export function CorpusUploadScreen({ route, navigation }: { route: any; navigati
       Alert.alert("Error", "Display name required");
       return;
     }
+    if (!fileType.trim()) {
+      Alert.alert("Error", "File type required");
+      return;
+    }
     try {
       const result = await api<{ upload_url: string }>(`/classrooms/${classroomId}/corpus`, {
         method: "POST",
-        body: { display_name: displayName.trim(), file_type: fileType },
+        body: { display_name: displayName.trim(), file_type: fileType.trim() },
       });
       setUploadUrl(result.upload_url);
     } catch (e: any) {

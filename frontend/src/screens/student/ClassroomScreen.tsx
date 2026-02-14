@@ -5,13 +5,15 @@ import { Classroom } from "../../types";
 
 export function StudentClassroomScreen({ route, navigation }: { route: any; navigation: any }) {
   const classroom: Classroom = route.params.classroom;
-  const { assignments, loading } = useAssignments(classroom.id);
+  const { assignments, loading, error } = useAssignments(classroom.id);
 
   return (
     <View style={styles.container}>
       <Text style={styles.title}>{classroom.name}</Text>
       {loading ? (
         <ActivityIndicator size="large" />
+      ) : error ? (
+        <Text style={styles.errorText}>{error}</Text>
       ) : (
         <FlatList
           data={assignments}
@@ -23,7 +25,11 @@ export function StudentClassroomScreen({ route, navigation }: { route: any; navi
             >
               <Text style={styles.cardTitle}>{item.title}</Text>
               <Text style={styles.cardSub}>
-                {item.due_date ? `Due: ${new Date(item.due_date).toLocaleDateString()}` : "No due date"}
+                {item.due_date
+                  ? `Due: ${new Date(item.due_date).toLocaleDateString("en-US", {
+                      year: "numeric", month: "short", day: "numeric", timeZone: "UTC",
+                    })}`
+                  : "No due date"}
               </Text>
             </TouchableOpacity>
           )}
@@ -45,4 +51,5 @@ const styles = StyleSheet.create({
   cardTitle: { fontSize: 18, fontWeight: "600" },
   cardSub: { fontSize: 13, color: "#6B7280", marginTop: 4 },
   empty: { textAlign: "center", color: "#9CA3AF", marginTop: 40 },
+  errorText: { textAlign: "center", color: "#EF4444", marginTop: 40 },
 });

@@ -4,11 +4,27 @@ import { api } from "../../lib/api";
 import { LatexRenderer } from "../../components/LatexRenderer";
 import { FileUploader } from "../../components/FileUploader";
 
+const MAX_PROMPT_LENGTH = 100_000;
+
 interface AssignmentDetail {
   id: string;
   title: string;
   prompt_download_url?: string;
   due_date: string | null;
+}
+
+function sanitizeLatexContent(raw: string): string {
+  if (raw.length > MAX_PROMPT_LENGTH) {
+    throw new Error("Prompt file too large");
+  }
+  return raw
+    .replace(/<script[\s\S]*?<\/script>/gi, "")
+    .replace(/on\w+\s*=\s*"[^"]*"/gi, "")
+    .replace(/on\w+\s*=\s*'[^']*'/gi, "")
+    .replace(/<iframe[\s\S]*?<\/iframe>/gi, "")
+    .replace(/<iframe[\s\S]*?\/>/gi, "")
+    .replace(/<object[\s\S]*?<\/object>/gi, "")
+    .replace(/<embed[\s\S]*?\/>/gi, "");
 }
 
 export function AssignmentScreen({ route }: { route: any }) {
@@ -19,21 +35,26 @@ export function AssignmentScreen({ route }: { route: any }) {
   const [submissionUrl, setSubmissionUrl] = useState<string | null>(null);
 
   useEffect(() => {
+    let cancelled = false;
     (async () => {
       try {
         const data = await api<AssignmentDetail>(`/assignments/${assignmentId}`);
+        if (cancelled) return;
         setAssignment(data);
         if (data.prompt_download_url) {
           const resp = await fetch(data.prompt_download_url);
+          if (!resp.ok) throw new Error(`Failed to fetch prompt: ${resp.status}`);
           const text = await resp.text();
-          setPromptContent(text);
+          if (cancelled) return;
+          setPromptContent(sanitizeLatexContent(text));
         }
       } catch (e: any) {
-        Alert.alert("Error", e.message);
+        if (!cancelled) Alert.alert("Error", e.message);
       } finally {
-        setLoading(false);
+        if (!cancelled) setLoading(false);
       }
     })();
+    return () => { cancelled = true; };
   }, [assignmentId]);
 
   const handleSubmit = async () => {
@@ -54,7 +75,11 @@ export function AssignmentScreen({ route }: { route: any }) {
     <View style={styles.container}>
       <Text style={styles.title}>{assignment.title}</Text>
       {assignment.due_date && (
-        <Text style={styles.due}>Due: {new Date(assignment.due_date).toLocaleDateString()}</Text>
+        <Text style={styles.due}>
+          Due: {new Date(assignment.due_date).toLocaleDateString("en-US", {
+            year: "numeric", month: "short", day: "numeric", timeZone: "UTC",
+          })}
+        </Text>
       )}
       {promptContent && (
         <View style={styles.promptContainer}>

@@ -7,16 +7,20 @@ import { useClassrooms } from "../../hooks/useClassrooms";
 import { useAuth } from "../../stores/auth";
 
 export function TeacherDashboardScreen({ navigation }: { navigation: any }) {
-  const { classrooms, loading, create } = useClassrooms();
+  const { classrooms, loading, error, create } = useClassrooms();
   const { signOut } = useAuth();
   const [newName, setNewName] = useState("");
   const [creating, setCreating] = useState(false);
 
   const handleCreate = async () => {
-    if (!newName.trim()) return;
+    const trimmed = newName.trim();
+    if (!trimmed) {
+      Alert.alert("Error", "Classroom name cannot be empty");
+      return;
+    }
     setCreating(true);
     try {
-      await create(newName.trim());
+      await create(trimmed);
       setNewName("");
     } catch (e: any) {
       Alert.alert("Error", e.message);
@@ -48,6 +52,8 @@ export function TeacherDashboardScreen({ navigation }: { navigation: any }) {
 
       {loading ? (
         <ActivityIndicator size="large" style={styles.loader} />
+      ) : error ? (
+        <Text style={styles.errorText}>{error}</Text>
       ) : (
         <FlatList
           data={classrooms}
@@ -92,4 +98,5 @@ const styles = StyleSheet.create({
   cardTitle: { fontSize: 18, fontWeight: "600", marginBottom: 4 },
   cardCode: { fontSize: 14, color: "#6B7280" },
   empty: { textAlign: "center", color: "#9CA3AF", marginTop: 40, fontSize: 16 },
+  errorText: { textAlign: "center", color: "#EF4444", marginTop: 40, fontSize: 16 },
 });

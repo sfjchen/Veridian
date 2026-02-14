@@ -4,14 +4,15 @@ import {
   ActivityIndicator,
 } from "react-native";
 import * as DocumentPicker from "expo-document-picker";
-import * as FileSystem from "expo-file-system";
 import { api } from "../../lib/api";
 import { alert } from "../../lib/alert";
+import { uploadFile } from "../../lib/upload";
 
 interface PickedFile {
   name: string;
   uri: string;
   mimeType: string;
+  file?: File;
 }
 
 const ALLOWED_FILE_TYPES = ["pdf", "txt", "docx", "doc", "md", "tex", "rtf"];
@@ -49,6 +50,7 @@ export function CorpusUploadScreen({ route, navigation }: { route: any; navigati
       name: picked.name,
       uri: picked.uri,
       mimeType: picked.mimeType ?? "application/octet-stream",
+      file: picked.file,
     });
     if (!displayName.trim()) {
       setDisplayName(picked.name.replace(/\.[^/.]+$/, ""));
@@ -77,15 +79,7 @@ export function CorpusUploadScreen({ route, navigation }: { route: any; navigati
         body: { display_name: displayName.trim(), file_type: fileType },
       });
 
-      const response = await FileSystem.uploadAsync(result.upload_url, file.uri, {
-        httpMethod: "PUT",
-        uploadType: FileSystem.FileSystemUploadType.BINARY_CONTENT,
-        headers: { "Content-Type": file.mimeType },
-      });
-
-      if (response.status < 200 || response.status >= 300) {
-        throw new Error(`Upload failed with status ${response.status}`);
-      }
+      await uploadFile({ uri: file.uri, uploadUrl: result.upload_url, mimeType: file.mimeType, file: file.file });
 
       alert("Success", "File uploaded!", [
         { text: "OK", onPress: () => navigation.goBack() },

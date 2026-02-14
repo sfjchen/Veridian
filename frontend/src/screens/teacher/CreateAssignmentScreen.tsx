@@ -4,9 +4,9 @@ import {
   ScrollView, ActivityIndicator,
 } from "react-native";
 import * as DocumentPicker from "expo-document-picker";
-import * as FileSystem from "expo-file-system";
 import { api } from "../../lib/api";
 import { alert } from "../../lib/alert";
+import { uploadFile } from "../../lib/upload";
 
 const DATE_PATTERN = /^\d{4}-\d{2}-\d{2}$/;
 
@@ -14,6 +14,7 @@ interface PickedFile {
   name: string;
   uri: string;
   mimeType: string;
+  file?: File;
 }
 
 export function CreateAssignmentScreen({ route, navigation }: { route: any; navigation: any }) {
@@ -30,23 +31,13 @@ export function CreateAssignmentScreen({ route, navigation }: { route: any; navi
       copyToCacheDirectory: true,
     });
     if (result.canceled) return;
-    const file = result.assets[0];
+    const picked = result.assets[0];
     setter({
-      name: file.name,
-      uri: file.uri,
-      mimeType: file.mimeType ?? "application/octet-stream",
+      name: picked.name,
+      uri: picked.uri,
+      mimeType: picked.mimeType ?? "application/octet-stream",
+      file: picked.file,
     });
-  };
-
-  const uploadFile = async (uri: string, uploadUrl: string, mimeType: string) => {
-    const response = await FileSystem.uploadAsync(uploadUrl, uri, {
-      httpMethod: "PUT",
-      uploadType: FileSystem.FileSystemUploadType.BINARY_CONTENT,
-      headers: { "Content-Type": mimeType },
-    });
-    if (response.status < 200 || response.status >= 300) {
-      throw new Error(`Upload failed with status ${response.status}`);
-    }
   };
 
   const handleCreate = async () => {
@@ -81,10 +72,10 @@ export function CreateAssignmentScreen({ route, navigation }: { route: any; navi
 
       const uploads: Promise<void>[] = [];
       if (assignmentFile) {
-        uploads.push(uploadFile(assignmentFile.uri, result.assignment_file_upload_url, assignmentFile.mimeType));
+        uploads.push(uploadFile({ uri: assignmentFile.uri, uploadUrl: result.assignment_file_upload_url, mimeType: assignmentFile.mimeType, file: assignmentFile.file }));
       }
       if (answerKeyFile) {
-        uploads.push(uploadFile(answerKeyFile.uri, result.answer_key_upload_url, answerKeyFile.mimeType));
+        uploads.push(uploadFile({ uri: answerKeyFile.uri, uploadUrl: result.answer_key_upload_url, mimeType: answerKeyFile.mimeType, file: answerKeyFile.file }));
       }
 
       if (uploads.length > 0) {

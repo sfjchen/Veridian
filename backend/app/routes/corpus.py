@@ -2,7 +2,7 @@ import sys
 import uuid
 from flask import Blueprint, Response, request, jsonify, g
 from app.middleware.auth import require_role, require_auth
-from app.services.supabase_client import get_supabase_client
+from app.services.supabase_client import get_supabase_admin_client
 from app.services.storage import generate_upload_url, generate_download_url
 
 corpus_bp = Blueprint("corpus", __name__)
@@ -38,7 +38,7 @@ def create_corpus_file(classroom_id: str) -> tuple[Response, int]:
         allowed = ", ".join(sorted(ALLOWED_FILE_TYPES))
         return jsonify({"error": f"file_type must be one of: {allowed}"}), 400
 
-    client = get_supabase_client()
+    client = get_supabase_admin_client()
 
     classroom = client.table("classrooms").select("id").eq(
         "id", classroom_id
@@ -86,7 +86,7 @@ def list_corpus_files(classroom_id: str) -> tuple[Response, int]:
     if not _validate_uuid(classroom_id):
         return jsonify({"error": "Invalid classroom ID"}), 400
 
-    client = get_supabase_client()
+    client = get_supabase_admin_client()
 
     if g.user_role == "teacher":
         check = client.table("classrooms").select("id").eq(

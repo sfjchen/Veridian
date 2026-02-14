@@ -1,68 +1,115 @@
 import React, { useState } from "react";
-import { View, Text, TextInput, TouchableOpacity, StyleSheet, Alert } from "react-native";
+import {
+  View, Text, TextInput, TouchableOpacity, StyleSheet,
+  Alert, ActivityIndicator,
+} from "react-native";
+import * as DocumentPicker from "expo-document-picker";
+import * as FileSystem from "expo-file-system";
 import { api } from "../../lib/api";
-import { FileUploader } from "../../components/FileUploader";
+
+interface PickedFile {
+  name: string;
+  uri: string;
+  mimeType: string;
+}
+
+function inferFileType(name: string, mimeType: string): string {
+  const ext = name.split(".").pop()?.toLowerCase();
+  if (ext && ["pdf", "txt", "docx", "doc", "md", "tex", "rtf"].includes(ext)) return ext;
+  if (mimeType.includes("pdf")) return "pdf";
+  if (mimeType.includes("text")) return "txt";
+  return "pdf";
+}
 
 export function CorpusUploadScreen({ route, navigation }: { route: any; navigation: any }) {
   const { classroomId } = route.params;
   const [displayName, setDisplayName] = useState("");
-  const [fileType, setFileType] = useState("");
-  const [uploadUrl, setUploadUrl] = useState<string | null>(null);
-  const [loading, setLoading] = useState(false);
+  const [file, setFile] = useState<PickedFile | null>(null);
+  const [uploading, setUploading] = useState(false);
 
-  const handleCreateRecord = async () => {
+  const pickFile = async () => {
+    const result = await DocumentPicker.getDocumentAsync({
+      type: ["application/pdf", "text/*", "image/*"],
+      copyToCacheDirectory: true,
+    });
+    if (result.canceled) return;
+    const picked = result.assets[0];
+    setFile({
+      name: picked.name,
+      uri: picked.uri,
+      mimeType: picked.mimeType ?? "application/octet-stream",
+    });
+    if (!displayName.trim()) {
+      setDisplayName(picked.name.replace(/\.[^/.]+$/, ""));
+    }
+  };
+
+  const handleUpload = async () => {
     if (!displayName.trim()) {
       Alert.alert("Error", "Display name required");
       return;
     }
-    if (!fileType.trim()) {
-      Alert.alert("Error", "File type required");
+    if (!file) {
+      Alert.alert("Error", "Please select a file first");
       return;
     }
-    setLoading(true);
+
+    setUploading(true);
     try {
+      const fileType = inferFileType(file.name, file.mimeType);
       const result = await api<{ upload_url: string }>(`/classrooms/${classroomId}/corpus`, {
         method: "POST",
-        body: { display_name: displayName.trim(), file_type: fileType.trim() },
+        body: { display_name: displayName.trim(), file_type: fileType },
       });
-      setUploadUrl(result.upload_url);
+
+      const response = await FileSystem.uploadAsync(result.upload_url, file.uri, {
+        httpMethod: "PUT",
+        uploadType: FileSystem.FileSystemUploadType.BINARY_CONTENT,
+        headers: { "Content-Type": file.mimeType },
+      });
+
+      if (response.status < 200 || response.status >= 300) {
+        throw new Error(`Upload failed with status ${response.status}`);
+      }
+
+      Alert.alert("Success", "File uploaded!", [
+        { text: "OK", onPress: () => navigation.goBack() },
+      ]);
     } catch (e: any) {
-      Alert.alert("Error", e.message);
+      Alert.alert("Error", e instanceof Error ? e.message : "Upload failed");
     } finally {
-      setLoading(false);
+      setUploading(false);
     }
   };
 
   return (
     <View style={styles.container}>
       <Text style={styles.title}>Upload Corpus File</Text>
+
+      <TouchableOpacity style={styles.filePicker} onPress={pickFile}>
+        <Text style={styles.filePickerText}>
+          {file ? file.name : "Select File"}
+        </Text>
+      </TouchableOpacity>
+
       <TextInput
         style={styles.input}
-        placeholder="File display name"
+        placeholder="Display name"
         value={displayName}
         onChangeText={setDisplayName}
       />
-      <TextInput
-        style={styles.input}
-        placeholder="File type (e.g., pdf, tex, docx)"
-        value={fileType}
-        onChangeText={setFileType}
-      />
-      {!uploadUrl ? (
-        <TouchableOpacity style={styles.button} onPress={handleCreateRecord} disabled={loading}>
-          <Text style={styles.buttonText}>{loading ? "Creating..." : "Get Upload URL"}</Text>
-        </TouchableOpacity>
-      ) : (
-        <FileUploader
-          uploadUrl={uploadUrl}
-          label="Select & Upload File"
-          onUploadComplete={() => {
-            Alert.alert("Success", "File uploaded!", [
-              { text: "OK", onPress: () => navigation.goBack() },
-            ]);
-          }}
-        />
-      )}
+
+      <TouchableOpacity
+        style={[styles.button, uploading && styles.buttonDisabled]}
+        onPress={handleUpload}
+        disabled={uploading}
+      >
+        {uploading ? (
+          <ActivityIndicator color="#fff" />
+        ) : (
+          <Text style={styles.buttonText}>Upload File</Text>
+        )}
+      </TouchableOpacity>
     </View>
   );
 }
@@ -74,9 +121,15 @@ const styles = StyleSheet.create({
     borderWidth: 1, borderColor: "#ddd", borderRadius: 8,
     padding: 14, marginBottom: 16, fontSize: 16,
   },
+  filePicker: {
+    borderWidth: 1, borderColor: "#ddd", borderRadius: 8,
+    padding: 14, marginBottom: 16, backgroundColor: "#F9FAFB",
+  },
+  filePickerText: { fontSize: 15, color: "#6B7280" },
   button: {
     backgroundColor: "#4F46E5", borderRadius: 8, padding: 16,
     alignItems: "center",
   },
+  buttonDisabled: { opacity: 0.7 },
   buttonText: { color: "#fff", fontSize: 16, fontWeight: "600" },
 });

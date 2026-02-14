@@ -22,16 +22,16 @@ EdTech platform for teachers to create math assignments and for students to subm
 
 ### Teacher Side
 
-1. Copy `.env.example` to `backend/.env` and `frontend/.env`
-2. Run migrations in `supabase/all_migrations.sql` (or individual files)
-3. Backend: `cd backend && pip install -r requirements.txt && python run.py`
+1. Copy `backend/.env.example` to `backend/.env` and `frontend/.env.example` to `frontend/.env`
+2. Run migrations: `./scripts/apply_migrations.sh` (set `SUPABASE_DB_URL`) or apply in order (see `MIGRATION_GUIDE.md`)
+3. Backend: `cd backend && pip install -r requirements.txt && python3 run.py`
 4. Frontend: `cd frontend && npm install && npx expo start`
 
 ### Student Side
 
 1. Copy `student-platform/.env.example` to `student-platform/.env`
-2. Apply `student-platform/supabase/migrations/*.sql` to your Supabase project
-3. Backend: `cd student-platform && pip install -r requirements.txt && python get_coords.py`
+2. Run migrations (see `MIGRATION_GUIDE.md` for full order; teacher migrations first)
+3. Backend: `cd student-platform && pip install -r requirements.txt && python3 get_coords.py`
 4. Frontend: `cd student-platform/frontend && npm install && npx expo start`
 
 See `student-platform/README.md` for detailed student-platform setup.
@@ -42,10 +42,10 @@ See `student-platform/README.md` for detailed student-platform setup.
 
 **Student flow:** Join classroom → open assignment → work on canvas → tap Done → AI analyzes mistakes → Socratic chat per problem
 
-**Shared:** Supabase (auth, assignments, problem_results, chat_messages). Student platform uses `get_coords.py` for OCR + mistake analysis + coordinate detection.
+**Shared:** One Supabase project for auth, assignments, problem_results, chat_messages, and all tables. Teacher and student apps use the same database. Student platform uses `get_coords.py` for OCR + mistake analysis + coordinate detection.
 
 ## Development
 
 See `AGENTS.md` and `CLAUDE.md` for conventions, workflow, and code review process.
 
-**Running docs**: `AGENTS.md`, `CLAUDE.md`, `README.md`, and `PLAN.md` are the project's living documentation. Update them in the same PR when features, architecture, or conventions change.
+**Running docs**: `AGENTS.md`, `CLAUDE.md`, `README.md`, `PLAN.md`, `MIGRATION_GUIDE.md`. Update them in the same PR when features, architecture, or conventions change.

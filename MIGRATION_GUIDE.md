@@ -1,46 +1,53 @@
-# Working from This Repo — Migration Guide
+# Migration Guide — Setup, Run, Test
 
-This monorepo consolidates the teacher dashboard and student learning platform. All development happens here.
+Monorepo: teacher dashboard + student platform. One Supabase project for both.
 
 ## What Lives Where
 
-| Content | Location | Notes |
-|---------|----------|------|
-| Teacher Flask API | `backend/` | Classrooms, assignments, corpus, submissions |
-| Teacher React app | `frontend/` | Dashboard, assignment creation |
-| Student Flask API | `student-platform/get_coords.py` | Mistake analysis, OCR, chat |
-| Student Expo app | `student-platform/frontend/` | Canvas, document viewer, workspace |
-| Student migrations | `student-platform/supabase/migrations/` | problem_results, chat_messages, etc. |
-| Shared conventions | `AGENTS.md`, `CLAUDE.md` | Workflow, code style, review process |
-| Merged roadmap | `PLAN.md` | Teacher + student phases, tech debt |
-| Teacher roadmap | `docs/PLAN.md` | Teacher-specific detail |
-| Student roadmap | `student-platform/PLAN.md` | Student phases, try-catch inventory |
+| Content | Location |
+|---------|----------|
+| Teacher Flask API | `backend/` |
+| Teacher React app | `frontend/` |
+| Student Flask API | `student-platform/get_coords.py` |
+| Student Expo app | `student-platform/frontend/` |
+| Teacher migrations | `supabase/` |
+| Student migrations | `student-platform/supabase/migrations/` |
+| Running docs | `AGENTS.md`, `CLAUDE.md`, `PLAN.md`, `README.md` |
+| Feature plans | `plans/` |
+| Student roadmap | `student-platform/PLAN.md` |
 
-## Standards (Applied Repo-Wide)
+## Migration Order
 
-- **AGENTS.md**: Mandatory workflow, code style, PR review template (@codex @claude)
-- **CLAUDE.md**: Project overview, key directories, conventions
-- **Code style**: Type hints, ~20 line functions, max 3 params, no verbose logging
+Run in this order (fresh DB):
 
-## Running Both Sides
+1. Teacher: `supabase/all_migrations.sql`
+2. Teacher: `supabase/migrations/20260214000008_*.sql`, `20260214000009_*.sql`
+3. Student: `202602140001_veridian_artifacts.sql`, `202602140003_veridian_sample_worksheets.sql`, `20260214153135_*.sql`, `20260214153124_*.sql`
+
+**Script:** `./scripts/apply_migrations.sh` — set `SUPABASE_DB_URL`, requires `psql`. If teacher tables exist, run steps 2–3 only.
+
+## Run
 
 ```bash
-# Terminal 1: Teacher backend
-cd backend && python run.py
+# Teacher backend (port 5001)
+cd backend && python3 run.py
 
-# Terminal 2: Student backend
-cd student-platform && python get_coords.py
+# Student backend (port 8000)
+cd student-platform && python3 get_coords.py
 
-# Terminal 3: Teacher frontend
+# Teacher frontend
 cd frontend && npx expo start
 
-# Terminal 4: Student frontend
+# Student frontend
 cd student-platform/frontend && npx expo start
 ```
 
-## Key Files to Know
+## What Works
 
-- `student-platform/README.md` — Student setup, API endpoints
-- `student-platform/SUPABASE_INTEGRATION.md` — Supabase schema for student
-- `student-platform/PLAN.md` — Student phases, tech debt (try-catch fixes)
-- `docs/plans/` — Feature plans (create here for new work)
+| Side | Independent | Cohesive test |
+|------|-------------|---------------|
+| Teacher | Yes | Create classroom → corpus → assignment → submissions |
+| Student (sample) | Yes | Sample worksheet → canvas → Done → AI analysis → chat |
+| Both | Partial | Full flow blocked until schema merge (assignments.problems) |
+
+**Env:** `backend/.env`, `frontend/.env`, `student-platform/.env` — all use same Supabase URL/keys. Copy from `.env.example` files.

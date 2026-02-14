@@ -1,26 +1,63 @@
 import uuid
-from flask import Blueprint, request, jsonify, g
+from typing import Tuple
+
+from flask import Blueprint, Response, request, jsonify, g
+
 from app.middleware.auth import require_auth, require_role
 from app.services.supabase_client import get_supabase_client
 from app.services.storage import generate_upload_url, generate_download_url
 
 assignments_bp = Blueprint("assignments", __name__)
 
+ASSIGNMENTS_BUCKET = "assignments"
+SUBMISSIONS_BUCKET = "submissions"
+MAX_TITLE_LENGTH = 500
+
+
+def _verify_classroom_access(
+    client: object, classroom_id: str, user_id: str, role: str,
+) -> bool:
+    if role == "teacher":
+        result = client.table("classrooms").select("id").eq(
+            "id", classroom_id
+        ).eq("teacher_id", user_id).execute()
+    else:
+        result = client.table("classroom_memberships").select("classroom_id").eq(
+            "classroom_id", classroom_id
+        ).eq("student_id", user_id).execute()
+    return bool(result.data)
+
+
+def _validate_context_file_ids(
+    client: object, classroom_id: str, file_ids: list[str],
+) -> bool:
+    if not file_ids:
+        return True
+    valid_files = client.table("corpus_files").select("id").eq(
+        "classroom_id", classroom_id
+    ).in_("id", file_ids).execute()
+    return len(valid_files.data) == len(file_ids)
+
 
 @assignments_bp.route("/classrooms/<classroom_id>/assignments", methods=["POST"])
 @require_role("teacher")
-def create_assignment(classroom_id: str):
+def create_assignment(classroom_id: str) -> Tuple[Response, int]:
     data = request.get_json()
     if not data or not data.get("title"):
         return jsonify({"error": "title required"}), 400
 
+    title = data["title"].strip()
+    if not title or len(title) > MAX_TITLE_LENGTH:
+        return jsonify({"error": f"title must be 1-{MAX_TITLE_LENGTH} characters"}), 400
+
     client = get_supabase_client()
 
-    classroom = client.table("classrooms").select("id").eq(
-        "id", classroom_id
-    ).eq("teacher_id", g.user_id).execute()
-    if not classroom.data:
+    if not _verify_classroom_access(client, classroom_id, g.user_id, "teacher"):
         return jsonify({"error": "Classroom not found"}), 404
+
+    context_file_ids = data.get("context_file_ids", [])
+    if not _validate_context_file_ids(client, classroom_id, context_file_ids):
+        return jsonify({"error": "One or more context_file_ids are invalid"}), 400
 
     assignment_id = str(uuid.uuid4())
     prompt_path = f"{classroom_id}/{assignment_id}/prompt"
@@ -29,15 +66,18 @@ def create_assignment(classroom_id: str):
     record = client.table("assignments").insert({
         "id": assignment_id,
         "classroom_id": classroom_id,
-        "title": data["title"],
+        "title": title,
         "prompt_storage_path": prompt_path,
         "answer_key_storage_path": answer_key_path,
-        "context_file_ids": data.get("context_file_ids", []),
+        "context_file_ids": context_file_ids,
         "due_date": data.get("due_date"),
     }).execute()
 
-    prompt_upload_url = generate_upload_url("assignments", prompt_path)
-    answer_key_upload_url = generate_upload_url("assignments", answer_key_path)
+    try:
+        prompt_upload_url = generate_upload_url(ASSIGNMENTS_BUCKET, prompt_path)
+        answer_key_upload_url = generate_upload_url(ASSIGNMENTS_BUCKET, answer_key_path)
+    except ValueError:
+        return jsonify({"error": "Failed to generate upload URLs"}), 500
 
     return jsonify({
         **record.data[0],
@@ -48,20 +88,11 @@ def create_assignment(classroom_id: str):
 
 @assignments_bp.route("/classrooms/<classroom_id>/assignments", methods=["GET"])
 @require_auth
-def list_assignments(classroom_id: str):
+def list_assignments(classroom_id: str) -> Tuple[Response, int]:
     client = get_supabase_client()
 
-    if g.user_role == "teacher":
-        check = client.table("classrooms").select("id").eq(
-            "id", classroom_id
-        ).eq("teacher_id", g.user_id).execute()
-    else:
-        check = client.table("classroom_memberships").select("classroom_id").eq(
-            "classroom_id", classroom_id
-        ).eq("student_id", g.user_id).execute()
-
-    if not check.data:
-        return jsonify({"error": "Classroom not found or access denied"}), 404
+    if not _verify_classroom_access(client, classroom_id, g.user_id, g.user_role):
+        return jsonify({"error": "Access denied"}), 403
 
     assignments = client.table("assignments").select("*").eq(
         "classroom_id", classroom_id
@@ -72,7 +103,7 @@ def list_assignments(classroom_id: str):
 
 @assignments_bp.route("/assignments/<assignment_id>", methods=["GET"])
 @require_auth
-def get_assignment(assignment_id: str):
+def get_assignment(assignment_id: str) -> Tuple[Response, int]:
     client = get_supabase_client()
 
     assignment = client.table("assignments").select(
@@ -83,9 +114,11 @@ def get_assignment(assignment_id: str):
         return jsonify({"error": "Assignment not found"}), 404
 
     record = assignment.data[0]
-    classroom_teacher_id = record.get("classrooms", {}).get("teacher_id")
+    classrooms_join = record.get("classrooms")
+    if not classrooms_join or "teacher_id" not in classrooms_join:
+        return jsonify({"error": "Internal error: missing classroom data"}), 500
 
-    is_teacher = g.user_id == classroom_teacher_id
+    is_teacher = g.user_id == classrooms_join["teacher_id"]
     if not is_teacher:
         membership = client.table("classroom_memberships").select("student_id").eq(
             "classroom_id", record["classroom_id"]
@@ -93,31 +126,31 @@ def get_assignment(assignment_id: str):
         if not membership.data:
             return jsonify({"error": "Access denied"}), 403
 
-    result = {**record}
-    result.pop("classrooms", None)
+    result = {k: v for k, v in record.items() if k != "classrooms"}
 
-    if record.get("prompt_storage_path"):
-        result["prompt_download_url"] = generate_download_url(
-            "assignments", record["prompt_storage_path"]
-        )
-
-    if is_teacher and record.get("answer_key_storage_path"):
-        result["answer_key_download_url"] = generate_download_url(
-            "assignments", record["answer_key_storage_path"]
-        )
+    try:
+        if record.get("prompt_storage_path"):
+            result["prompt_download_url"] = generate_download_url(
+                ASSIGNMENTS_BUCKET, record["prompt_storage_path"]
+            )
+        if is_teacher and record.get("answer_key_storage_path"):
+            result["answer_key_download_url"] = generate_download_url(
+                ASSIGNMENTS_BUCKET, record["answer_key_storage_path"]
+            )
+    except ValueError:
+        return jsonify({"error": "Failed to generate download URLs"}), 500
 
     return jsonify(result), 200
 
 
 @assignments_bp.route("/assignments/<assignment_id>/submissions", methods=["POST"])
 @require_role("student")
-def create_submission(assignment_id: str):
+def create_submission(assignment_id: str) -> Tuple[Response, int]:
     client = get_supabase_client()
 
     assignment = client.table("assignments").select("id, classroom_id").eq(
         "id", assignment_id
     ).execute()
-
     if not assignment.data:
         return jsonify({"error": "Assignment not found"}), 404
 
@@ -126,9 +159,14 @@ def create_submission(assignment_id: str):
     membership = client.table("classroom_memberships").select("student_id").eq(
         "classroom_id", classroom_id
     ).eq("student_id", g.user_id).execute()
-
     if not membership.data:
-        return jsonify({"error": "Not enrolled in this classroom"}), 403
+        return jsonify({"error": "Access denied"}), 403
+
+    existing = client.table("submissions").select("id").eq(
+        "assignment_id", assignment_id
+    ).eq("student_id", g.user_id).execute()
+    if existing.data:
+        return jsonify({"error": "Submission already exists for this assignment"}), 409
 
     submission_id = str(uuid.uuid4())
     storage_path = f"{classroom_id}/{g.user_id}/{submission_id}"
@@ -140,7 +178,10 @@ def create_submission(assignment_id: str):
         "storage_path": storage_path,
     }).execute()
 
-    upload_url = generate_upload_url("submissions", storage_path)
+    try:
+        upload_url = generate_upload_url(SUBMISSIONS_BUCKET, storage_path)
+    except ValueError:
+        return jsonify({"error": "Failed to generate upload URL"}), 500
 
     return jsonify({
         **record.data[0],

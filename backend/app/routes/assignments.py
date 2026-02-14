@@ -148,18 +148,33 @@ def get_assignment(assignment_id: str) -> Tuple[Response, int]:
 
     result = dict(record)
 
-    try:
-        if record.get("prompt_storage_path"):
+    if record.get("prompt_storage_path"):
+        try:
             result["assignment_file_download_url"] = generate_download_url(
                 ASSIGNMENTS_BUCKET, record["prompt_storage_path"]
             )
-        if is_teacher and record.get("answer_key_storage_path"):
+        except ValueError as e:
+            print(
+                f"Failed to generate assignment file download URL for {assignment_id}: {e}",
+                file=sys.stderr,
+            )
+            result["assignment_file_download_url"] = None
+    else:
+        result["assignment_file_download_url"] = None
+
+    if is_teacher and record.get("answer_key_storage_path"):
+        try:
             result["answer_key_download_url"] = generate_download_url(
                 ASSIGNMENTS_BUCKET, record["answer_key_storage_path"]
             )
-    except ValueError as e:
-        print(f"Failed to generate download URLs for assignment {assignment_id}: {e}", file=sys.stderr)
-        return jsonify({"error": "Failed to generate download URLs"}), 500
+        except ValueError as e:
+            print(
+                f"Failed to generate answer key download URL for {assignment_id}: {e}",
+                file=sys.stderr,
+            )
+            result["answer_key_download_url"] = None
+    elif is_teacher:
+        result["answer_key_download_url"] = None
 
     return jsonify(result), 200
 

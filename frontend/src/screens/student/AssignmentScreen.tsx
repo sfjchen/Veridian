@@ -7,9 +7,11 @@ import {
   ActivityIndicator,
   TouchableOpacity,
   ScrollView,
+  Image,
 } from "react-native";
 import * as Linking from "expo-linking";
 import { api } from "../../lib/api";
+import { createPdfPreviewDataUri, looksLikePdf } from "../../lib/pdfPreview";
 import { useSubmissions } from "../../hooks/useSubmissions";
 import { LatexRenderer } from "../../components/LatexRenderer";
 import { FileUploader } from "../../components/FileUploader";
@@ -37,6 +39,7 @@ export function AssignmentScreen({ route }: { route: any }) {
   const [loading, setLoading] = useState(true);
   const [assignmentContent, setAssignmentContent] = useState<string | null>(null);
   const [isPdf, setIsPdf] = useState(false);
+  const [pdfPreviewUri, setPdfPreviewUri] = useState<string | null>(null);
   const [submissionUrl, setSubmissionUrl] = useState<string | null>(null);
   const [submitting, setSubmitting] = useState(false);
   const {
@@ -55,20 +58,28 @@ export function AssignmentScreen({ route }: { route: any }) {
         setAssignment(data);
         setAssignmentContent(null);
         setIsPdf(false);
+        setPdfPreviewUri(null);
         if (data.assignment_file_download_url) {
           const resp = await fetch(data.assignment_file_download_url);
           if (!resp.ok) throw new Error(`Failed to fetch assignment file: ${resp.status}`);
+          const blob = await resp.blob();
+          const bytes = new Uint8Array(await blob.arrayBuffer());
+          if (cancelled) return;
+
           const contentType = resp.headers.get("content-type") ?? "";
-          if (contentType.includes("application/pdf")) {
+          if (looksLikePdf(contentType, bytes)) {
             if (!cancelled) setIsPdf(true);
-          } else {
-            const text = await resp.text();
-            if (cancelled) return;
-            if (text.startsWith("%PDF") || text.charCodeAt(0) > 127) {
-              setIsPdf(true);
-            } else {
-              setAssignmentContent(sanitizeLatexContent(text));
+            try {
+              const previewUri = await createPdfPreviewDataUri(blob);
+              if (!cancelled) setPdfPreviewUri(previewUri);
+            } catch (previewError) {
+              console.error("Failed to generate PDF preview image:", previewError);
+              if (!cancelled) setPdfPreviewUri(null);
             }
+          } else {
+            const text = await blob.text();
+            if (cancelled) return;
+            setAssignmentContent(sanitizeLatexContent(text));
           }
         }
       } catch (e: any) {
@@ -121,6 +132,9 @@ export function AssignmentScreen({ route }: { route: any }) {
           <Text style={styles.pdfNoticeText}>
             This assignment is a PDF. Your teacher will convert it for in-app viewing soon.
           </Text>
+          {pdfPreviewUri && (
+            <Image source={{ uri: pdfPreviewUri }} style={styles.pdfPreview} resizeMode="contain" />
+          )}
           {assignment.assignment_file_download_url && (
             <TouchableOpacity
               style={styles.downloadLink}
@@ -211,6 +225,14 @@ const styles = StyleSheet.create({
     backgroundColor: "#FEF3C7", borderRadius: 8, padding: 16, marginBottom: 16,
   },
   pdfNoticeText: { fontSize: 14, color: "#92400E", marginBottom: 8 },
+  pdfPreview: {
+    width: "100%",
+    minHeight: 220,
+    height: 300,
+    borderRadius: 8,
+    backgroundColor: "#F3F4F6",
+    marginBottom: 8,
+  },
   downloadLink: {
     backgroundColor: "#4F46E5", borderRadius: 6, paddingVertical: 10,
     paddingHorizontal: 16, alignSelf: "flex-start",

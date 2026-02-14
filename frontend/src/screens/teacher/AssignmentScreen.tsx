@@ -1,11 +1,12 @@
 import React, { useState, useEffect, useCallback, useRef } from "react";
 import {
-  View, Text, TextInput, TouchableOpacity, StyleSheet,
+  View, Text, TextInput, TouchableOpacity, StyleSheet, Image,
   Alert, ScrollView, ActivityIndicator,
 } from "react-native";
 import * as Linking from "expo-linking";
 import { supabase } from "../../lib/supabase";
 import { api } from "../../lib/api";
+import { createPdfPreviewDataUri, looksLikePdf } from "../../lib/pdfPreview";
 import { useSubmissions } from "../../hooks/useSubmissions";
 import { LatexRenderer } from "../../components/LatexRenderer";
 import { FileUploader } from "../../components/FileUploader";
@@ -27,10 +28,6 @@ function sanitizeContent(raw: string): string {
     .replace(/<embed[\s\S]*?\/>/gi, "");
 }
 
-function isPdfContent(text: string): boolean {
-  return text.startsWith("%PDF") || text.charCodeAt(0) > 127;
-}
-
 type ViewMode = "teacher" | "student";
 
 export function TeacherAssignmentScreen({ route, navigation }: { route: any; navigation: any }) {
@@ -40,6 +37,7 @@ export function TeacherAssignmentScreen({ route, navigation }: { route: any; nav
   const [loading, setLoading] = useState(true);
   const [assignmentContent, setAssignmentContent] = useState<string | null>(null);
   const [isPdf, setIsPdf] = useState(false);
+  const [pdfPreviewUri, setPdfPreviewUri] = useState<string | null>(null);
   const [converting, setConverting] = useState(false);
   const [viewMode, setViewMode] = useState<ViewMode>("teacher");
 
@@ -74,25 +72,32 @@ export function TeacherAssignmentScreen({ route, navigation }: { route: any; nav
       setEditDueDate(data.due_date ? data.due_date.split("T")[0] : "");
       setAssignmentContent(null);
       setIsPdf(false);
+      setPdfPreviewUri(null);
 
       if (data.assignment_file_download_url) {
         const resp = await fetch(data.assignment_file_download_url);
         if (!mountedRef.current) return;
         if (resp.ok) {
+          const blob = await resp.blob();
+          const bytes = new Uint8Array(await blob.arrayBuffer());
+          if (!mountedRef.current) return;
+
           const contentType = resp.headers.get("content-type") ?? "";
-          if (contentType.includes("application/pdf")) {
+          if (looksLikePdf(contentType, bytes)) {
             setIsPdf(true);
             setAssignmentContent(null);
-          } else {
-            const text = await resp.text();
-            if (!mountedRef.current) return;
-            if (isPdfContent(text)) {
-              setIsPdf(true);
-              setAssignmentContent(null);
-            } else {
-              setIsPdf(false);
-              setAssignmentContent(sanitizeContent(text));
+            try {
+              const previewUri = await createPdfPreviewDataUri(blob);
+              if (mountedRef.current) setPdfPreviewUri(previewUri);
+            } catch (previewError) {
+              console.error("Failed to generate PDF preview image:", previewError);
+              if (mountedRef.current) setPdfPreviewUri(null);
             }
+          } else {
+            const text = await blob.text();
+            if (!mountedRef.current) return;
+            setIsPdf(false);
+            setAssignmentContent(sanitizeContent(text));
           }
         }
       }
@@ -234,7 +239,12 @@ export function TeacherAssignmentScreen({ route, navigation }: { route: any; nav
               <LatexRenderer latex={assignmentContent} />
             </View>
           ) : isPdf ? (
-            <Text style={styles.noContent}>PDF uploaded — convert to LaTeX in Teacher View to preview</Text>
+            <View>
+              {pdfPreviewUri && (
+                <Image source={{ uri: pdfPreviewUri }} style={styles.pdfPreview} resizeMode="contain" />
+              )}
+              <Text style={styles.noContent}>PDF uploaded — convert to LaTeX in Teacher View to preview</Text>
+            </View>
           ) : (
             <Text style={styles.noContent}>No assignment file uploaded</Text>
           )}
@@ -385,6 +395,9 @@ export function TeacherAssignmentScreen({ route, navigation }: { route: any; nav
           {isPdf && (
             <View style={styles.convertSection}>
               <Text style={styles.sectionTitle}>PDF Detected</Text>
+              {pdfPreviewUri && (
+                <Image source={{ uri: pdfPreviewUri }} style={styles.pdfPreview} resizeMode="contain" />
+              )}
               <Text style={styles.convertHint}>
                 Convert the uploaded PDF to LaTeX for in-app math rendering.
               </Text>
@@ -521,6 +534,14 @@ const styles = StyleSheet.create({
     alignItems: "center",
   },
   convertButtonText: { color: "#fff", fontSize: 16, fontWeight: "600" },
+  pdfPreview: {
+    width: "100%",
+    minHeight: 220,
+    height: 300,
+    borderRadius: 8,
+    backgroundColor: "#F3F4F6",
+    marginBottom: 12,
+  },
 
   submissionCard: {
     backgroundColor: "#F9FAFB",

@@ -71,12 +71,11 @@ class ChatThinkingPayloadTests(unittest.TestCase):
         result = self.chat._call_claude([{"role": "user", "content": "Help me"}])
 
         self.assertEqual(result, "Tutor reply")
+        self.assertEqual(self.chat.CHAT_MAX_TOKENS, 16000)
+        self.assertEqual(self.chat.BUDGET_TOKENS, 8000)
         self.assertEqual(captured["thinking"]["type"], "enabled")
-        self.assertEqual(
-            captured["thinking"]["budget_tokens"],
-            self.chat.BUDGET_TOKENS,
-        )
-        self.assertEqual(captured["max_tokens"], self.chat.CHAT_MAX_TOKENS)
+        self.assertEqual(captured["thinking"]["budget_tokens"], 8000)
+        self.assertEqual(captured["max_tokens"], 16000)
 
 
 if __name__ == "__main__":

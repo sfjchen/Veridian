@@ -19,7 +19,7 @@ export function alert(
 
     if (buttons && buttons.length === 2) {
       const confirmed = window.confirm(alertMessage);
-      const target = confirmed ? buttons[0] : buttons[1];
+      const target = confirmed ? buttons[1] : buttons[0];
       target.onPress?.();
     } else {
       window.alert(alertMessage);

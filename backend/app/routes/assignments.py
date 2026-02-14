@@ -6,7 +6,7 @@ from flask import Blueprint, Response, request, jsonify, g
 from postgrest.exceptions import APIError
 
 from app.middleware.auth import require_auth, require_role
-from app.services.supabase_client import get_supabase_client
+from app.services.supabase_client import get_supabase_admin_client
 from app.services.storage import generate_upload_url, generate_download_url
 
 assignments_bp = Blueprint("assignments", __name__)
@@ -14,6 +14,7 @@ assignments_bp = Blueprint("assignments", __name__)
 ASSIGNMENTS_BUCKET = "assignments"
 SUBMISSIONS_BUCKET = "submissions"
 MAX_TITLE_LENGTH = 500
+POSTGRES_UNIQUE_VIOLATION = "23505"
 
 
 def _verify_classroom_access(
@@ -52,7 +53,7 @@ def create_assignment(classroom_id: str) -> Tuple[Response, int]:
     if not title or len(title) > MAX_TITLE_LENGTH:
         return jsonify({"error": f"title must be 1-{MAX_TITLE_LENGTH} characters"}), 400
 
-    client = get_supabase_client()
+    client = get_supabase_admin_client()
 
     if not _verify_classroom_access(client, classroom_id, g.user_id, "teacher"):
         return jsonify({"error": "Classroom not found"}), 404
@@ -84,11 +85,12 @@ def create_assignment(classroom_id: str) -> Tuple[Response, int]:
     try:
         assignment_file_upload_url = generate_upload_url(ASSIGNMENTS_BUCKET, assignment_file_path)
         answer_key_upload_url = generate_upload_url(ASSIGNMENTS_BUCKET, answer_key_path)
-    except Exception:
+    except Exception as e:
+        print(f"Failed to generate upload URLs for assignment {assignment_id}: {e}", file=sys.stderr)
         try:
             client.table("assignments").delete().eq("id", assignment_id).execute()
-        except Exception:
-            pass
+        except Exception as cleanup_err:
+            print(f"Failed to clean up orphaned assignment {assignment_id}: {cleanup_err}", file=sys.stderr)
         return jsonify({"error": "Failed to generate upload URLs"}), 500
 
     if not record.data:
@@ -104,7 +106,7 @@ def create_assignment(classroom_id: str) -> Tuple[Response, int]:
 @assignments_bp.route("/classrooms/<classroom_id>/assignments", methods=["GET"])
 @require_auth
 def list_assignments(classroom_id: str) -> Tuple[Response, int]:
-    client = get_supabase_client()
+    client = get_supabase_admin_client()
 
     if not _verify_classroom_access(client, classroom_id, g.user_id, g.user_role):
         return jsonify({"error": "Access denied"}), 403
@@ -119,21 +121,24 @@ def list_assignments(classroom_id: str) -> Tuple[Response, int]:
 @assignments_bp.route("/assignments/<assignment_id>", methods=["GET"])
 @require_auth
 def get_assignment(assignment_id: str) -> Tuple[Response, int]:
-    client = get_supabase_client()
+    client = get_supabase_admin_client()
 
-    assignment = client.table("assignments").select(
-        "*, classrooms(teacher_id)"
-    ).eq("id", assignment_id).execute()
+    assignment = client.table("assignments").select("*").eq(
+        "id", assignment_id
+    ).execute()
 
     if not assignment.data:
         return jsonify({"error": "Assignment not found"}), 404
 
     record = assignment.data[0]
-    classrooms_join = record.get("classrooms")
-    if not classrooms_join or "teacher_id" not in classrooms_join:
-        return jsonify({"error": "Internal error: missing classroom data"}), 500
 
-    is_teacher = g.user_id == classrooms_join["teacher_id"]
+    classroom = client.table("classrooms").select("teacher_id").eq(
+        "id", record["classroom_id"]
+    ).execute()
+    if not classroom.data:
+        return jsonify({"error": "Classroom not found"}), 404
+
+    is_teacher = g.user_id == classroom.data[0]["teacher_id"]
     if not is_teacher:
         membership = client.table("classroom_memberships").select("student_id").eq(
             "classroom_id", record["classroom_id"]
@@ -141,7 +146,7 @@ def get_assignment(assignment_id: str) -> Tuple[Response, int]:
         if not membership.data:
             return jsonify({"error": "Access denied"}), 403
 
-    result = {k: v for k, v in record.items() if k != "classrooms"}
+    result = dict(record)
 
     try:
         if record.get("prompt_storage_path"):
@@ -152,7 +157,8 @@ def get_assignment(assignment_id: str) -> Tuple[Response, int]:
             result["answer_key_download_url"] = generate_download_url(
                 ASSIGNMENTS_BUCKET, record["answer_key_storage_path"]
             )
-    except ValueError:
+    except ValueError as e:
+        print(f"Failed to generate download URLs for assignment {assignment_id}: {e}", file=sys.stderr)
         return jsonify({"error": "Failed to generate download URLs"}), 500
 
     return jsonify(result), 200
@@ -165,18 +171,21 @@ def update_assignment(assignment_id: str) -> Tuple[Response, int]:
     if not data:
         return jsonify({"error": "No data provided"}), 400
 
-    client = get_supabase_client()
+    client = get_supabase_admin_client()
 
-    assignment = client.table("assignments").select(
-        "*, classrooms(teacher_id)"
-    ).eq("id", assignment_id).execute()
+    assignment = client.table("assignments").select("*").eq(
+        "id", assignment_id
+    ).execute()
 
     if not assignment.data:
         return jsonify({"error": "Assignment not found"}), 404
 
     record = assignment.data[0]
-    classrooms_join = record.get("classrooms")
-    if not classrooms_join or g.user_id != classrooms_join.get("teacher_id"):
+
+    classroom = client.table("classrooms").select("teacher_id").eq(
+        "id", record["classroom_id"]
+    ).execute()
+    if not classroom.data or g.user_id != classroom.data[0]["teacher_id"]:
         return jsonify({"error": "Access denied"}), 403
 
     updates: dict = {}
@@ -208,18 +217,21 @@ def update_assignment(assignment_id: str) -> Tuple[Response, int]:
 @assignments_bp.route("/assignments/<assignment_id>/reupload", methods=["POST"])
 @require_role("teacher")
 def reupload_assignment_files(assignment_id: str) -> Tuple[Response, int]:
-    client = get_supabase_client()
+    client = get_supabase_admin_client()
 
-    assignment = client.table("assignments").select(
-        "*, classrooms(teacher_id)"
-    ).eq("id", assignment_id).execute()
+    assignment = client.table("assignments").select("*").eq(
+        "id", assignment_id
+    ).execute()
 
     if not assignment.data:
         return jsonify({"error": "Assignment not found"}), 404
 
     record = assignment.data[0]
-    classrooms_join = record.get("classrooms")
-    if not classrooms_join or g.user_id != classrooms_join.get("teacher_id"):
+
+    classroom = client.table("classrooms").select("teacher_id").eq(
+        "id", record["classroom_id"]
+    ).execute()
+    if not classroom.data or g.user_id != classroom.data[0]["teacher_id"]:
         return jsonify({"error": "Access denied"}), 403
 
     result: dict = {}
@@ -232,7 +244,8 @@ def reupload_assignment_files(assignment_id: str) -> Tuple[Response, int]:
             result["answer_key_upload_url"] = generate_upload_url(
                 ASSIGNMENTS_BUCKET, record["answer_key_storage_path"]
             )
-    except Exception:
+    except Exception as e:
+        print(f"Failed to generate reupload URLs for assignment {assignment_id}: {e}", file=sys.stderr)
         return jsonify({"error": "Failed to generate upload URLs"}), 500
 
     return jsonify(result), 200
@@ -241,18 +254,21 @@ def reupload_assignment_files(assignment_id: str) -> Tuple[Response, int]:
 @assignments_bp.route("/assignments/<assignment_id>/submissions", methods=["GET"])
 @require_auth
 def list_submissions(assignment_id: str) -> Tuple[Response, int]:
-    client = get_supabase_client()
+    client = get_supabase_admin_client()
 
     assignment = client.table("assignments").select(
-        "id, classroom_id, classrooms(teacher_id)"
+        "id, classroom_id"
     ).eq("id", assignment_id).execute()
     if not assignment.data:
         return jsonify({"error": "Assignment not found"}), 404
 
     record = assignment.data[0]
     classroom_id = record["classroom_id"]
-    classrooms_join = record.get("classrooms")
-    is_teacher = classrooms_join and g.user_id == classrooms_join.get("teacher_id")
+
+    classroom = client.table("classrooms").select("teacher_id").eq(
+        "id", classroom_id
+    ).execute()
+    is_teacher = classroom.data and g.user_id == classroom.data[0]["teacher_id"]
 
     if is_teacher:
         submissions = client.table("submissions").select("*").eq(
@@ -269,7 +285,7 @@ def list_submissions(assignment_id: str) -> Tuple[Response, int]:
 @assignments_bp.route("/assignments/<assignment_id>/submissions", methods=["POST"])
 @require_role("student")
 def create_submission(assignment_id: str) -> Tuple[Response, int]:
-    client = get_supabase_client()
+    client = get_supabase_admin_client()
 
     assignment = client.table("assignments").select("id, classroom_id").eq(
         "id", assignment_id
@@ -296,7 +312,7 @@ def create_submission(assignment_id: str) -> Tuple[Response, int]:
             "storage_path": storage_path,
         }).execute()
     except APIError as e:
-        if "23505" in str(e):
+        if e.code == POSTGRES_UNIQUE_VIOLATION:
             return jsonify({"error": "Submission already exists for this assignment"}), 409
         print(f"Failed to insert submission: {e}", file=sys.stderr)
         return jsonify({"error": "Failed to create submission"}), 500

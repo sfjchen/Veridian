@@ -4,7 +4,7 @@ from flask import Blueprint, Response, request, jsonify, g
 from postgrest.exceptions import APIError
 
 from app.middleware.auth import require_auth, require_role
-from app.services.supabase_client import get_supabase_client
+from app.services.supabase_client import get_supabase_admin_client
 from app.services.code_generator import generate_class_code
 
 classrooms_bp = Blueprint("classrooms", __name__, url_prefix="/classrooms")
@@ -21,7 +21,7 @@ def create_classroom() -> Response | Tuple[Response, int]:
     if not name:
         return jsonify({"error": "name required"}), 400
 
-    client = get_supabase_client()
+    client = get_supabase_admin_client()
     for attempt in range(CODE_GENERATION_MAX_ATTEMPTS):
         code = generate_class_code()
         try:
@@ -48,16 +48,22 @@ def create_classroom() -> Response | Tuple[Response, int]:
 @classrooms_bp.route("", methods=["GET"])
 @require_auth
 def list_classrooms() -> Response | Tuple[Response, int]:
-    client = get_supabase_client()
+    client = get_supabase_admin_client()
     if g.user_role == "teacher":
         result = client.table("classrooms").select("*").eq(
             "teacher_id", g.user_id
         ).execute()
     else:
         memberships = client.table("classroom_memberships").select(
-            "classrooms(*)"
+            "classroom_id"
         ).eq("student_id", g.user_id).execute()
-        return jsonify([m["classrooms"] for m in memberships.data if m.get("classrooms")]), 200
+        classroom_ids = [m["classroom_id"] for m in memberships.data]
+        if not classroom_ids:
+            return jsonify([]), 200
+        classrooms = client.table("classrooms").select("*").in_(
+            "id", classroom_ids
+        ).execute()
+        return jsonify(classrooms.data), 200
     return jsonify(result.data), 200
 
 
@@ -69,7 +75,7 @@ def join_classroom() -> Response | Tuple[Response, int]:
     if not class_code:
         return jsonify({"error": "class_code required"}), 400
 
-    client = get_supabase_client()
+    client = get_supabase_admin_client()
     classroom = client.table("classrooms").select("id").eq(
         "class_code", class_code
     ).execute()

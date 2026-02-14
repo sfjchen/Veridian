@@ -6,7 +6,7 @@ import {
 import * as Linking from "expo-linking";
 import { supabase } from "../../lib/supabase";
 import { api } from "../../lib/api";
-import { createPdfPreviewDataUri, looksLikePdf } from "../../lib/pdfPreview";
+import { createPdfPreviewDataUri, looksLikeImage, looksLikePdf, looksLikeText } from "../../lib/pdfPreview";
 import { useSubmissions } from "../../hooks/useSubmissions";
 import { LatexRenderer } from "../../components/LatexRenderer";
 import { FileUploader } from "../../components/FileUploader";
@@ -39,6 +39,8 @@ export function TeacherAssignmentScreen({ route, navigation }: { route: any; nav
   const [assignmentContent, setAssignmentContent] = useState<string | null>(null);
   const [isPdf, setIsPdf] = useState(false);
   const [pdfPreviewUri, setPdfPreviewUri] = useState<string | null>(null);
+  const [imagePreviewUrl, setImagePreviewUrl] = useState<string | null>(null);
+  const [binaryDownloadUrl, setBinaryDownloadUrl] = useState<string | null>(null);
   const [converting, setConverting] = useState(false);
   const [viewMode, setViewMode] = useState<ViewMode>("teacher");
 
@@ -74,6 +76,8 @@ export function TeacherAssignmentScreen({ route, navigation }: { route: any; nav
       setAssignmentContent(null);
       setIsPdf(false);
       setPdfPreviewUri(null);
+      setImagePreviewUrl(null);
+      setBinaryDownloadUrl(null);
 
       if (data.assignment_file_download_url) {
         const resp = await fetch(data.assignment_file_download_url);
@@ -94,11 +98,17 @@ export function TeacherAssignmentScreen({ route, navigation }: { route: any; nav
               console.error("Failed to generate PDF preview image:", previewError);
               if (mountedRef.current) setPdfPreviewUri(null);
             }
-          } else {
+          } else if (looksLikeImage(contentType, bytes)) {
+            setIsPdf(false);
+            setImagePreviewUrl(data.assignment_file_download_url ?? null);
+          } else if (looksLikeText(contentType, bytes)) {
             const text = await blob.text();
             if (!mountedRef.current) return;
             setIsPdf(false);
             setAssignmentContent(sanitizeContent(text));
+          } else {
+            setIsPdf(false);
+            setBinaryDownloadUrl(data.assignment_file_download_url ?? null);
           }
         }
       }
@@ -137,6 +147,9 @@ export function TeacherAssignmentScreen({ route, navigation }: { route: any; nav
       const { latex } = await convertResp.json();
       setAssignmentContent(sanitizeContent(latex));
       setIsPdf(false);
+      setPdfPreviewUri(null);
+      setImagePreviewUrl(null);
+      setBinaryDownloadUrl(null);
     } catch (e: any) {
       alert("Conversion Error", e.message);
     } finally {
@@ -239,12 +252,24 @@ export function TeacherAssignmentScreen({ route, navigation }: { route: any; nav
               <Text style={styles.sectionTitle}>Problem</Text>
               <LatexRenderer latex={assignmentContent} />
             </View>
+          ) : imagePreviewUrl ? (
+            <View style={styles.contentPreview}>
+              <Text style={styles.sectionTitle}>Problem</Text>
+              <Image source={{ uri: imagePreviewUrl }} style={styles.assignmentImage} resizeMode="contain" />
+            </View>
           ) : isPdf ? (
             <View>
               {pdfPreviewUri && (
                 <Image source={{ uri: pdfPreviewUri }} style={styles.pdfPreview} resizeMode="contain" />
               )}
               <Text style={styles.noContent}>PDF uploaded — convert to LaTeX in Teacher View to preview</Text>
+            </View>
+          ) : binaryDownloadUrl ? (
+            <View style={styles.binaryNotice}>
+              <Text style={styles.binaryNoticeText}>This file type cannot be previewed in-app.</Text>
+              <TouchableOpacity style={styles.downloadButton} onPress={() => handleOpenFile(binaryDownloadUrl)}>
+                <Text style={styles.downloadButtonText}>Download File</Text>
+              </TouchableOpacity>
             </View>
           ) : (
             <Text style={styles.noContent}>No assignment file uploaded</Text>
@@ -462,6 +487,20 @@ export function TeacherAssignmentScreen({ route, navigation }: { route: any; nav
               <LatexRenderer latex={assignmentContent} />
             </View>
           )}
+          {imagePreviewUrl && (
+            <View style={styles.contentPreview}>
+              <Text style={styles.sectionTitle}>Assignment Preview (Image)</Text>
+              <Image source={{ uri: imagePreviewUrl }} style={styles.assignmentImage} resizeMode="contain" />
+            </View>
+          )}
+          {binaryDownloadUrl && (
+            <View style={styles.binaryNotice}>
+              <Text style={styles.binaryNoticeText}>This file type cannot be previewed in-app.</Text>
+              <TouchableOpacity style={styles.downloadButton} onPress={() => handleOpenFile(binaryDownloadUrl)}>
+                <Text style={styles.downloadButtonText}>Download File</Text>
+              </TouchableOpacity>
+            </View>
+          )}
         </View>
       )}
     </ScrollView>
@@ -542,6 +581,24 @@ const styles = StyleSheet.create({
     borderRadius: 8,
     backgroundColor: "#F3F4F6",
     marginBottom: 12,
+  },
+  assignmentImage: {
+    width: "100%",
+    minHeight: 220,
+    height: 320,
+    borderRadius: 8,
+    backgroundColor: "#F3F4F6",
+  },
+  binaryNotice: {
+    marginTop: 16,
+    backgroundColor: "#EFF6FF",
+    borderRadius: 8,
+    padding: 16,
+  },
+  binaryNoticeText: {
+    fontSize: 14,
+    color: "#1E3A8A",
+    marginBottom: 8,
   },
 
   submissionCard: {

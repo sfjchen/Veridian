@@ -10,7 +10,7 @@ import {
 } from "react-native";
 import * as Linking from "expo-linking";
 import { api } from "../../lib/api";
-import { createPdfPreviewDataUri, looksLikePdf } from "../../lib/pdfPreview";
+import { createPdfPreviewDataUri, looksLikeImage, looksLikePdf, looksLikeText } from "../../lib/pdfPreview";
 import { useSubmissions } from "../../hooks/useSubmissions";
 import { LatexRenderer } from "../../components/LatexRenderer";
 import { FileUploader } from "../../components/FileUploader";
@@ -40,6 +40,8 @@ export function AssignmentScreen({ route }: { route: any }) {
   const [assignmentContent, setAssignmentContent] = useState<string | null>(null);
   const [isPdf, setIsPdf] = useState(false);
   const [pdfPreviewUri, setPdfPreviewUri] = useState<string | null>(null);
+  const [imagePreviewUrl, setImagePreviewUrl] = useState<string | null>(null);
+  const [binaryDownloadUrl, setBinaryDownloadUrl] = useState<string | null>(null);
   const [submissionUrl, setSubmissionUrl] = useState<string | null>(null);
   const [submitting, setSubmitting] = useState(false);
   const {
@@ -59,6 +61,8 @@ export function AssignmentScreen({ route }: { route: any }) {
         setAssignmentContent(null);
         setIsPdf(false);
         setPdfPreviewUri(null);
+        setImagePreviewUrl(null);
+        setBinaryDownloadUrl(null);
         if (data.assignment_file_download_url) {
           const resp = await fetch(data.assignment_file_download_url);
           if (!resp.ok) throw new Error(`Failed to fetch assignment file: ${resp.status}`);
@@ -76,10 +80,17 @@ export function AssignmentScreen({ route }: { route: any }) {
               console.error("Failed to generate PDF preview image:", previewError);
               if (!cancelled) setPdfPreviewUri(null);
             }
-          } else {
+          } else if (looksLikeImage(contentType, bytes)) {
+            if (!cancelled) {
+              setImagePreviewUrl(data.assignment_file_download_url ?? null);
+              setIsPdf(false);
+            }
+          } else if (looksLikeText(contentType, bytes)) {
             const text = await blob.text();
             if (cancelled) return;
             setAssignmentContent(sanitizeLatexContent(text));
+          } else {
+            if (!cancelled) setBinaryDownloadUrl(data.assignment_file_download_url ?? null);
           }
         }
       } catch (e: any) {
@@ -128,6 +139,11 @@ export function AssignmentScreen({ route }: { route: any }) {
           <Text style={styles.sectionTitle}>Problem</Text>
           <LatexRenderer latex={assignmentContent} />
         </View>
+      ) : imagePreviewUrl ? (
+        <View style={styles.assignmentContainer}>
+          <Text style={styles.sectionTitle}>Problem</Text>
+          <Image source={{ uri: imagePreviewUrl }} style={styles.assignmentImage} resizeMode="contain" />
+        </View>
       ) : isPdf ? (
         <View style={styles.pdfNotice}>
           <Text style={styles.pdfNoticeText}>
@@ -144,6 +160,15 @@ export function AssignmentScreen({ route }: { route: any }) {
               <Text style={styles.downloadLinkText}>Download PDF</Text>
             </TouchableOpacity>
           )}
+        </View>
+      ) : binaryDownloadUrl ? (
+        <View style={styles.binaryNotice}>
+          <Text style={styles.binaryNoticeText}>
+            This file type cannot be previewed in-app.
+          </Text>
+          <TouchableOpacity style={styles.downloadLink} onPress={() => Linking.openURL(binaryDownloadUrl)}>
+            <Text style={styles.downloadLinkText}>Download File</Text>
+          </TouchableOpacity>
         </View>
       ) : null}
       {!submissionUrl ? (
@@ -221,6 +246,13 @@ const styles = StyleSheet.create({
   due: { fontSize: 14, color: "#6B7280", marginTop: 4, marginBottom: 16 },
   sectionTitle: { fontSize: 16, fontWeight: "600", marginBottom: 8 },
   assignmentContainer: { flex: 1, marginBottom: 16 },
+  assignmentImage: {
+    width: "100%",
+    minHeight: 220,
+    height: 320,
+    borderRadius: 8,
+    backgroundColor: "#F3F4F6",
+  },
   submitButton: {
     backgroundColor: "#4F46E5", borderRadius: 8, padding: 16,
     alignItems: "center", marginTop: 16,
@@ -240,6 +272,13 @@ const styles = StyleSheet.create({
     backgroundColor: "#F3F4F6",
     marginBottom: 8,
   },
+  binaryNotice: {
+    backgroundColor: "#EFF6FF",
+    borderRadius: 8,
+    padding: 16,
+    marginBottom: 16,
+  },
+  binaryNoticeText: { fontSize: 14, color: "#1E3A8A", marginBottom: 8 },
   downloadLink: {
     backgroundColor: "#4F46E5", borderRadius: 6, paddingVertical: 10,
     paddingHorizontal: 16, alignSelf: "flex-start",

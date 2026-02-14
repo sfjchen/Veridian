@@ -11,6 +11,7 @@ interface AuthState {
   signUp: (email: string, password: string, role: UserRole, displayName: string) => Promise<void>;
   signIn: (email: string, password: string) => Promise<void>;
   signOut: () => Promise<void>;
+  resetPassword: (email: string) => Promise<void>;
 }
 
 const AuthContext = createContext<AuthState | null>(null);
@@ -122,9 +123,14 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     if (error) throw error;
   }, []);
 
+  const resetPassword = useCallback(async (email: string): Promise<void> => {
+    const { error } = await supabase.auth.resetPasswordForEmail(email);
+    if (error) throw error;
+  }, []);
+
   const value = useMemo<AuthState>(
-    () => ({ session, user, role, loading, signUp, signIn, signOut }),
-    [session, user, role, loading, signUp, signIn, signOut]
+    () => ({ session, user, role, loading, signUp, signIn, signOut, resetPassword }),
+    [session, user, role, loading, signUp, signIn, signOut, resetPassword]
   );
 
   return (

@@ -14,7 +14,7 @@ type LoginScreenProps = {
 };
 
 export function LoginScreen({ navigation }: LoginScreenProps) {
-  const { signIn } = useAuth();
+  const { signIn, resetPassword } = useAuth();
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [loading, setLoading] = useState(false);
@@ -54,6 +54,20 @@ export function LoginScreen({ navigation }: LoginScreenProps) {
       />
       <TouchableOpacity style={styles.button} onPress={handleLogin} disabled={loading}>
         <Text style={styles.buttonText}>{loading ? "Signing in..." : "Sign In"}</Text>
+      </TouchableOpacity>
+      <TouchableOpacity onPress={async () => {
+        if (!email.trim()) {
+          alert("Email Required", "Enter your email above, then tap Forgot Password.");
+          return;
+        }
+        try {
+          await resetPassword(email.trim());
+          alert("Check Your Email", "A password reset link has been sent to your email.");
+        } catch (e: any) {
+          alert("Reset Failed", e.message);
+        }
+      }}>
+        <Text style={styles.link}>Forgot password?</Text>
       </TouchableOpacity>
       <TouchableOpacity onPress={() => navigation.navigate("Signup")}>
         <Text style={styles.link}>Don't have an account? Sign Up</Text>

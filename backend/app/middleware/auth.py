@@ -5,9 +5,11 @@ import jwt
 from jwt import PyJWKClient
 from flask import Response, request, g, jsonify, current_app
 
-from app.constants import ROLE_STUDENT
+from app.constants import ROLE_STUDENT, ROLE_TEACHER
+from app.services.supabase_client import get_supabase_admin_client
 
 _jwks_client: PyJWKClient | None = None
+VALID_ROLES = {ROLE_STUDENT, ROLE_TEACHER}
 
 
 def _get_jwks_client() -> PyJWKClient:
@@ -17,6 +19,38 @@ def _get_jwks_client() -> PyJWKClient:
         jwks_url = base_url + "/auth/v1/.well-known/jwks.json"
         _jwks_client = PyJWKClient(jwks_url)
     return _jwks_client
+
+
+def _role_from_payload(payload: dict[str, Any]) -> str | None:
+    user_metadata = payload.get("user_metadata", {})
+    app_metadata = payload.get("app_metadata", {})
+    metadata_role = user_metadata.get("role")
+    if metadata_role in VALID_ROLES:
+        return metadata_role
+    app_role = app_metadata.get("role")
+    if app_role in VALID_ROLES:
+        return app_role
+    return None
+
+
+def _role_from_profile(user_id: str) -> str | None:
+    try:
+        client = get_supabase_admin_client()
+        profile = client.table("profiles").select("role").eq("id", user_id).execute()
+    except Exception:
+        return None
+
+    if not profile.data:
+        return None
+
+    record = profile.data[0] if isinstance(profile.data, list) else profile.data
+    if not isinstance(record, dict):
+        return None
+
+    role = record.get("role")
+    if role in VALID_ROLES:
+        return role
+    return None
 
 
 def require_auth(f: Callable) -> Callable:
@@ -44,10 +78,13 @@ def require_auth(f: Callable) -> Callable:
         except Exception:
             return jsonify({"error": "Authentication service unavailable"}), 503
 
-        g.user_id = payload["sub"]
+        user_id = payload.get("sub")
+        if not user_id:
+            return jsonify({"error": "Invalid token"}), 401
+
+        g.user_id = user_id
         g.user_token = token
-        user_metadata = payload.get("user_metadata", {})
-        g.user_role = user_metadata.get("role", ROLE_STUDENT)
+        g.user_role = _role_from_payload(payload) or _role_from_profile(user_id) or ROLE_STUDENT
         return f(*args, **kwargs)
 
     return decorated

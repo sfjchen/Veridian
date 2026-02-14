@@ -1,6 +1,7 @@
 import { supabase } from "./supabase";
 
 const API_URL = process.env.EXPO_PUBLIC_API_URL ??
+  process.env.EXPO_API_URL ??
   (process.env.NODE_ENV !== "production" ? "http://localhost:5000" : undefined);
 
 if (!API_URL) {

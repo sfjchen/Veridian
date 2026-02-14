@@ -6,15 +6,15 @@ Full platform monorepo: teacher + student. One Supabase project for both. Migrat
 
 | Content | Location |
 |---------|----------|
-| Teacher Flask API | `backend/` |
-| Teacher React app | `frontend/` |
-| Student Flask API | `student-platform/get_coords.py` |
-| Student Expo app | `student-platform/frontend/` |
+| Teacher Flask API | `teacher/backend/` |
+| Teacher React app | `teacher/frontend/` |
+| Student Flask API | `student/backend/` |
+| Student Expo app | `student/frontend/` |
 | Teacher migrations | `supabase/` |
-| Student migrations | `student-platform/supabase/migrations/` |
+| Student migrations | `student/supabase/migrations/` |
 | Running docs | `AGENTS.md`, `CLAUDE.md`, `PLAN.md`, `README.md` |
 | Feature plans | `plans/` |
-| Student roadmap | `student-platform/PLAN.md` |
+| Student roadmap | `student/PLAN.md` |
 
 ## Migration Order
 
@@ -22,7 +22,7 @@ Run in this order (fresh DB):
 
 1. Teacher: `supabase/all_migrations.sql`
 2. Teacher: `supabase/migrations/20260214000008_*.sql`, `20260214000009_*.sql`
-3. Student: `202602140001_veridian_artifacts.sql`, `202602140003_veridian_sample_worksheets.sql`, `20260214153135_*.sql`, `20260214153124_*.sql`
+3. Student: `student/supabase/migrations/202602140001_*.sql`, `202602140003_*.sql`, `20260214153135_*.sql`, `20260214153124_*.sql`
 
 **Script:** `./scripts/apply_migrations.sh` — set `SUPABASE_DB_URL`, requires `psql`. If teacher tables exist, run steps 2–3 only.
 
@@ -30,16 +30,16 @@ Run in this order (fresh DB):
 
 ```bash
 # Teacher backend (port 5001)
-cd backend && python3 run.py
+cd teacher/backend && python3 run.py
 
 # Student backend (port 8000)
-cd student-platform && python3 get_coords.py
+cd student/backend && python3 get_coords.py
 
 # Teacher frontend
-cd frontend && npx expo start
+cd teacher/frontend && npx expo start
 
 # Student frontend
-cd student-platform/frontend && npx expo start
+cd student/frontend && npx expo start
 ```
 
 ## What Works
@@ -50,4 +50,4 @@ cd student-platform/frontend && npx expo start
 | Student (sample) | Yes | Sample worksheet → canvas → Done → AI analysis → chat |
 | Both | Partial | Full flow blocked until schema merge (assignments.problems) |
 
-**Env:** `backend/.env`, `frontend/.env`, `student-platform/.env` — all use same Supabase URL/keys. Copy from `.env.example` files.
+**Env:** `teacher/backend/.env`, `teacher/frontend/.env`, `student/backend/.env`, `student/frontend/.env` — all use same Supabase URL/keys. Copy from `.env.example` files.

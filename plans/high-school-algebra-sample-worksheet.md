@@ -10,7 +10,7 @@ Why:
 ## Files To Create/Modify
 
 Create:
-- `supabase/migrations/202602140002_veridian_sample_worksheets.sql` (if DB-seed path is selected)
+- `student/supabase/migrations/202602140002_veridian_sample_worksheets.sql` (if DB-seed path is selected)
 
 Modify:
 - `SUPABASE_INTEGRATION.md` (document sample worksheet upload/seed flow)

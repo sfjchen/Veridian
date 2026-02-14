@@ -26,13 +26,13 @@ Users intermittently see "Assignment not found" after creating assignments/corpu
 
 ## Files
 
-- `backend/app/routes/assignments.py`
-- `backend/app/routes/convert.py`
-- `backend/app/services/pdf_preview.py` (new)
-- `backend/requirements.txt`
-- `frontend/src/lib/pdfPreview.ts` (new)
-- `frontend/src/screens/teacher/AssignmentScreen.tsx`
-- `frontend/src/screens/student/AssignmentScreen.tsx`
+- `teacher/backend/app/routes/assignments.py`
+- `teacher/backend/app/routes/convert.py`
+- `teacher/backend/app/services/pdf_preview.py` (new)
+- `teacher/backend/requirements.txt`
+- `teacher/frontend/src/lib/pdfPreview.ts` (new)
+- `teacher/frontend/src/screens/teacher/AssignmentScreen.tsx`
+- `teacher/frontend/src/screens/student/AssignmentScreen.tsx`
 
 ## Success Criteria
 

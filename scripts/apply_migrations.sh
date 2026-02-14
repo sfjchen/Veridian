@@ -29,15 +29,15 @@ echo "=== 3. Teacher migration 009 (problem_results, chat_messages) ==="
 run_sql "$REPO_ROOT/supabase/migrations/20260214000009_problem_results_chat_messages.sql"
 
 echo "=== 4. Student: veridian_artifacts ==="
-run_sql "$REPO_ROOT/student-platform/supabase/migrations/202602140001_veridian_artifacts.sql"
+run_sql "$REPO_ROOT/student/supabase/migrations/202602140001_veridian_artifacts.sql"
 
 echo "=== 5. Student: veridian_sample_worksheets ==="
-run_sql "$REPO_ROOT/student-platform/supabase/migrations/202602140003_veridian_sample_worksheets.sql"
+run_sql "$REPO_ROOT/student/supabase/migrations/202602140003_veridian_sample_worksheets.sql"
 
 echo "=== 6. Student: fix function search_path ==="
-run_sql "$REPO_ROOT/student-platform/supabase/migrations/20260214153135_fix_function_search_path.sql"
+run_sql "$REPO_ROOT/student/supabase/migrations/20260214153135_fix_function_search_path.sql"
 
 echo "=== 7. Student: chat_messages index (if not in 009) ==="
-run_sql "$REPO_ROOT/student-platform/supabase/migrations/20260214153124_add_chat_messages_assignment_id_index.sql"
+run_sql "$REPO_ROOT/student/supabase/migrations/20260214153124_add_chat_messages_assignment_id_index.sql"
 
 echo "Done. All migrations applied."

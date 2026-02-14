@@ -7,18 +7,18 @@
 Create a cross-platform `alert` utility that uses `window.alert` on web and `Alert.alert` on native.
 
 ## Files to modify
-- **New**: `frontend/src/lib/alert.ts` — cross-platform alert function
+- **New**: `teacher/frontend/src/lib/alert.ts` — cross-platform alert function
 - **Modified** (9 files — replace `Alert.alert` imports):
-  - `frontend/src/screens/auth/LoginScreen.tsx`
-  - `frontend/src/screens/auth/SignupScreen.tsx`
-  - `frontend/src/screens/teacher/DashboardScreen.tsx`
-  - `frontend/src/screens/teacher/ClassroomScreen.tsx` (if applicable)
-  - `frontend/src/screens/teacher/CreateAssignmentScreen.tsx`
-  - `frontend/src/screens/teacher/AssignmentScreen.tsx`
-  - `frontend/src/screens/teacher/CorpusUploadScreen.tsx`
-  - `frontend/src/screens/student/AssignmentScreen.tsx`
-  - `frontend/src/components/FileUploader.tsx`
-  - `frontend/src/components/ClassCodeInput.tsx`
+  - `teacher/frontend/src/screens/auth/LoginScreen.tsx`
+  - `teacher/frontend/src/screens/auth/SignupScreen.tsx`
+  - `teacher/frontend/src/screens/teacher/DashboardScreen.tsx`
+  - `teacher/frontend/src/screens/teacher/ClassroomScreen.tsx` (if applicable)
+  - `teacher/frontend/src/screens/teacher/CreateAssignmentScreen.tsx`
+  - `teacher/frontend/src/screens/teacher/AssignmentScreen.tsx`
+  - `teacher/frontend/src/screens/teacher/CorpusUploadScreen.tsx`
+  - `teacher/frontend/src/screens/student/AssignmentScreen.tsx`
+  - `teacher/frontend/src/components/FileUploader.tsx`
+  - `teacher/frontend/src/components/ClassCodeInput.tsx`
 
 ## Approach
 - Single small utility: `Platform.OS === 'web' ? window.alert(message) : Alert.alert(title, message)`

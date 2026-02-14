@@ -6,14 +6,15 @@ Monorepo for the full EdTech platform: teacher side (classrooms, assignments, co
 
 | Path | Purpose |
 |------|---------|
-| `backend/` | Teacher backend (Flask) — classrooms, assignments, corpus |
-| `frontend/` | Teacher frontend (Expo React) — dashboard, assignment creation |
-| `student-platform/` | Student side — backend (`get_coords.py`) + frontend (`frontend/`) |
+| `teacher/backend/` | Teacher backend (Flask) — classrooms, assignments, corpus |
+| `teacher/frontend/` | Teacher frontend (Expo React) — dashboard, assignment creation |
+| `student/backend/` | Student backend (Flask) — mistake analysis, OCR, chat |
+| `student/frontend/` | Student frontend (Expo React) — canvas, document, workspace |
 | `supabase/` | Shared DB migrations |
 | `scripts/` | Migration script, etc. |
 | `plans/` | Feature plans |
 
-**Layout:** Teacher backend + frontend at root; student backend + frontend under `student-platform/`. Both use the same Supabase project.
+**Layout:** Symmetric `teacher/` and `student/` each with `backend/` and `frontend/`. Shared Supabase project.
 
 ## Prerequisites
 
@@ -21,8 +22,8 @@ Python 3.11+, Node 18+, Expo CLI. One Supabase project (migrations run once — 
 
 ## One-Time Setup
 
-1. Copy env: `backend/.env.example` → `backend/.env`, `frontend/.env.example` → `frontend/.env`, `student-platform/.env.example` → `student-platform/.env`
-2. Install deps: `pip install -r requirements.txt` in `backend/` and `student-platform/`; `npm install` in `frontend/` and `student-platform/frontend/`
+1. Copy env: `teacher/backend/.env.example` → `teacher/backend/.env`, `teacher/frontend/.env.example` → `teacher/frontend/.env`, `student/backend/.env.example` → `student/backend/.env`, `student/frontend/.env.example` → `student/frontend/.env`
+2. Install deps: `pip install -r requirements.txt` in `teacher/backend/` and `student/backend/`; `npm install` in `teacher/frontend/` and `student/frontend/`
 
 (Migrations: run once per project via `./scripts/apply_migrations.sh` if needed.)
 
@@ -32,20 +33,20 @@ Python 3.11+, Node 18+, Expo CLI. One Supabase project (migrations run once — 
 
 ```bash
 # Terminal 1: Teacher backend (port 5001)
-cd backend && python3 run.py
+cd teacher/backend && python3 run.py
 
 # Terminal 2: Teacher frontend
-cd frontend && npx expo start
+cd teacher/frontend && npx expo start
 ```
 
 **Student flow:** Sample worksheet → canvas → Done → AI analysis → Socratic chat
 
 ```bash
 # Terminal 1: Student backend (port 8000)
-cd student-platform && python3 get_coords.py
+cd student/backend && python3 get_coords.py
 
 # Terminal 2: Student frontend
-cd student-platform/frontend && npx expo start
+cd student/frontend && npx expo start
 ```
 
 **Both sides:** Run all four above. Backend required for full flows; frontend alone works for auth/login UI only.
@@ -54,8 +55,8 @@ cd student-platform/frontend && npx expo start
 
 | Test | Command |
 |------|---------|
-| Teacher backend | `cd backend && python3 run.py` — hit `/classrooms` with JWT |
-| Student backend | `cd student-platform && python3 get_coords.py` — `curl http://localhost:8000/health` |
+| Teacher backend | `cd teacher/backend && python3 run.py` — hit `/classrooms` with JWT |
+| Student backend | `cd student/backend && python3 get_coords.py` — `curl http://localhost:8000/health` |
 
 ## Development
 

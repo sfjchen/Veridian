@@ -8,7 +8,7 @@ Full platform monorepo: teacher side (classrooms, assignments, corpus, submissio
 
 ---
 
-## Teacher Side (backend/, frontend/)
+## Teacher Side (teacher/backend/, teacher/frontend/)
 
 ### Completed
 - PR #1–9: Supabase schema, RLS, Flask backend, teacher/student dashboards, corpus/assignment/submission flows
@@ -31,7 +31,7 @@ Full platform monorepo: teacher side (classrooms, assignments, corpus, submissio
 
 ---
 
-## Student Side (student-platform/)
+## Student Side (student/backend/, student/frontend/)
 
 ### Completed
 - Per-problem pipeline: OCR, mistake analysis, coordinate detection
@@ -50,9 +50,9 @@ Full platform monorepo: teacher side (classrooms, assignments, corpus, submissio
 
 ---
 
-## Tech Debt: Try-Catch Cleanup (student-platform)
+## Tech Debt: Try-Catch Cleanup (student)
 
-See `student-platform/PLAN.md` for full inventory. Summary:
+See `student/PLAN.md` for full inventory. Summary:
 
 1. **Persistence retry** — Retry with backoff; dead-letter queue on failure
 2. **WebSocket health** — `is_healthy()` check; polling fallback in frontend
@@ -86,4 +86,4 @@ See `student-platform/PLAN.md` for full inventory. Summary:
 
 2. **Deployment**: Teacher and student backends are separate Flask apps (ports 5001 and 8000). Deploy as two services, or unify behind one gateway?
 
-3. **Try-catch fixes priority**: The 8 items in student-platform tech debt — fix before further feature work, or tackle incrementally?
+3. **Try-catch fixes priority**: The 8 items in student tech debt — fix before further feature work, or tackle incrementally?

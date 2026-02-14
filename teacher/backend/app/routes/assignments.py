@@ -249,13 +249,10 @@ def delete_assignment(assignment_id: str) -> Tuple[Response, int] | Response:
         return jsonify({"error": "Access denied"}), 403
 
     try:
-        deleted = client.table("assignments").delete().eq("id", assignment_id).execute()
+        client.table("assignments").delete().eq("id", assignment_id).execute()
     except APIError as e:
         print(f"Failed to delete assignment {assignment_id}: {e}", file=sys.stderr)
         return jsonify({"error": "Failed to delete assignment"}), 500
-
-    if not deleted.data:
-        return jsonify({"error": "Assignment not found"}), 404
 
     storage_warnings: list[str] = []
     for storage_path in [record.get("prompt_storage_path"), record.get("answer_key_storage_path")]:

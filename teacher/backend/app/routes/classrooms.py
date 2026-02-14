@@ -8,6 +8,7 @@ from supabase import Client
 
 from app.middleware.auth import require_auth, require_role
 from app.services.code_generator import generate_class_code
+from app.services.storage import delete_object
 from app.services.supabase_client import get_supabase_admin_client
 
 classrooms_bp = Blueprint("classrooms", __name__, url_prefix="/classrooms")
@@ -15,6 +16,7 @@ classrooms_bp = Blueprint("classrooms", __name__, url_prefix="/classrooms")
 POSTGRES_UNIQUE_VIOLATION = "23505"
 CODE_GENERATION_MAX_ATTEMPTS = 3
 MAX_CLASSROOM_NAME_LENGTH = 200
+ASSIGNMENTS_BUCKET = "assignments"
 
 
 def _validate_uuid(value: str) -> bool:
@@ -147,7 +149,7 @@ def update_classroom(classroom_id: str) -> Response | Tuple[Response, int]:
 
     name = data.get("name")
     if not isinstance(name, str):
-        return jsonify({"error": "name required"}), 400
+        return jsonify({"error": "name must be a string"}), 400
     name = name.strip()
     if not name:
         return jsonify({"error": "name required"}), 400
@@ -175,6 +177,11 @@ def delete_classroom(classroom_id: str) -> Response | Tuple[Response, int]:
         return jsonify({"error": "Invalid classroom ID"}), 400
 
     client = get_supabase_admin_client()
+
+    assignments = client.table("assignments").select(
+        "prompt_storage_path, answer_key_storage_path"
+    ).eq("classroom_id", classroom_id).execute()
+
     try:
         deleted = client.table("classrooms").delete().eq(
             "id", classroom_id
@@ -185,7 +192,20 @@ def delete_classroom(classroom_id: str) -> Response | Tuple[Response, int]:
 
     if not deleted.data:
         return jsonify({"error": "Classroom not found"}), 404
+
+    _cleanup_assignment_storage(assignments.data)
     return Response(status=204)
+
+
+def _cleanup_assignment_storage(assignments: list[dict]) -> None:
+    for assignment in assignments:
+        for path in [assignment.get("prompt_storage_path"), assignment.get("answer_key_storage_path")]:
+            if not path:
+                continue
+            try:
+                delete_object(ASSIGNMENTS_BUCKET, path)
+            except ValueError:
+                print(f"Failed to clean up storage object: {path}", file=sys.stderr)
 
 
 @classrooms_bp.route("/<classroom_id>/students", methods=["GET"])
@@ -207,7 +227,9 @@ def list_classroom_students(classroom_id: str) -> Response | Tuple[Response, int
     if not memberships.data:
         return jsonify([]), 200
 
-    student_ids = [membership["student_id"] for membership in memberships.data]
+    student_ids = [m["student_id"] for m in memberships.data if m.get("student_id")]
+    if not student_ids:
+        return jsonify([]), 200
     profiles = client.table("profiles").select("id, display_name").in_(
         "id", student_ids
     ).execute()
@@ -236,7 +258,10 @@ def remove_classroom_student(classroom_id: str, student_id: str) -> Response | T
         return jsonify({"error": "Invalid student ID"}), 400
 
     client = get_supabase_admin_client()
-    if not _teacher_owns_classroom(client, classroom_id, g.user_id):
+    classroom = client.table("classrooms").select("id").eq(
+        "id", classroom_id
+    ).eq("teacher_id", g.user_id).limit(1).execute()
+    if not classroom.data:
         return jsonify({"error": "Classroom not found"}), 404
 
     try:

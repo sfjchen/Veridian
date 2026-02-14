@@ -20,7 +20,16 @@ Full EdTech platform: teacher side (classrooms, assignments, corpus, submissions
 
 Python 3.11+, Node 18+, Expo CLI. One Supabase project (migrations run once — see `MIGRATION_GUIDE.md`).
 
-## One-Time Setup
+## Quick run (from repo root)
+
+After one-time setup, use the scripts in `scripts/`:
+
+- **Teacher app:** `./scripts/setup-teacher.sh` once, then `./scripts/run-teacher.sh` (or run backend and frontend separately).
+- **Student platform:** `./scripts/setup-student.sh` once, then `./scripts/run-student.sh`.
+
+See `scripts/README.md` for all script options.
+
+## Setup
 
 1. Copy env: `teacher/backend/.env.example` → `teacher/backend/.env`, `teacher/frontend/.env.example` → `teacher/frontend/.env`, `student/backend/.env.example` → `student/backend/.env`, `student/frontend/.env.example` → `student/frontend/.env`
 2. Install deps: `pip install -r requirements.txt` in `teacher/backend/` and `student/backend/`; `npm install` in `teacher/frontend/` and `student/frontend/`

@@ -9,7 +9,7 @@ Student writes on canvas (document or workspace)
   -> tap Done
   -> screenshot captured
   -> POST /analyze-solution
-  -> GPT-4o OCR (screenshot -> LaTeX)
+  -> OpenAI OCR (screenshot -> LaTeX; configurable via MATH_OCR_* env)
   -> Claude mistake analysis (annotated LaTeX)
   -> Claude vision coordinate detection (bounding boxes)
   -> mistake overlays appear on canvas
@@ -56,6 +56,9 @@ SUPABASE_SERVICE_ROLE_KEY=your_service_role_key
 SUPABASE_SIGNED_URL_TTL_SECONDS=3600
 SUPABASE_ARTIFACTS_TABLE=veridian_artifacts
 SUPABASE_COORD_RUNS_TABLE=veridian_mistake_coord_runs
+
+# Optional: math OCR speed vs quality (MATH_OCR_MODEL, MATH_OCR_IMAGE_DETAIL, MATH_OCR_MAX_IMAGE_SIDE)
+# See .env.example; set MATH_OCR_DEBUG=1 to log handwriting recognition time to stderr.
 ```
 
 #### 3. Supabase Setup
@@ -157,7 +160,7 @@ Auth = Supabase JWT Bearer token in `Authorization` header.
 
 - `get_coords.py` - Main Flask application
 - `mistake_analysis/` - LLM-based mistake detection and annotation (Claude)
-- `src/math_screenshot_to_latex/` - Math OCR: screenshot to LaTeX (OpenAI GPT-4o)
+- `src/math_screenshot_to_latex/` - Math OCR: screenshot to LaTeX (OpenAI; MATH_OCR_* env for model/detail/size)
 - `artifact_service.py` - Supabase artifact management
 - `auth_middleware.py` - Authentication middleware
 - `supabase_service.py` - Supabase client configuration
@@ -168,6 +171,15 @@ Auth = Supabase JWT Bearer token in `Authorization` header.
 See `AGENTS.md` and `CLAUDE.md` for development conventions and code review process.
 
 **Running docs**: `AGENTS.md`, `CLAUDE.md`, `README.md`, and `PLAN.md` are the project's living documentation. Update them in the same PR when you add features, change architecture, or modify conventions. Follow best industry coding standards for streamlined, efficient code; comprehensive testing and documentation are not required.
+
+## Faster / cheaper
+
+Most time and cost is in **mistake analysis** (Claude). To reduce both:
+
+- **`MISTAKE_ANALYSIS_MODEL=claude-sonnet-4-5-20250929`** — Use Sonnet instead of Opus for analysis (faster and cheaper; may be slightly less accurate).
+- **`MISTAKE_ANALYSIS_THINKING=0`** — Disable extended thinking when using Opus (lower latency and cost).
+
+**Coords** use `CLAUDE_MODEL`; keep it on Sonnet (or a smaller model) if you want coords to stay cheap. **OCR** defaults to `gpt-4o-mini` and `low` detail; see `MATH_OCR_*` in `.env.example` to tune. To compare with OpenAI for mistake analysis, set `MISTAKE_ANALYSIS_BACKEND=openai` and optionally `MISTAKE_ANALYSIS_OPENAI_MODEL=gpt-4o` or `gpt-4o-mini`.
 
 ## Troubleshooting
 

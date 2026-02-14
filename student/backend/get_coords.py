@@ -10,7 +10,6 @@ from collections import defaultdict
 from contextlib import contextmanager
 from io import BytesIO
 from pathlib import Path
-from tempfile import NamedTemporaryFile
 from typing import Any, Callable, Dict, Iterator, List, Optional, TypedDict
 
 from anthropic import Anthropic
@@ -27,7 +26,7 @@ from artifact_service import (
     mark_artifact_uploaded,
 )
 from assignment_service import get_assignment, get_assignment_settings, get_problem, get_problems
-from auth_middleware import require_auth, require_auth_or_sample
+from auth_middleware import require_auth, require_auth_or_sample, require_auth_or_sample_chat
 from chat import generate_chat_response
 from chat_service import get_chat_history
 from dotenv import load_dotenv
@@ -56,8 +55,13 @@ load_dotenv()
 
 ANTHROPIC_API_KEY = os.getenv("ANTHROPIC_API_KEY")
 CLAUDE_MODEL = os.getenv("CLAUDE_MODEL")
+MISTAKE_ANALYSIS_MODEL = os.getenv("MISTAKE_ANALYSIS_MODEL", "claude-opus-4-6").strip()
 OPENAI_API_KEY = os.getenv("OPENAI_API_KEY")
 DEFAULT_ARTIFACT_OWNER_ID = os.getenv("SUPABASE_DEFAULT_OWNER_ID", "").strip()
+
+def _mistake_analysis_thinking_enabled() -> bool:
+    v = (os.getenv("MISTAKE_ANALYSIS_THINKING", "1") or "1").strip().lower()
+    return v in ("1", "true", "yes")
 
 if not ANTHROPIC_API_KEY:
     raise RuntimeError("Missing ANTHROPIC_API_KEY in environment/.env")
@@ -854,6 +858,7 @@ def _count_mistake_annotations_approx(latex: str) -> int:
 
 
 _FMT_TO_SUFFIX = {"PNG": ".png", "JPEG": ".jpg", "JPG": ".jpg", "WEBP": ".webp", "GIF": ".gif"}
+_FMT_TO_MIME = {"PNG": "image/png", "JPEG": "image/jpeg", "JPG": "image/jpeg", "WEBP": "image/webp", "GIF": "image/gif"}
 
 
 def _fmt_to_suffix(fmt: str) -> str:
@@ -863,23 +868,39 @@ def _fmt_to_suffix(fmt: str) -> str:
     return _FMT_TO_SUFFIX[key]
 
 
+def _downscale_image_for_ocr(image_bytes: bytes) -> bytes:
+    max_side = int(os.getenv("MATH_OCR_MAX_IMAGE_SIDE", "1024"))
+    with Image.open(BytesIO(image_bytes)) as im:
+        w, h = im.size
+        if max(w, h) <= max_side:
+            return image_bytes
+        scale = max_side / max(w, h)
+        new_w, new_h = int(w * scale), int(h * scale)
+        im = im.resize((new_w, new_h), Image.LANCZOS)
+        out = BytesIO()
+        im.save(out, format=im.format or "PNG")
+        return out.getvalue()
+
+
 def _image_bytes_to_latex(image_bytes: bytes) -> str:
     try:
         with Image.open(BytesIO(image_bytes)) as im:
-            fmt = im.format or "PNG"
+            fmt = (im.format or "PNG").upper()
     except UnidentifiedImageError as exc:
         raise ValueError(f"Invalid image format: {exc}") from exc
 
+    mime_type = _FMT_TO_MIME.get(fmt, "image/png")
+    image_bytes = _downscale_image_for_ocr(image_bytes)
+
+    _ocr_debug = os.getenv("MATH_OCR_DEBUG", "") or os.getenv("DEBUG", "")
+    t0 = time.perf_counter()
     from math_screenshot_to_latex.client import screenshot_to_latex
 
-    suffix = _fmt_to_suffix(fmt)
-    with NamedTemporaryFile(suffix=suffix, delete=False) as f:
-        f.write(image_bytes)
-        path = f.name
-    try:
-        return screenshot_to_latex(path)
-    finally:
-        os.unlink(path)
+    latex = screenshot_to_latex(image_bytes=image_bytes, mime_type=mime_type)
+    if _ocr_debug.strip().lower() in ("1", "true", "yes"):
+        elapsed_ms = int((time.perf_counter() - t0) * 1000)
+        print(f"handwriting_ocr_ms={elapsed_ms}", file=sys.stderr)
+    return latex
 
 
 def _add_dot_coords(mistakes: List[Dict[str, Any]], image_dims: tuple[int, int]) -> List[Dict[str, Any]]:
@@ -1215,16 +1236,39 @@ def _resolve_context(lookup: ContextLookup) -> tuple[str, str, str]:
     return (form_ref, form_ctx, "detailed")
 
 
+def _profile_enabled() -> bool:
+    v = (os.getenv("ANALYSIS_PROFILE", "") or os.getenv("MATH_OCR_DEBUG", "") or os.getenv("DEBUG", "")).strip().lower()
+    return v in ("1", "true", "yes")
+
+
+def _profile_log_timing(timing: Dict[str, int]) -> None:
+    total = sum(timing.values())
+    parts = " ".join(f"{k}={v}" for k, v in sorted(timing.items()))
+    print(f"analysis_timing total_ms={total} {parts}", file=sys.stderr)
+
+
 def _run_analysis(image_bytes: bytes, params: AnalysisParams) -> Dict[str, Any]:
+    t0 = time.perf_counter()
     student_tex = _image_bytes_to_latex(image_bytes)
-    analyzer = MistakeAnalyzer()
+    ocr_ms = int((time.perf_counter() - t0) * 1000)
+
+    t1 = time.perf_counter()
+    analyzer = MistakeAnalyzer(
+        analysis_model=MISTAKE_ANALYSIS_MODEL,
+        use_extended_thinking=_mistake_analysis_thinking_enabled(),
+    )
     result = analyzer.run(
         student_tex=student_tex,
         reference_tex=params["reference_tex"],
         context_tex=params["context_tex"],
         include_solution=params["include_solution"],
     )
-    return {"student_tex": student_tex, **result}
+    mistake_analysis_ms = int((time.perf_counter() - t1) * 1000)
+    return {
+        "student_tex": student_tex,
+        **result,
+        "_timing": {"ocr_ms": ocr_ms, "mistake_analysis_ms": mistake_analysis_ms},
+    }
 
 
 def _extract_mistakes_with_coords(
@@ -1359,9 +1403,14 @@ def analyze_solution() -> Any:
     except Exception as exc:
         return jsonify({"error": f"Analysis failed: {exc}"}), 502
 
+    timing = dict(result.pop("_timing", {}))
+    t_coords = time.perf_counter()
     annotated_tex = result["annotated_tex"]
     mistake_count, mistakes = _extract_mistakes_with_coords(annotated_tex, image_bytes, mimetype)
+    timing["coords_ms"] = int((time.perf_counter() - t_coords) * 1000)
     mistakes = _postprocess_mistakes(mistakes, image_bytes, hint_level)
+
+    _profile_log_timing(timing)
 
     payload = _build_analysis_payload(result, mistake_count, mistakes)
     if problem_num is not None:
@@ -1377,6 +1426,8 @@ def analyze_solution() -> Any:
         except Exception:
             log.error("Failed to emit WebSocket result", exc_info=True)
 
+    if _profile_enabled():
+        payload["timing_ms"] = timing
     return jsonify(payload)
 
 
@@ -1413,8 +1464,11 @@ def result_for_problem(assignment_id: str, problem_num: int) -> Any:
     return jsonify({"result": result})
 
 
+_chat_auth = require_auth_or_sample_chat(DEFAULT_ARTIFACT_OWNER_ID or "anonymous-sample")
+
+
 @app.post("/chat")
-@require_auth
+@_chat_auth
 def chat_send() -> Any:
     payload = request.get_json(silent=True) or {}
     assignment_id = str(payload.get("assignment_id", "")).strip()
@@ -1428,24 +1482,30 @@ def chat_send() -> Any:
         return jsonify({"error": "Rate limit exceeded. Max 10 messages per minute."}), 429
 
     try:
-        content = generate_chat_response(g.user_id, assignment_id, int(problem_num), message)
+        parsed_problem_num = int(problem_num)
+    except (TypeError, ValueError):
+        return jsonify({"error": f"Invalid problem_num: {problem_num!r}"}), 400
+
+    try:
+        content = generate_chat_response(g.user_id, assignment_id, parsed_problem_num, message)
     except ValueError as exc:
         return jsonify({"error": str(exc)}), 400
     except RuntimeError as exc:
         return jsonify({"error": str(exc)}), 502
     except Exception:
+        log.exception("Unexpected error in chat endpoint")
         return jsonify({"error": "Internal server error during chat."}), 500
 
     return jsonify({
         "role": "assistant",
         "content": content,
-        "problem_num": int(problem_num),
+        "problem_num": parsed_problem_num,
         "assignment_id": assignment_id,
     })
 
 
 @app.get("/chat/<assignment_id>/<int:problem_num>")
-@require_auth
+@_chat_auth
 def chat_history(assignment_id: str, problem_num: int) -> Any:
     try:
         messages = get_chat_history(g.user_id, assignment_id, problem_num)
@@ -1535,7 +1595,10 @@ def capture_pipeline() -> Any:
     if reference_tex and context_tex:
         from mistake_analysis.client import MistakeAnalyzer
 
-        analyzer = MistakeAnalyzer()
+        analyzer = MistakeAnalyzer(
+            analysis_model=MISTAKE_ANALYSIS_MODEL,
+            use_extended_thinking=_mistake_analysis_thinking_enabled(),
+        )
         try:
             analysis_result = analyzer.run(
                 student_tex=student_tex,

@@ -1,5 +1,11 @@
 const BASE_URL = (process.env.EXPO_PUBLIC_BACKEND_URL ?? '').replace(/\/$/, '');
 
+function getAuthHeaders(): Record<string, string> {
+  const token = process.env.EXPO_PUBLIC_SUPABASE_ACCESS_TOKEN?.trim();
+  if (token) return { Authorization: `Bearer ${token}` };
+  return {};
+}
+
 export type Problem = {
   num: number;
   statement_tex: string;
@@ -73,7 +79,7 @@ export async function sendChatMessage(
 ): Promise<ChatResponse> {
   const res = await fetch(`${BASE_URL}/chat`, {
     method: 'POST',
-    headers: { 'Content-Type': 'application/json' },
+    headers: { 'Content-Type': 'application/json', ...getAuthHeaders() },
     body: JSON.stringify({ assignment_id: assignmentId, problem_num: problemNum, message }),
   });
   const body = await res.json();
@@ -85,7 +91,9 @@ export async function fetchChatHistory(
   assignmentId: string,
   problemNum: number,
 ): Promise<ChatMessage[]> {
-  const res = await fetch(`${BASE_URL}/chat/${assignmentId}/${problemNum}`);
+  const res = await fetch(`${BASE_URL}/chat/${assignmentId}/${problemNum}`, {
+    headers: getAuthHeaders(),
+  });
   const body = await res.json();
   if (!res.ok) throw new Error(body.error ?? `Failed to fetch chat history (${res.status})`);
   return body.messages ?? [];

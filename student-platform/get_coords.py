@@ -1482,18 +1482,24 @@ def chat_send() -> Any:
         return jsonify({"error": "Rate limit exceeded. Max 10 messages per minute."}), 429
 
     try:
-        content = generate_chat_response(g.user_id, assignment_id, int(problem_num), message)
+        parsed_problem_num = int(problem_num)
+    except (TypeError, ValueError):
+        return jsonify({"error": f"Invalid problem_num: {problem_num!r}"}), 400
+
+    try:
+        content = generate_chat_response(g.user_id, assignment_id, parsed_problem_num, message)
     except ValueError as exc:
         return jsonify({"error": str(exc)}), 400
     except RuntimeError as exc:
         return jsonify({"error": str(exc)}), 502
     except Exception:
+        log.exception("Unexpected error in chat endpoint")
         return jsonify({"error": "Internal server error during chat."}), 500
 
     return jsonify({
         "role": "assistant",
         "content": content,
-        "problem_num": int(problem_num),
+        "problem_num": parsed_problem_num,
         "assignment_id": assignment_id,
     })
 

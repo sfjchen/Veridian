@@ -382,18 +382,18 @@ export default function DocumentScreen() {
   // --- Chat panel ---
   const handleAskAboutMistake = useCallback(
     (_mistake: Mistake) => {
-      if (!currentProblem) return;
+      if (!currentProblem || !assignmentIdForChat) return;
       setChatProblemNum(currentProblem.num);
       setChatVisible(true);
     },
-    [currentProblem],
+    [currentProblem, assignmentIdForChat],
   );
 
   const handleOpenChat = useCallback(() => {
-    if (!currentProblem) return;
+    if (!currentProblem || !assignmentIdForChat) return;
     setChatProblemNum(currentProblem.num);
     setChatVisible(true);
-  }, [currentProblem]);
+  }, [currentProblem, assignmentIdForChat]);
 
   const handleCloseChat = useCallback(() => setChatVisible(false), []);
 

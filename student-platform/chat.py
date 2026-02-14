@@ -42,7 +42,10 @@ DO:
 
 
 def _get_anthropic_client() -> Anthropic:
-    return Anthropic(api_key=os.getenv("ANTHROPIC_API_KEY"))
+    api_key = os.getenv("ANTHROPIC_API_KEY")
+    if not api_key:
+        raise RuntimeError("Missing ANTHROPIC_API_KEY in environment/.env")
+    return Anthropic(api_key=api_key)
 
 
 def _format_context_block(context: Dict[str, Any]) -> str:
@@ -140,8 +143,5 @@ def generate_chat_response(student_id: str, assignment_id: str, problem_num: int
     _save_message_with_retry(_chat_persist_request(chat_context, "student", message))
     messages = _build_messages(history, context, message)
     response_text = _call_claude(messages)
-    try:
-        _save_message_with_retry(_chat_persist_request(chat_context, "assistant", response_text))
-    except RuntimeError as exc:
-        log.error("Assistant response was generated but could not be saved: %s", exc)
+    _save_message_with_retry(_chat_persist_request(chat_context, "assistant", response_text))
     return response_text

@@ -31,7 +31,7 @@ This catches issues before David sees the plan
  Update this file's roadmap checkboxes when work completes
 
  Integrate the updates and relevant documentation you made here into PLAN.md, then delete the now redundant plans/feature made in this process.
- **Running docs**: Keep `AGENTS.md`, `CLAUDE.md`, `README.md`, `PLAN.md`, `MIGRATION_GUIDE.md` in sync with the codebase. Update them in the same PR when features, architecture, or conventions change.
+ **Running docs**: Keep `AGENTS.md`, `CLAUDE.md`, `README.md`, and `PLAN.md` in sync with the codebase. Update them in the same PR when features, architecture, or conventions change.
 
 ## For Bug Fixes / Small Changes
 
@@ -41,7 +41,7 @@ Still use sub-agents for code changes
 ## After Completing Work
 
  Document any decisions or dead ends in PR description
- **Update running docs when applicable** — `AGENTS.md`, `CLAUDE.md`, `README.md`, `PLAN.md`, `MIGRATION_GUIDE.md`. When you add features, change architecture, or modify conventions, update the relevant doc(s). Include doc updates in the same PR as the code change.
+ **Update running docs when applicable** — `AGENTS.md`, `CLAUDE.md`, `README.md`, and `PLAN.md` are the project's running documentation. When you add features, change architecture, or modify conventions, update the relevant doc(s). Include doc updates in the same PR as the code change.
 
 ## Code Style Rules
 
@@ -97,10 +97,10 @@ Code style requirements:
 - No print statements (errors to stderr only)
 - No verbose logging
 - Use exact formats, no convenience aliases
- Also provide:
- Relevant data formats (e.g., parquet schema) if the task involves data
- File paths to read for context
- Clear success criteria
+  Also provide:
+  Relevant data formats (e.g., parquet schema) if the task involves data
+  File paths to read for context
+  Clear success criteria
 
 ## Codex's Review Responsibilities
 
@@ -115,7 +115,7 @@ If sub-agent output has issues, iterate with them or fix it before committing. D
 ## PR Review Prompt Template
 
 When ready for review, comment this on the PR:
-@codex @claude Review this PR with extreme attention to detail. Be meticulous and skeptical.
+@codex, @claude Review this PR with extreme attention to detail. Be meticulous and skeptical.
 
 Check for:
 

@@ -1,13 +1,24 @@
-# Math Mistake Analysis Platform
+# Veridian - EducAItion
 
-EdTech platform for teachers to create math assignments and analyze student mistake patterns. Built with Flask + Expo React Native + Supabase.
+Full EdTech platform: teacher side (classrooms, assignments, corpus, submissions) and student side (canvas, AI mistake analysis, Socratic chat). Shared Supabase.
+
+## Repo Structure
+
+| Path | Purpose |
+|------|---------|
+| `teacher/backend/` | Teacher backend (Flask) — classrooms, assignments, corpus |
+| `teacher/frontend/` | Teacher frontend (Expo React) — dashboard, assignment creation |
+| `student/backend/` | Student backend (Flask) — mistake analysis, OCR, chat |
+| `student/frontend/` | Student frontend (Expo React) — canvas, document, workspace |
+| `supabase/` | Shared DB migrations |
+| `scripts/` | Migration script, etc. |
+| `plans/` | Feature plans |
+
+**Layout:** Symmetric `teacher/` and `student/` each with `backend/` and `frontend/`. Shared Supabase project.
 
 ## Prerequisites
 
-- Python 3.11+
-- Node.js 18+
-- [Expo CLI](https://docs.expo.dev/get-started/installation/) (`npm install -g expo-cli`)
-- A [Supabase](https://supabase.com) project
+Python 3.11+, Node 18+, Expo CLI. One Supabase project (migrations run once — see `MIGRATION_GUIDE.md`).
 
 ## Quick run (from repo root)
 
@@ -20,74 +31,42 @@ See `scripts/README.md` for all script options.
 
 ## Setup
 
-### 1. Environment variables
+1. Copy env: `teacher/backend/.env.example` → `teacher/backend/.env`, `teacher/frontend/.env.example` → `teacher/frontend/.env`, `student/backend/.env.example` → `student/backend/.env`, `student/frontend/.env.example` → `student/frontend/.env`
+2. Install deps: `pip install -r requirements.txt` in `teacher/backend/` and `student/backend/`; `npm install` in `teacher/frontend/` and `student/frontend/`
 
-Copy `.env.example` to both `backend/.env` and `frontend/.env`:
+(Migrations: run once per project via `./scripts/apply_migrations.sh` if needed.)
 
-**backend/.env**
-```
-SUPABASE_URL=https://your-project.supabase.co
-SUPABASE_SERVICE_ROLE_KEY=your-service-role-key
-SUPABASE_ANON_KEY=your-anon-key
-ANTHROPIC_API_KEY=your-anthropic-key
-FLASK_SECRET_KEY=any-random-string
-SUPABASE_JWT_SECRET=your-jwt-secret
-```
+## Full Flows (Repeat Testing)
 
-**frontend/.env**
-```
-# Optional in local dev; if omitted, the app auto-detects your Expo host and uses port 5000.
-# On real devices, set this explicitly if auto-detection does not work.
-# Example: EXPO_PUBLIC_API_URL=http://192.168.1.25:5000
-EXPO_PUBLIC_API_URL=http://localhost:5000
-EXPO_PUBLIC_SUPABASE_URL=https://your-project.supabase.co
-EXPO_PUBLIC_SUPABASE_ANON_KEY=your-anon-key
-```
-
-### 2. Database
-
-Run the SQL in `supabase/all_migrations.sql` in your Supabase SQL Editor to create all tables, RLS policies, and storage buckets.
-
-### 3. Backend
+**Teacher flow:** Create classroom → upload corpus → create assignment → view submissions
 
 ```bash
-cd backend
-python -m venv venv
-source venv/bin/activate  # Windows: venv\Scripts\activate
-pip install -r requirements.txt
-python run.py
+# Terminal 1: Teacher backend (port 5001)
+cd teacher/backend && python3 run.py
+
+# Terminal 2: Teacher frontend
+cd teacher/frontend && npx expo start
 ```
 
-Server starts at `http://localhost:5000`.
-
-### 4. Frontend
+**Student flow:** Sample worksheet → canvas → Done → AI analysis → Socratic chat
 
 ```bash
-cd frontend
-npm install
-npx expo start
+# Terminal 1: Student backend (port 8000)
+cd student/backend && python3 get_coords.py
+
+# Terminal 2: Student frontend
+cd student/frontend && npx expo start
 ```
 
-Scan the QR code with Expo Go (mobile) or press `w` for web.
+**Both sides:** Run all four above. Backend required for full flows; frontend alone works for auth/login UI only.
 
-## Project Structure
+## Quick Checks
 
-```
-backend/
-  app/
-    routes/          # Flask blueprints (assignments, classrooms, corpus, convert)
-    services/        # Supabase client, storage helpers
-    middleware/      # JWT auth
-  run.py             # Entry point
-frontend/
-  src/
-    screens/         # Teacher and student screens
-    hooks/           # Data fetching hooks
-    components/      # Shared components (FileUploader, LatexRenderer)
-    stores/          # Auth context
-    lib/             # API client, Supabase config
-    navigation/      # React Navigation setup
-supabase/
-  migrations/        # Individual migration files
-  all_migrations.sql # Combined migrations for fresh setup
-```
+| Test | Command |
+|------|---------|
+| Teacher backend | `cd teacher/backend && python3 run.py` — hit `/classrooms` with JWT |
+| Student backend | `cd student/backend && python3 get_coords.py` — `curl http://localhost:8000/health` |
+
+## Development
+
+See `AGENTS.md`, `CLAUDE.md` for workflow and conventions. Running docs: `AGENTS.md`, `CLAUDE.md`, `README.md`, `PLAN.md`, `MIGRATION_GUIDE.md`.

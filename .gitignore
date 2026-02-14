@@ -27,7 +27,7 @@ web-build/
 *.mobileprovision
 *.orig.*
 
-# Environment
+# Environment (applies to teacher/, student/)
 .env
 .env.local
 .env.*.local
@@ -42,3 +42,7 @@ web-build/
 # OS
 .DS_Store
 Thumbs.db
+
+# Student platform local output
+student/backend/mistakes.json
+student/backend/.result_persist_dlq.jsonl*

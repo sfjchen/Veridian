@@ -18,17 +18,17 @@ MAX_TITLE_LENGTH = 500
 POSTGRES_UNIQUE_VIOLATION = "23505"
 
 
-def _verify_classroom_access(
-    client: Client, classroom_id: str, user_id: str, role: str,
-) -> bool:
-    if role == "teacher":
-        result = client.table("classrooms").select("id").eq(
-            "id", classroom_id
-        ).eq("teacher_id", user_id).execute()
-    else:
-        result = client.table("classroom_memberships").select("classroom_id").eq(
-            "classroom_id", classroom_id
-        ).eq("student_id", user_id).execute()
+def _is_classroom_teacher(client: Client, classroom_id: str) -> bool:
+    result = client.table("classrooms").select("id").eq(
+        "id", classroom_id
+    ).eq("teacher_id", g.user_id).execute()
+    return bool(result.data)
+
+
+def _is_classroom_student(client: Client, classroom_id: str) -> bool:
+    result = client.table("classroom_memberships").select("classroom_id").eq(
+        "classroom_id", classroom_id
+    ).eq("student_id", g.user_id).execute()
     return bool(result.data)
 
 
@@ -56,7 +56,7 @@ def create_assignment(classroom_id: str) -> Tuple[Response, int]:
 
     client = get_supabase_admin_client()
 
-    if not _verify_classroom_access(client, classroom_id, g.user_id, "teacher"):
+    if not _is_classroom_teacher(client, classroom_id):
         return jsonify({"error": "Classroom not found"}), 404
 
     context_file_ids = data.get("context_file_ids", [])
@@ -109,7 +109,7 @@ def create_assignment(classroom_id: str) -> Tuple[Response, int]:
 def list_assignments(classroom_id: str) -> Tuple[Response, int]:
     client = get_supabase_admin_client()
 
-    if not _verify_classroom_access(client, classroom_id, g.user_id, g.user_role):
+    if not (_is_classroom_teacher(client, classroom_id) if g.user_role == "teacher" else _is_classroom_student(client, classroom_id)):
         return jsonify({"error": "Access denied"}), 403
 
     assignments = client.table("assignments").select("*").eq(
@@ -230,23 +230,42 @@ def update_assignment(assignment_id: str) -> Tuple[Response, int]:
     return jsonify(updated.data[0]), 200
 
 
-@assignments_bp.route("/assignments/<assignment_id>", methods=["DELETE"])
-@require_role("teacher")
-def delete_assignment(assignment_id: str) -> Tuple[Response, int] | Response:
-    client = get_supabase_admin_client()
+def _cleanup_storage_paths(record: dict) -> list[str]:
+    warnings: list[str] = []
+    for path in [record.get("prompt_storage_path"), record.get("answer_key_storage_path")]:
+        if not path:
+            continue
+        try:
+            delete_object(ASSIGNMENTS_BUCKET, path)
+        except ValueError as e:
+            print(f"Storage cleanup failed for {path}: {e}", file=sys.stderr)
+            warnings.append(path)
+    return warnings
 
+
+def _find_owned_assignment(client: Client, assignment_id: str) -> dict | None:
     assignment = client.table("assignments").select("*").eq(
         "id", assignment_id
     ).limit(1).execute()
     if not assignment.data:
-        return jsonify({"error": "Assignment not found"}), 404
+        return None
 
     record = assignment.data[0]
     classroom = client.table("classrooms").select("teacher_id").eq(
         "id", record["classroom_id"]
     ).limit(1).execute()
     if not classroom.data or g.user_id != classroom.data[0]["teacher_id"]:
-        return jsonify({"error": "Access denied"}), 403
+        return None
+    return record
+
+
+@assignments_bp.route("/assignments/<assignment_id>", methods=["DELETE"])
+@require_role("teacher")
+def delete_assignment(assignment_id: str) -> Tuple[Response, int] | Response:
+    client = get_supabase_admin_client()
+    record = _find_owned_assignment(client, assignment_id)
+    if record is None:
+        return jsonify({"error": "Assignment not found or access denied"}), 404
 
     try:
         client.table("assignments").delete().eq("id", assignment_id).execute()
@@ -254,24 +273,12 @@ def delete_assignment(assignment_id: str) -> Tuple[Response, int] | Response:
         print(f"Failed to delete assignment {assignment_id}: {e}", file=sys.stderr)
         return jsonify({"error": "Failed to delete assignment"}), 500
 
-    storage_warnings: list[str] = []
-    for storage_path in [record.get("prompt_storage_path"), record.get("answer_key_storage_path")]:
-        if not storage_path:
-            continue
-        try:
-            delete_object(ASSIGNMENTS_BUCKET, storage_path)
-        except ValueError as e:
-            print(
-                f"Assignment {assignment_id} deleted but failed to remove storage object {storage_path}: {e}",
-                file=sys.stderr,
-            )
-            storage_warnings.append(storage_path)
-
-    if storage_warnings:
+    warnings = _cleanup_storage_paths(record)
+    if warnings:
         return jsonify({
             "assignment_id": assignment_id,
-            "warning": "Assignment deleted but one or more storage objects could not be removed",
-            "failed_paths": storage_warnings,
+            "warning": "Assignment deleted but storage cleanup failed",
+            "failed_paths": warnings,
         }), 200
     return Response(status=204)
 

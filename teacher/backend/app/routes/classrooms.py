@@ -197,6 +197,26 @@ def _cleanup_assignment_storage(assignments: list[dict]) -> None:
                 print(f"Failed to clean up storage object: {path}", file=sys.stderr)
 
 
+def _enrich_memberships_with_profiles(client: Client, memberships: list[dict]) -> list[dict]:
+    student_ids = [m["student_id"] for m in memberships if m.get("student_id")]
+    if not student_ids:
+        return []
+    profiles = client.table("profiles").select("id, display_name").in_(
+        "id", student_ids
+    ).execute()
+    profile_by_id = {
+        p["id"]: p.get("display_name") for p in profiles.data if p.get("id")
+    }
+    return [
+        {
+            "student_id": m["student_id"],
+            "display_name": profile_by_id.get(m["student_id"]),
+            "joined_at": m["joined_at"],
+        }
+        for m in memberships
+    ]
+
+
 @classrooms_bp.route("/<classroom_id>/students", methods=["GET"])
 @require_role("teacher")
 def list_classroom_students(classroom_id: str) -> Response | Tuple[Response, int]:
@@ -216,26 +236,7 @@ def list_classroom_students(classroom_id: str) -> Response | Tuple[Response, int
     if not memberships.data:
         return jsonify([]), 200
 
-    student_ids = [m["student_id"] for m in memberships.data if m.get("student_id")]
-    if not student_ids:
-        return jsonify([]), 200
-    profiles = client.table("profiles").select("id, display_name").in_(
-        "id", student_ids
-    ).execute()
-    profile_by_id = {
-        profile["id"]: profile.get("display_name")
-        for profile in profiles.data
-        if profile.get("id")
-    }
-
-    result = []
-    for membership in memberships.data:
-        result.append({
-            "student_id": membership["student_id"],
-            "display_name": profile_by_id.get(membership["student_id"]),
-            "joined_at": membership["joined_at"],
-        })
-    return jsonify(result), 200
+    return jsonify(_enrich_memberships_with_profiles(client, memberships.data)), 200
 
 
 @classrooms_bp.route("/<classroom_id>/students/<student_id>", methods=["DELETE"])

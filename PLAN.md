@@ -11,6 +11,10 @@ Monorepo with teacher side (classrooms, assignments, corpus, submissions) and st
 ## Teacher Side (backend/, frontend/)
 
 ### Completed
+- PR #1–9: Supabase schema, RLS, Flask backend, teacher/student dashboards, corpus/assignment/submission flows
+- PR #10: Column name revert (`prompt_storage_path`)
+- PR #11: Admin client, single-step corpus upload
+- PR #12: PDF preview fallback, assignment hardening
 - Supabase schema: profiles, classrooms, memberships, corpus_files, assignments, submissions
 - RLS policies, JWT auth
 - Teacher dashboard: create/list classrooms
@@ -61,23 +65,25 @@ See `student-platform/PLAN.md` for full inventory. Summary:
 
 ---
 
-## Architecture Decisions
+## Architecture Decisions (Teacher)
 
 | Decision | Rationale |
 |----------|-----------|
 | Shared Supabase | Single source of truth for assignments, results, chat |
-| Admin client (teacher) | RLS + PostgREST joins caused silent failures |
+| Admin client for DB | RLS + PostgREST joins caused silent failures |
 | One problem per screen (student) | Clear UX, per-problem result history |
 | 15s idle debounce | Balance responsiveness vs API cost |
 | WebSocket for real-time | Push results without polling |
 | threading for SocketIO | eventlet caused startup hangs |
+| Signed URLs via admin client | User JWTs rejected by Storage API |
+| PDF screenshot previews via backend | Consistent preview across clients |
 
 ---
 
 ## Open Decisions (User Input Needed)
 
-1. **Supabase schema merge**: Teacher-side uses `assignments` with `prompt_storage_path`, `classrooms`, `corpus_files`, `submissions`. Student-platform uses `assignments` with `problems` jsonb, `problem_results`, `chat_messages`, `veridian_artifacts`. Need to reconcile: single `assignments` table schema, or separate teacher/student tables with linking.
+1. **Supabase schema merge**: Teacher-side uses `assignments` with `prompt_storage_path`, `classrooms`, `corpus_files`, `submissions`. Student-platform uses `assignments` with `problems` jsonb, `problem_results`, `chat_messages`, artifact tables. Need to reconcile: single `assignments` table schema, or separate teacher/student tables with linking.
 
-2. **Deployment**: Teacher and student backends are separate Flask apps (ports 5000 and 8000). Deploy as two services, or unify behind one gateway?
+2. **Deployment**: Teacher and student backends are separate Flask apps (ports 5001 and 8000). Deploy as two services, or unify behind one gateway?
 
 3. **Try-catch fixes priority**: The 8 items in student-platform tech debt — fix before further feature work, or tackle incrementally?

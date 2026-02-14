@@ -8,7 +8,7 @@ STOP. Before writing any code, follow this checklist:
 
 ## For New Features
 
-Write a plan to docs/plans/{feature-name}.md with:
+Write a plan to plans/{feature-name}.md with:
 What will be built and why
 Which files will be created/modified
 Breakdown into small PRs
@@ -30,8 +30,8 @@ This catches issues before David sees the plan
  Address Codex feedback — fix issues, push updates, then comment @codex and @claude review again
  Update this file's roadmap checkboxes when work completes
 
- Integrate the updates and relevant documentation you made here into PLAN.md, then delete the now redundant docs/plans/feature made in this process.
- **Running docs**: Keep `AGENTS.md`, `CLAUDE.md`, `README.md`, and `PLAN.md` in sync with the codebase. Update them in the same PR when features, architecture, or conventions change.
+ Integrate the updates and relevant documentation you made here into PLAN.md, then delete the now redundant plans/feature made in this process.
+ **Running docs**: Keep `AGENTS.md`, `CLAUDE.md`, `README.md`, `PLAN.md`, `MIGRATION_GUIDE.md` in sync with the codebase. Update them in the same PR when features, architecture, or conventions change.
 
 ## For Bug Fixes / Small Changes
 
@@ -41,7 +41,7 @@ Still use sub-agents for code changes
 ## After Completing Work
 
  Document any decisions or dead ends in PR description
- **Update running docs when applicable** — `AGENTS.md`, `CLAUDE.md`, `README.md`, and `PLAN.md` are the project's running documentation. When you add features, change architecture, or modify conventions, update the relevant doc(s). Include doc updates in the same PR as the code change.
+ **Update running docs when applicable** — `AGENTS.md`, `CLAUDE.md`, `README.md`, `PLAN.md`, `MIGRATION_GUIDE.md`. When you add features, change architecture, or modify conventions, update the relevant doc(s). Include doc updates in the same PR as the code change.
 
 ## Code Style Rules
 

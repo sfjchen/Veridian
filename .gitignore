@@ -27,7 +27,7 @@ web-build/
 *.mobileprovision
 *.orig.*
 
-# Environment
+# Environment (applies to backend/, frontend/, student-platform/, student-platform/frontend/)
 .env
 .env.local
 .env.*.local

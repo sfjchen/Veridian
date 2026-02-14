@@ -1,4 +1,4 @@
--- Veridian backend artifact and coordinate-run storage.
+-- Artifact and coordinate-run storage for student platform.
 -- Safe to run against an existing Supabase project used by other apps.
 
 create extension if not exists pgcrypto;

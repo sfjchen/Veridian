@@ -1,6 +1,6 @@
-# Math Mistake Analysis Platform
+# Veridian - EducAItion
 
-Monorepo for the full EdTech platform: teacher side (classrooms, assignments, corpus, submissions) and student side (canvas, AI mistake analysis, Socratic chat). Shared Supabase.
+Full EdTech platform: teacher side (classrooms, assignments, corpus, submissions) and student side (canvas, AI mistake analysis, Socratic chat). Shared Supabase.
 
 ## Repo Structure
 

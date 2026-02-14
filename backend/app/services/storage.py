@@ -1,4 +1,4 @@
-from app.services.supabase_client import get_supabase_client
+from app.services.supabase_client import get_supabase_admin_client
 
 
 def _validate_path(path: str) -> None:
@@ -8,7 +8,7 @@ def _validate_path(path: str) -> None:
 
 def generate_upload_url(bucket: str, path: str) -> str:
     _validate_path(path)
-    client = get_supabase_client()
+    client = get_supabase_admin_client()
     try:
         result = client.storage.from_(bucket).create_signed_upload_url(path)
     except Exception as e:
@@ -20,7 +20,7 @@ def generate_upload_url(bucket: str, path: str) -> str:
 
 def generate_download_url(bucket: str, path: str, expires_in: int = 3600) -> str:
     _validate_path(path)
-    client = get_supabase_client()
+    client = get_supabase_admin_client()
     try:
         result = client.storage.from_(bucket).create_signed_url(path, expires_in)
     except Exception as e:

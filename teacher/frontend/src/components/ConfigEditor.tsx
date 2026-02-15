@@ -11,6 +11,7 @@ const DEFAULTS: AssignmentConfig = {
   notification_style: "toast",
   chat_enabled: true,
   hint_level: "guided",
+  student_mistake_visibility: false,
 };
 
 const ENUM_OPTIONS: Record<string, { value: string; label: string }[]> = {
@@ -46,9 +47,10 @@ const FIELD_LABELS: Record<string, string> = {
   notification_style: "Notification Style",
   chat_enabled: "Chat Enabled",
   hint_level: "Hint Level",
+  student_mistake_visibility: "Student Mistake Visibility",
 };
 
-const BOOL_FIELDS = ["check_button_visible", "chat_enabled"] as const;
+const BOOL_FIELDS = ["check_button_visible", "chat_enabled", "student_mistake_visibility"] as const;
 const ENUM_FIELDS = ["dot_threshold", "analysis_trigger", "notification_style", "hint_level"] as const;
 const INT_FIELDS = ["max_dots_shown", "analysis_debounce_seconds"] as const;
 
@@ -66,6 +68,7 @@ const FIELD_ORDER = [
   "dot_threshold",
   "max_dots_shown",
   "notification_style",
+  "student_mistake_visibility",
 ] as const;
 
 interface Props {

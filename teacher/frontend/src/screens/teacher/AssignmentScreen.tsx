@@ -295,6 +295,12 @@ export function TeacherAssignmentScreen({ route, navigation }: { route: any; nav
           <View style={styles.disabledButton}>
             <Text style={styles.disabledButtonText}>Submit Solution (disabled in preview)</Text>
           </View>
+          <TouchableOpacity
+            style={styles.tryStudentButton}
+            onPress={() => navigation.navigate("StudentExperience", { assignmentId })}
+          >
+            <Text style={styles.tryStudentButtonText}>Try Full Student Experience</Text>
+          </TouchableOpacity>
         </View>
       ) : (
         /* Teacher View */
@@ -685,4 +691,9 @@ const styles = StyleSheet.create({
     alignItems: "center", marginTop: 24,
   },
   disabledButtonText: { color: "#6B7280", fontSize: 16, fontWeight: "600" },
+  tryStudentButton: {
+    backgroundColor: "#4F46E5", borderRadius: 8, padding: 16,
+    alignItems: "center", marginTop: 12,
+  },
+  tryStudentButtonText: { color: "#fff", fontSize: 16, fontWeight: "600" },
 });

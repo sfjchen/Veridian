@@ -68,14 +68,32 @@ def _is_classroom_member(classroom_id: str, student_id: str) -> bool:
     return isinstance(rows, list) and len(rows) > 0
 
 
-def can_student_access_assignment(assignment_id: str, student_id: str) -> bool:
+def _is_classroom_teacher(classroom_id: str, user_id: str) -> bool:
+    supabase = get_supabase_service_client()
+    response = (
+        supabase.table("classrooms")
+        .select("id")
+        .eq("id", classroom_id)
+        .eq("teacher_id", user_id)
+        .limit(1)
+        .execute()
+    )
+    rows = unwrap_supabase_data(response) or []
+    return isinstance(rows, list) and len(rows) > 0
+
+
+def can_student_access_assignment(
+    assignment_id: str, user_id: str, user_role: str = "student"
+) -> bool:
     assignment = get_assignment(assignment_id)
     if not assignment:
         return False
     classroom_id = assignment.get("classroom_id")
     if not isinstance(classroom_id, str) or not classroom_id:
         return False
-    return _is_classroom_member(classroom_id, student_id)
+    if user_role == "teacher":
+        return _is_classroom_teacher(classroom_id, user_id)
+    return _is_classroom_member(classroom_id, user_id)
 
 
 def get_resolved_config(assignment_id: str) -> Dict[str, Any]:

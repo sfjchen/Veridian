@@ -11,8 +11,7 @@ import {
 } from "react-native";
 
 import { Button, EmptyState, ScreenContainer, SkeletonCard } from "@/components/ui";
-import { palette } from "@/constants/palette";
-import { radius } from "@/constants/palette";
+import { palette, radius } from "@/constants/palette";
 import { spacing } from "@/constants/spacing";
 import { typography } from "@/constants/typography";
 import { useAuth } from "@/hooks/useAuth";

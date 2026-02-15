@@ -1,0 +1,128 @@
+{
+  "mistakes": [
+    {
+      "student_id": "default",
+      "timestamp": "2026-02-15T15:00:00.138480+00:00",
+      "tag": "wrong-method",
+      "severity": "procedural",
+      "explanation": "The student is solving a completely unrelated problem; the task is to expand (x+4)^2, not analyze critical points of a cubic.",
+      "erroneous_latex": "f(x) = x^3 - 3x^2 + 4"
+    },
+    {
+      "student_id": "default",
+      "timestamp": "2026-02-15T15:00:00.138480+00:00",
+      "tag": "arithmetic-error",
+      "severity": "mechanical",
+      "explanation": "Even within the student's own (wrong) problem, 2^3 - 3(4) + 4 = 8 - 12 + 4 = 0, not 2.",
+      "erroneous_latex": "f(2) = 2^3 - 3(2^2) + 4 = 2"
+    },
+    {
+      "student_id": "default",
+      "timestamp": "2026-02-15T15:00:00.138480+00:00",
+      "tag": "arithmetic-error",
+      "severity": "mechanical",
+      "explanation": "Propagated from the arithmetic error above; the point should be (2, 0) given the student's own function.",
+      "erroneous_latex": "\\text{Local minimum at } (2, 2)"
+    },
+    {
+      "student_id": "default",
+      "timestamp": "2026-02-15T15:01:44.110751+00:00",
+      "tag": "wrong-method",
+      "severity": "conceptual",
+      "explanation": "The problem asks to expand (x+4)^2; the student introduces an unrelated function and never addresses the assigned problem.",
+      "erroneous_latex": "\\text{Given the function } f(x) = x^2 + 2x + 1"
+    },
+    {
+      "student_id": "default",
+      "timestamp": "2026-02-15T15:03:32.954364+00:00",
+      "tag": "wrong-method",
+      "severity": "procedural",
+      "explanation": "The problem asks to expand (x+4)^2, but the student introduces an unrelated polynomial and proceeds to find its roots \u2014 this is a completely wrong problem.",
+      "erroneous_latex": "\\text{Let } f(x) = x^2 + 3x + 2"
+    },
+    {
+      "student_id": "default",
+      "timestamp": "2026-02-15T15:05:44.304578+00:00",
+      "tag": "flawed-logic",
+      "severity": "conceptual",
+      "explanation": "The student's own first derivative test shows f'(-2)>0 and f'(0)>0, meaning the function is increasing on both sides of x=-1 with no sign change, so x=-1 is an inflection point, not a minimum.",
+      "erroneous_latex": "\\text{Therefore, } x = -1 \\text{ is a minimum point.}"
+    },
+    {
+      "student_id": "default",
+      "timestamp": "2026-02-15T15:05:44.304578+00:00",
+      "tag": "sign-error",
+      "severity": "mechanical",
+      "explanation": "The student should take the derivative of f'(x) = 3x^2 + 6x + 3, not differentiate the original function twice from scratch. While the answer is correct, the notation is misleading.",
+      "erroneous_latex": "f''(x) = \\frac{d^2}{dx^2}(x^3 + 3x^2 + 3x + 1)"
+    },
+    {
+      "student_id": "default",
+      "timestamp": "2026-02-15T15:05:44.304578+00:00",
+      "tag": "wrong-theorem",
+      "severity": "conceptual",
+      "explanation": "The student incorrectly applies the first derivative test. The test requires checking if f'(x) changes sign across the critical point, but the student only verifies that f' is positive on both sides without recognizing this means there is NO sign change and therefore NO extremum.",
+      "erroneous_latex": "\\text{Use the first derivative test near } x = -1"
+    },
+    {
+      "student_id": "default",
+      "timestamp": "2026-02-15T15:07:19.260492+00:00",
+      "tag": "algebra-error",
+      "severity": "mechanical",
+      "explanation": "The two middle (cross) terms of FOIL should both be 4x, giving 4x + 4x = 8x; the student appears to have dropped the variable x from the second cross term, writing 8 instead of 4x.",
+      "erroneous_latex": "4x + 8"
+    },
+    {
+      "student_id": "default",
+      "timestamp": "2026-02-15T15:07:19.260492+00:00",
+      "tag": "sign-error",
+      "severity": "mechanical",
+      "explanation": "The student left the expression unsimplified. After identifying the four terms (even if incorrectly), they should combine like terms to reach a final answer. The expression should simplify to x\u00b2 + 8x + 16 (or x\u00b2 + 12x + 24 with their error). This is an incomplete solution.",
+      "erroneous_latex": "x^2 + 4x + 8 + 16"
+    }
+  ],
+  "sessions": [
+    {
+      "student_id": "default",
+      "timestamp": "2026-02-15T15:00:00.138480+00:00",
+      "approach_assessment": "misguided",
+      "approach_notes": "The student solved an entirely different problem (finding critical points of a cubic function) instead of expanding (x+4)^2 as asked.",
+      "mistake_count": 3
+    },
+    {
+      "student_id": "default",
+      "timestamp": "2026-02-15T15:01:44.110751+00:00",
+      "approach_assessment": "misguided",
+      "approach_notes": "The student entirely ignores the problem of expanding (x+4)^2 and instead works on unrelated calculus and linear-algebra exercises (derivatives, integrals, limits, and determinants).",
+      "mistake_count": 1
+    },
+    {
+      "student_id": "default",
+      "timestamp": "2026-02-15T15:02:27.548278+00:00",
+      "approach_assessment": "misguided",
+      "approach_notes": "The student solved a completely different problem (solving 2x+3=7) instead of the assigned problem of expanding (x+4)^2.",
+      "mistake_count": 0
+    },
+    {
+      "student_id": "default",
+      "timestamp": "2026-02-15T15:03:32.954364+00:00",
+      "approach_assessment": "misguided",
+      "approach_notes": "The student solved an entirely different problem (finding roots of x^2+3x+2) instead of expanding (x+4)^2 as asked.",
+      "mistake_count": 1
+    },
+    {
+      "student_id": "default",
+      "timestamp": "2026-02-15T15:05:44.304578+00:00",
+      "approach_assessment": "misguided",
+      "approach_notes": "The student completely ignores the assigned problem (expand (x+4)^2) and instead performs a calculus-based critical-point analysis of an unrelated cubic function.",
+      "mistake_count": 3
+    },
+    {
+      "student_id": "default",
+      "timestamp": "2026-02-15T15:07:19.260492+00:00",
+      "approach_assessment": "viable_with_errors",
+      "approach_notes": "The student appears to be expanding via FOIL, listing four terms from (x+4)(x+4), but mishandles the inner product term.",
+      "mistake_count": 2
+    }
+  ]
+}

@@ -435,15 +435,6 @@ export function ForestBackground() {
             <Stop offset="1" stopColor="#040E06" stopOpacity="0.50" />
           </SvgLinearGradient>
 
-          {/* Edge frames */}
-          <SvgLinearGradient id="edgeL" x1="0" y1="0" x2="1" y2="0">
-            <Stop offset="0" stopColor="#0a1a10" stopOpacity="0.5" />
-            <Stop offset="1" stopColor="transparent" stopOpacity="0" />
-          </SvgLinearGradient>
-          <SvgLinearGradient id="edgeR" x1="1" y1="0" x2="0" y2="0">
-            <Stop offset="0" stopColor="#0a1a10" stopOpacity="0.5" />
-            <Stop offset="1" stopColor="transparent" stopOpacity="0" />
-          </SvgLinearGradient>
         </Defs>
 
         <Rect width={width} height={height} fill="url(#sunGlow)" />
@@ -476,8 +467,6 @@ export function ForestBackground() {
         </G>
 
         <Rect width={width} height={height} fill="url(#bottomVignette)" />
-        <Rect x={0} y={0} width={width * 0.08} height={height} fill="url(#edgeL)" />
-        <Rect x={width * 0.92} y={0} width={width * 0.08} height={height} fill="url(#edgeR)" />
       </Svg>
     </LinearGradient>
   );

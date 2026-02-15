@@ -1,7 +1,6 @@
 import type { ReactNode } from "react";
 import { Platform, StyleSheet, View } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
-import { palette } from "@/constants/palette";
 import { spacing } from "@/constants/spacing";
 
 type MaxWidth = "form" | "dashboard" | "full";
@@ -42,8 +41,8 @@ export function ScreenContainer({
 }
 
 const styles = StyleSheet.create({
-  safe: { flex: 1, backgroundColor: palette.surface },
-  webRoot: { flex: 1, backgroundColor: palette.surface },
+  safe: { flex: 1, backgroundColor: "transparent" },
+  webRoot: { flex: 1, backgroundColor: "transparent" },
   inner: { flex: 1, paddingHorizontal: spacing.md },
   centered: { alignItems: "center" as const },
   content: { flex: 1, width: "100%" },

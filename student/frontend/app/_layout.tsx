@@ -1,4 +1,4 @@
-import { DarkTheme, DefaultTheme, ThemeProvider } from '@react-navigation/native';
+import { DefaultTheme, ThemeProvider } from '@react-navigation/native';
 import { useFonts } from 'expo-font';
 import { Stack, useRouter, useSegments } from 'expo-router';
 import { useEffect } from 'react';
@@ -9,12 +9,20 @@ import 'react-native-reanimated';
 import { ErrorBoundary } from '@/components/ErrorBoundary';
 import { ForestBackground } from '@/components/forest';
 import { palette } from '@/constants/palette';
-import { useColorScheme } from '@/hooks/use-color-scheme';
 import { useAuth } from '@/hooks/useAuth';
 import { BackendHint } from '@/components/BackendHint';
 
 export const unstable_settings = {
   anchor: '(tabs)',
+};
+
+const transparentTheme = {
+  ...DefaultTheme,
+  colors: {
+    ...DefaultTheme.colors,
+    background: "transparent",
+    card: "transparent",
+  },
 };
 
 function useProtectedRoute(userId: string | null, loading: boolean) {
@@ -33,7 +41,6 @@ function useProtectedRoute(userId: string | null, loading: boolean) {
 }
 
 export default function RootLayout() {
-  const colorScheme = useColorScheme();
   const [fontsLoaded] = useFonts({
     Caveat: require('@/assets/fonts/Caveat-Regular.ttf'),
   });
@@ -51,17 +58,22 @@ export default function RootLayout() {
 
   return (
     <ErrorBoundary>
-      <ThemeProvider value={colorScheme === 'dark' ? DarkTheme : DefaultTheme}>
+      <ThemeProvider value={transparentTheme}>
         <View style={styles.root}>
           <ForestBackground />
           <View style={styles.content}>
             <BackendHint />
-            <Stack>
+            <Stack
+              screenOptions={{
+                contentStyle: { backgroundColor: "transparent" },
+              }}
+            >
               <Stack.Screen name="(tabs)" options={{ headerShown: false }} />
               <Stack.Screen
                 name="assignments/[classroomId]"
                 options={{ headerShown: false }}
               />
+              <Stack.Screen name="document/[id]" options={{ headerShown: false }} />
               <Stack.Screen name="WorkspaceScreen" options={{ title: 'Workspace', headerShown: true }} />
               <Stack.Screen name="note/[id]" options={{ headerShown: false }} />
               <Stack.Screen name="sign-in" options={{ title: 'Sign in', headerShown: false }} />
@@ -87,6 +99,6 @@ const styles = StyleSheet.create({
   },
   content: {
     flex: 1,
-    backgroundColor: 'rgba(255,255,255,0.85)',
+    backgroundColor: "transparent",
   },
 });

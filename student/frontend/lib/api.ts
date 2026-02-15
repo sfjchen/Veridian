@@ -1,6 +1,7 @@
 import type { ResolvedConfig } from '@/lib/teacherConfig';
+import { BACKEND_URL } from '@/lib/backendBaseUrl';
 
-const BASE_URL = (process.env.EXPO_PUBLIC_BACKEND_URL ?? '').replace(/\/$/, '');
+const BASE_URL = BACKEND_URL;
 
 /** Wraps fetch to surface network/CORS errors with a helpful message instead of raw TypeError. */
 async function safeFetch(url: string, init?: RequestInit): Promise<Response> {
@@ -80,6 +81,62 @@ export type Assignment = {
   assignment_file_download_url?: string | null;
 };
 
+function isObject(value: unknown): value is Record<string, unknown> {
+  return typeof value === 'object' && value !== null;
+}
+
+function parseProblem(raw: unknown, index: number): Problem {
+  if (!isObject(raw)) {
+    throw new Error(`Invalid assignment payload: problem ${index + 1} is not an object.`);
+  }
+  const num = raw.num;
+  const statementTex = raw.statement_tex;
+  if (typeof num !== 'number' || !Number.isFinite(num)) {
+    throw new Error(`Invalid assignment payload: problem ${index + 1} has invalid num.`);
+  }
+  if (typeof statementTex !== 'string' || !statementTex.trim()) {
+    throw new Error(`Invalid assignment payload: problem ${index + 1} has invalid statement_tex.`);
+  }
+  return { num, statement_tex: statementTex };
+}
+
+function parseAssignment(raw: unknown): Assignment {
+  if (!isObject(raw)) {
+    throw new Error('Invalid assignment payload: assignment must be an object.');
+  }
+  const { id, title, problems } = raw;
+  if (typeof id !== 'string' || !id.trim()) {
+    throw new Error('Invalid assignment payload: assignment.id is required.');
+  }
+  if (typeof title !== 'string' || !title.trim()) {
+    throw new Error('Invalid assignment payload: assignment.title is required.');
+  }
+  if (!Array.isArray(problems)) {
+    throw new Error('Invalid assignment payload: assignment.problems must be an array.');
+  }
+
+  const assignment: Assignment = {
+    id,
+    title,
+    problems: problems.map((problem, index) => parseProblem(problem, index)),
+  };
+
+  if (typeof raw.auto_analyze === 'boolean') assignment.auto_analyze = raw.auto_analyze;
+  if (typeof raw.analysis_debounce_seconds === 'number' && Number.isFinite(raw.analysis_debounce_seconds)) {
+    assignment.analysis_debounce_seconds = raw.analysis_debounce_seconds;
+  }
+  if (raw.reveal_mode === 'single-tap' || raw.reveal_mode === 'progressive') {
+    assignment.reveal_mode = raw.reveal_mode;
+  }
+  if (raw.assignment_file_download_url === null || typeof raw.assignment_file_download_url === 'string') {
+    assignment.assignment_file_download_url = raw.assignment_file_download_url;
+  }
+  if (isObject(raw.resolved_config)) {
+    assignment.resolved_config = raw.resolved_config as Partial<ResolvedConfig>;
+  }
+  return assignment;
+}
+
 export type MistakeDot = { x: number; y: number };
 
 export type Mistake = {
@@ -155,7 +212,10 @@ export async function fetchAssignment(assignmentId: string, token?: string): Pro
     throw new Error(await extractErrorMessage(res, `Failed to fetch assignment (${res.status})`));
   }
   const data = await res.json();
-  return data.assignment;
+  if (!isObject(data) || !('assignment' in data)) {
+    throw new Error('Invalid assignment payload: missing assignment object.');
+  }
+  return parseAssignment(data.assignment);
 }
 
 export async function sendChatMessage(

@@ -40,8 +40,3 @@ const resolved =
 
 export const BACKEND_URL = resolved ?? "";
 export const BACKEND_URL_MISSING = BACKEND_URL === "";
-// #region agent log
-if (typeof fetch !== "undefined") {
-  fetch('http://127.0.0.1:7243/ingest/b95751e3-13de-4370-a43a-9eeabde26151',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({location:'backendBaseUrl.ts',message:'BACKEND_URL resolved',data:{backendUrl:BACKEND_URL||'(empty)',platform:Platform.OS},timestamp:Date.now(),hypothesisId:'task7'})}).catch(()=>{});
-}
-// #endregion

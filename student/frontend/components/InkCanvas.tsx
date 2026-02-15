@@ -101,6 +101,7 @@ export function InkCanvas({
   const internalViewShotRef = useRef<ViewShot | null>(null);
   const viewShotRef = externalViewShotRef ?? internalViewShotRef;
   const strokesRef = useRef<Stroke[]>(strokes);
+  const markedForEraseRef = useRef<Set<string>>(new Set());
   const historyRef = useRef<Stroke[][]>([]);
   const redoRef = useRef<Stroke[][]>([]);
   strokesRef.current = strokes;
@@ -119,6 +120,7 @@ export function InkCanvas({
     redoRef.current = [...redoRef.current, deepCopyStrokes(strokesRef.current)];
     const previous = historyRef.current[historyRef.current.length - 1];
     historyRef.current = historyRef.current.slice(0, -1);
+    strokesRef.current = previous;
     onStrokesChange(previous);
     setCanUndo(historyRef.current.length > 0);
     setCanRedo(true);
@@ -130,6 +132,7 @@ export function InkCanvas({
     historyRef.current = [...historyRef.current, deepCopyStrokes(strokesRef.current)];
     const next = redoRef.current[redoRef.current.length - 1];
     redoRef.current = redoRef.current.slice(0, -1);
+    strokesRef.current = next;
     onStrokesChange(next);
     setCanUndo(true);
     setCanRedo(redoRef.current.length > 0);
@@ -145,16 +148,19 @@ export function InkCanvas({
       if (hitIds.length === 0) return prev;
       const next = new Set(prev);
       for (const id of hitIds) next.add(id);
+      markedForEraseRef.current = next;
       return next;
     });
   };
 
   const commitErase = () => {
-    setMarkedForErase((prev) => {
-      if (prev.size === 0) return prev;
-      onStrokesChange(strokesRef.current.filter((s) => !prev.has(s.id)));
-      return new Set();
-    });
+    const toErase = markedForEraseRef.current;
+    if (toErase.size === 0) return;
+    const nextStrokes = strokesRef.current.filter((s) => !toErase.has(s.id));
+    strokesRef.current = nextStrokes;
+    onStrokesChange(nextStrokes);
+    markedForEraseRef.current = new Set();
+    setMarkedForErase(new Set());
   };
 
   handlersRef.current = { handleUndo, handleRedo, commitErase };
@@ -165,8 +171,8 @@ export function InkCanvas({
   });
 
   const handleTouchStart = (event: GestureResponderEvent) => {
-    if (Platform.OS === 'web' && shiftHeldRef.current && (tool === 'pen' || tool === 'eraser')) return;
     const point = extractPoint(event);
+    if (Platform.OS === 'web' && shiftHeldRef.current && (tool === 'pen' || tool === 'eraser')) return;
     if (tool === 'eraser') {
       pushHistory();
       setMarkedForErase(new Set());
@@ -176,7 +182,9 @@ export function InkCanvas({
     pushHistory();
     const id = `${Date.now()}-${Math.random().toString(36).slice(2, 8)}`;
     activeStrokeIdRef.current = id;
-    onStrokesChange([...strokesRef.current, { id, points: [point] }]);
+    const nextStrokes = [...strokesRef.current, { id, points: [point] }];
+    strokesRef.current = nextStrokes;
+    onStrokesChange(nextStrokes);
   };
 
   const handleTouchMove = (event: GestureResponderEvent) => {
@@ -187,11 +195,11 @@ export function InkCanvas({
     }
     const activeId = activeStrokeIdRef.current;
     if (!activeId) return;
-    onStrokesChange(
-      strokesRef.current.map((stroke) =>
-        stroke.id === activeId ? { ...stroke, points: [...stroke.points, point] } : stroke
-      )
+    const nextStrokes = strokesRef.current.map((stroke) =>
+      stroke.id === activeId ? { ...stroke, points: [...stroke.points, point] } : stroke
     );
+    strokesRef.current = nextStrokes;
+    onStrokesChange(nextStrokes);
   };
 
   const handleTouchEnd = () => {
@@ -208,6 +216,7 @@ export function InkCanvas({
 
   const handleClear = () => {
     pushHistory();
+    strokesRef.current = [];
     onStrokesChange([]);
   };
 
@@ -267,13 +276,15 @@ export function InkCanvas({
       pushHistory();
       const id = `${Date.now()}-${Math.random().toString(36).slice(2, 8)}`;
       activeStrokeIdRef.current = id;
-      onStrokesChange([...strokesRef.current, { id, points: [point] }]);
+      const nextStrokes = [...strokesRef.current, { id, points: [point] }];
+      strokesRef.current = nextStrokes;
+      onStrokesChange(nextStrokes);
     } else {
-      onStrokesChange(
-        strokesRef.current.map((s) =>
-          s.id === activeId ? { ...s, points: [...s.points, point] } : s
-        )
+      const nextStrokes = strokesRef.current.map((s) =>
+        s.id === activeId ? { ...s, points: [...s.points, point] } : s
       );
+      strokesRef.current = nextStrokes;
+      onStrokesChange(nextStrokes);
     }
   };
 

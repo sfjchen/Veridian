@@ -39,6 +39,8 @@ export function useAssignment(assignmentId: string | null) {
       } catch (e) {
         if (cancelled) return;
         setError(e instanceof Error ? e.message : String(e));
+        setAssignment(null);
+        setProblems([]);
         setResolvedConfig(null);
       } finally {
         if (!cancelled) setLoading(false);

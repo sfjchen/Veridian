@@ -1,16 +1,24 @@
 import React, { useState } from "react";
-import { StyleSheet, Text, TouchableOpacity, View } from "react-native";
+import { Modal, StyleSheet, Text, TouchableOpacity, View } from "react-native";
 import * as DocumentPicker from "expo-document-picker";
 import { Button, Card, Input, ScreenContainer, Section } from "../../components/ui";
 import { ConfigEditor } from "../../components/ConfigEditor";
 import { ProblemEditor } from "../../components/ProblemEditor";
+import { ConversionProgressModal } from "../../components/ConversionProgressModal";
+import { DetectedProblemsPreview, Problem as DetectedProblem } from "../../components/DetectedProblemsPreview";
 import { palette } from "../../constants/palette";
 import { spacing } from "../../constants/spacing";
 import { typography } from "../../constants/typography";
 import { useToast } from "../../contexts/ToastContext";
-import { api } from "../../lib/api";
+import { api, apiMultipart } from "../../lib/api";
 import { alert } from "../../lib/alert";
+import {
+  ConversionProgressEvent,
+  ConversionSocketHandle,
+  openConversionSocket,
+} from "../../lib/conversionProgress";
 import { uploadFile } from "../../lib/upload";
+import { generateUuidV4 } from "../../lib/uuid";
 import { AssignmentConfig, Problem } from "../../types";
 
 const DATE_PATTERN = /^\d{4}-\d{2}-\d{2}$/;
@@ -22,9 +30,63 @@ interface PickedFile {
   file?: File;
 }
 
+interface NativeMultipartFile {
+  uri: string;
+  name: string;
+  type: string;
+}
+
+interface ConversionStatus {
+  stage: string;
+  progress: number;
+  message: string;
+  currentPage?: number;
+  totalPages?: number;
+  connected: boolean;
+}
+
+const INITIAL_CONVERSION_STATUS: ConversionStatus = {
+  stage: "Preparing conversion...",
+  progress: 0,
+  message: "Starting conversion pipeline...",
+  connected: false,
+};
+
+function formatConversionStage(stage: string): string {
+  if (stage === "splitting_pages") {
+    return "Splitting PDF pages...";
+  }
+  if (stage === "converting_page") {
+    return "Converting pages to LaTeX...";
+  }
+  if (stage === "detecting_problems") {
+    return "Detecting problems...";
+  }
+  if (stage === "complete") {
+    return "Conversion complete";
+  }
+  if (stage === "error") {
+    return "Conversion failed";
+  }
+  return "Converting file...";
+}
+
+function toMultipartFile(file: PickedFile): File | NativeMultipartFile {
+  if (file.file) {
+    return file.file;
+  }
+  return {
+    uri: file.uri,
+    name: file.name,
+    type: file.mimeType,
+  };
+}
+
 export function CreateAssignmentScreen({ route, navigation }: { route: any; navigation: any }) {
   const { classroomId } = route.params;
   const { showToast } = useToast();
+
+  // Manual creation state
   const [title, setTitle] = useState("");
   const [dueDate, setDueDate] = useState("");
   const [assignmentFile, setAssignmentFile] = useState<PickedFile | null>(null);
@@ -34,6 +96,16 @@ export function CreateAssignmentScreen({ route, navigation }: { route: any; navi
   const [configExpanded, setConfigExpanded] = useState(false);
   const [configDraft, setConfigDraft] = useState<Partial<AssignmentConfig>>({});
   const classroomConfig: AssignmentConfig | undefined = route.params?.classroomConfig;
+
+  // Auto-conversion state
+  const [converting, setConverting] = useState(false);
+  const [conversionStatus, setConversionStatus] = useState<ConversionStatus>(INITIAL_CONVERSION_STATUS);
+  const [conversionFileName, setConversionFileName] = useState<string>("");
+  const [detectedProblems, setDetectedProblems] = useState<DetectedProblem[] | null>(null);
+  const [convertedAssignmentId, setConvertedAssignmentId] = useState<string | null>(null);
+  const [publishing, setPublishing] = useState(false);
+  const [quickTitleModalVisible, setQuickTitleModalVisible] = useState(false);
+  const [quickTitleDraft, setQuickTitleDraft] = useState("");
 
   const pickFile = async (setter: (f: PickedFile) => void) => {
     const result = await DocumentPicker.getDocumentAsync({
@@ -48,6 +120,126 @@ export function CreateAssignmentScreen({ route, navigation }: { route: any; navi
       mimeType: picked.mimeType ?? "application/octet-stream",
       file: picked.file,
     });
+  };
+
+  const handleQuickUploadTap = () => {
+    setQuickTitleDraft("");
+    setQuickTitleModalVisible(true);
+  };
+
+  const handleQuickUploadSubmit = async () => {
+    const assignmentTitle = quickTitleDraft.trim();
+    if (!assignmentTitle) {
+      alert("Error", "Title is required");
+      return;
+    }
+    setQuickTitleModalVisible(false);
+
+    const result = await DocumentPicker.getDocumentAsync({
+      type: ["application/pdf", "text/plain"],
+      copyToCacheDirectory: true,
+    });
+    if (result.canceled) return;
+
+    const asset = result.assets[0];
+    const picked: PickedFile = {
+      name: asset.name,
+      uri: asset.uri,
+      mimeType: asset.mimeType ?? "application/octet-stream",
+      file: asset.file,
+    };
+    const fileName = picked.name.toLowerCase();
+
+    if (!fileName.endsWith(".pdf") && !fileName.endsWith(".tex")) {
+      alert("Error", "Please select a PDF or TEX file");
+      return;
+    }
+
+    const jobId = generateUuidV4();
+    let socketHandle: ConversionSocketHandle | null = null;
+
+    setConverting(true);
+    setConversionFileName(picked.name);
+    setConversionStatus(INITIAL_CONVERSION_STATUS);
+    try {
+      try {
+        socketHandle = await openConversionSocket({
+          jobId,
+          onConnected: (connected) => {
+            setConversionStatus((prev) => ({ ...prev, connected }));
+          },
+          onProgress: (event: ConversionProgressEvent) => {
+            setConversionStatus({
+              stage: formatConversionStage(event.stage),
+              progress: event.progress,
+              message: event.message ?? "",
+              currentPage: event.current_page,
+              totalPages: event.total_pages,
+              connected: true,
+            });
+          },
+        });
+      } catch {
+        setConversionStatus({
+          ...INITIAL_CONVERSION_STATUS,
+          stage: "Converting file...",
+          message: "Live progress unavailable, conversion is still running.",
+        });
+      }
+
+      // Create FormData
+      const formData = new FormData();
+      formData.append("file", toMultipartFile(picked) as any);
+      formData.append("title", assignmentTitle);
+      formData.append("job_id", jobId);
+
+      const data = await apiMultipart<{ id: string; problems?: DetectedProblem[] }>(
+        `/classrooms/${classroomId}/assignments/from-file`,
+        formData
+      );
+
+      setDetectedProblems(data.problems || []);
+      setConvertedAssignmentId(data.id);
+      showToast(`Detected ${data.problems?.length || 0} problems!`);
+    } catch (e: unknown) {
+      alert("Conversion Failed", e instanceof Error ? e.message : "Failed to convert file");
+      setDetectedProblems(null);
+      setConvertedAssignmentId(null);
+    } finally {
+      if (socketHandle) {
+        socketHandle.close();
+      }
+      setConverting(false);
+      setConversionFileName("");
+      setConversionStatus(INITIAL_CONVERSION_STATUS);
+    }
+  };
+
+  const handleQuickUploadCancel = () => {
+    setQuickTitleModalVisible(false);
+    setQuickTitleDraft("");
+  };
+
+  const handlePublish = async () => {
+    if (!convertedAssignmentId) return;
+
+    setPublishing(true);
+    try {
+      await api(`/assignments/${convertedAssignmentId}/publish`, {
+        method: "POST",
+      });
+      showToast("Assignment published!");
+      navigation.goBack();
+    } catch (e: unknown) {
+      alert("Error", e instanceof Error ? e.message : "Failed to publish assignment");
+    } finally {
+      setPublishing(false);
+    }
+  };
+
+  const handleReview = () => {
+    if (!convertedAssignmentId) return;
+    navigation.navigate("ReviewAssignment", { assignmentId: convertedAssignmentId });
   };
 
   const handleCreate = async () => {
@@ -90,7 +282,7 @@ export function CreateAssignmentScreen({ route, navigation }: { route: any; navi
       });
 
       const uploads: Promise<void>[] = [];
-      if (assignmentFile) {
+      if (assignmentFile && result.assignment_file_upload_url) {
         uploads.push(
           uploadFile({
             uri: assignmentFile.uri,
@@ -100,7 +292,7 @@ export function CreateAssignmentScreen({ route, navigation }: { route: any; navi
           })
         );
       }
-      if (answerKeyFile) {
+      if (answerKeyFile && result.answer_key_upload_url) {
         uploads.push(
           uploadFile({
             uri: answerKeyFile.uri,
@@ -122,11 +314,82 @@ export function CreateAssignmentScreen({ route, navigation }: { route: any; navi
     }
   };
 
+  // Show detected problems preview after successful conversion
+  if (detectedProblems && convertedAssignmentId) {
+    return (
+      <ScreenContainer maxWidth="form">
+        <View style={styles.content}>
+          <Text style={styles.title}>Review Detected Problems</Text>
+          <DetectedProblemsPreview
+            problems={detectedProblems}
+            onReview={handleReview}
+            onPublish={handlePublish}
+            isPublishing={publishing}
+          />
+        </View>
+      </ScreenContainer>
+    );
+  }
+
   return (
     <ScreenContainer maxWidth="form">
+      <ConversionProgressModal
+        visible={converting}
+        fileName={conversionFileName}
+        stage={conversionStatus.stage}
+        progress={conversionStatus.progress}
+        message={conversionStatus.message}
+        currentPage={conversionStatus.currentPage}
+        totalPages={conversionStatus.totalPages}
+        connected={conversionStatus.connected}
+      />
+
+      <Modal visible={quickTitleModalVisible} transparent animationType="fade">
+        <TouchableOpacity
+          style={styles.modalOverlay}
+          activeOpacity={1}
+          onPress={handleQuickUploadCancel}
+        >
+          <TouchableOpacity activeOpacity={1} onPress={() => {}} style={styles.modalContent}>
+            <Text style={styles.modalTitle}>Assignment title</Text>
+            <Input
+              placeholder="Enter title"
+              value={quickTitleDraft}
+              onChangeText={setQuickTitleDraft}
+              autoFocus
+            />
+            <View style={styles.modalActions}>
+              <Button variant="ghost" onPress={handleQuickUploadCancel}>
+                Cancel
+              </Button>
+              <Button onPress={handleQuickUploadSubmit} disabled={!quickTitleDraft.trim()}>
+                Continue
+              </Button>
+            </View>
+          </TouchableOpacity>
+        </TouchableOpacity>
+      </Modal>
+
       <View style={styles.content}>
         <Text style={styles.title}>New Assignment</Text>
 
+        {/* Quick Upload Section */}
+        <Section title="Quick Create from PDF/TEX">
+          <Card onPress={handleQuickUploadTap} style={styles.quickUploadCard}>
+            <Text style={styles.quickUploadTitle}>📄 Upload PDF or TEX File</Text>
+            <Text style={styles.quickUploadSubtitle}>
+              Automatically detect problems and create assignment
+            </Text>
+          </Card>
+        </Section>
+
+        <View style={styles.divider}>
+          <View style={styles.dividerLine} />
+          <Text style={styles.dividerText}>OR CREATE MANUALLY</Text>
+          <View style={styles.dividerLine} />
+        </View>
+
+        {/* Manual Creation Section */}
         <Section title="Details">
           <Input
             placeholder="Assignment title"
@@ -200,6 +463,37 @@ export function CreateAssignmentScreen({ route, navigation }: { route: any; navi
 const styles = StyleSheet.create({
   content: { paddingVertical: spacing.lg },
   title: { ...typography.h1, color: palette.textPrimary, marginBottom: spacing.lg },
+  quickUploadCard: {
+    padding: spacing.lg,
+    backgroundColor: palette.primaryMutedTint,
+    borderWidth: 2,
+    borderColor: palette.primary,
+    borderStyle: "dashed",
+  },
+  quickUploadTitle: {
+    ...typography.heading2,
+    color: palette.primary,
+    marginBottom: spacing.xs,
+  },
+  quickUploadSubtitle: {
+    ...typography.body,
+    color: palette.textSecondary,
+  },
+  divider: {
+    flexDirection: "row",
+    alignItems: "center",
+    marginVertical: spacing.lg,
+  },
+  dividerLine: {
+    flex: 1,
+    height: 1,
+    backgroundColor: palette.border,
+  },
+  dividerText: {
+    ...typography.caption,
+    color: palette.textMuted,
+    paddingHorizontal: spacing.md,
+  },
   fileCard: { marginBottom: spacing.md },
   filePickerText: { ...typography.body, color: palette.textMuted },
   hint: { ...typography.caption, color: palette.textMuted, marginBottom: spacing.sm },
@@ -207,4 +501,29 @@ const styles = StyleSheet.create({
   expandToggleText: { ...typography.buttonSmall, color: palette.link },
   configSection: { marginBottom: spacing.md },
   submitButton: { marginTop: spacing.xs },
+  modalOverlay: {
+    flex: 1,
+    backgroundColor: "rgba(0,0,0,0.5)",
+    justifyContent: "center",
+    alignItems: "center",
+    padding: spacing.lg,
+  },
+  modalContent: {
+    width: "100%",
+    maxWidth: 400,
+    backgroundColor: palette.card,
+    borderRadius: 8,
+    padding: spacing.lg,
+  },
+  modalTitle: {
+    ...typography.heading2,
+    color: palette.textPrimary,
+    marginBottom: spacing.md,
+  },
+  modalActions: {
+    flexDirection: "row",
+    justifyContent: "flex-end",
+    gap: spacing.sm,
+    marginTop: spacing.md,
+  },
 });

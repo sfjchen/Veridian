@@ -89,18 +89,37 @@ def _role_from_profile(user_id: str) -> str | None:
     return None
 
 
+def extract_bearer_token(auth_header: str) -> str | None:
+    parts = auth_header.split(" ", 1)
+    if len(parts) != 2 or parts[0] != "Bearer" or not parts[1]:
+        return None
+    return parts[1]
+
+
+def resolve_user_from_token(token: str) -> tuple[str, str]:
+    payload = _decode_token(token)
+    user_id = payload.get("sub")
+    if not user_id:
+        raise jwt.InvalidTokenError("Token missing subject")
+
+    role = _role_from_payload(payload)
+    if not role:
+        role = _role_from_profile(user_id)
+    if not role:
+        log.warning("Could not resolve role for %s, defaulting to %s", user_id, ROLE_STUDENT)
+    return user_id, role or ROLE_STUDENT
+
+
 def require_auth(f: Callable) -> Callable:
     """Verify JWT and populate g.user_id, g.user_role, g.user_token."""
     @functools.wraps(f)
     def decorated(*args: Any, **kwargs: Any) -> Tuple[Response, int] | Response:
-        auth_header = request.headers.get("Authorization", "")
-        parts = auth_header.split(" ", 1)
-        if len(parts) != 2 or parts[0] != "Bearer" or not parts[1]:
+        token = extract_bearer_token(request.headers.get("Authorization", ""))
+        if not token:
             return jsonify({"error": "Missing or invalid Authorization header"}), 401
 
-        token = parts[1]
         try:
-            payload = _decode_token(token)
+            user_id, role = resolve_user_from_token(token)
         except jwt.ExpiredSignatureError:
             return jsonify({"error": "Token expired"}), 401
         except jwt.InvalidTokenError:
@@ -110,19 +129,9 @@ def require_auth(f: Callable) -> Callable:
             log.exception("JWT decode error")
             return jsonify({"error": "Authentication service unavailable"}), 503
 
-        user_id = payload.get("sub")
-        if not user_id:
-            return jsonify({"error": "Invalid token"}), 401
-
         g.user_id = user_id
         g.user_token = token
-
-        role = _role_from_payload(payload)
-        if not role:
-            role = _role_from_profile(user_id)
-        if not role:
-            log.warning("Could not resolve role for %s, defaulting to %s", user_id, ROLE_STUDENT)
-        g.user_role = role or ROLE_STUDENT
+        g.user_role = role
         return f(*args, **kwargs)
 
     return decorated

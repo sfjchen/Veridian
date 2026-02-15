@@ -42,7 +42,7 @@ See `scripts/README.md` for all script options.
 ## Setup
 
 1. **Copy env** (4 apps, 4 `.env` files — each app loads from its own dir):
-   - `teacher/backend/.env.example` → `teacher/backend/.env`
+   - `teacher/backend/.env.example` → `teacher/backend/.env` (set `CORS_ALLOWED_ORIGINS` for your frontend hosts)
    - `teacher/frontend/.env.example` → `teacher/frontend/.env` (set `EXPO_PUBLIC_API_URL=http://localhost:5001` for teacher backend)
    - `student/backend/.env.example` → `student/backend/.env`
    - `student/frontend/.env.example` → `student/frontend/.env` (set `EXPO_PUBLIC_BACKEND_URL` for student backend, e.g. `http://localhost:8000`)
@@ -99,12 +99,21 @@ Use this sequence for a repeatable demo:
 7. **Student:** Open the assignment and submit a solution.
 8. **Teacher:** (Optional) View submissions for the assignment.
 
+## Conversion Progress WebSocket
+
+- Namespace: `/conversion` on teacher backend.
+- Auth required: send teacher JWT token in Socket.IO `auth.token`.
+- Subscribe payload: `{ "job_id": "<uuid>" }`.
+- For PDF/TEX conversion endpoints, frontend can send `job_id` in multipart form to subscribe before conversion starts.
+
 ## Quick Checks
 
 | Test | Command |
 |------|---------|
 | Teacher backend | `cd teacher/backend && python3 run.py` — hit `/classrooms` with JWT |
 | Student backend | `cd student/backend && python3 get_coords.py` — `curl http://localhost:8000/health` |
+
+After migrations: assignments load without config errors; corpus upload works.
 
 ## Development
 

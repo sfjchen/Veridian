@@ -254,7 +254,7 @@ export function AssignmentScreen({ route }: { route: any }) {
           ))
         )}
       </View>
-    </ScrollView>
+      </ScrollView>
     </ScreenContainer>
   );
 }

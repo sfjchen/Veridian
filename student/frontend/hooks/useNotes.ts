@@ -14,6 +14,7 @@ export function strokeKeyForNote(userId: string, id: string): string {
 export function useNotes(userId: string | null) {
   const [notes, setNotes] = useState<NoteMeta[]>([]);
   const [loading, setLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
 
   const storageKey = userId ? scopedKey(userId, LEGACY_KEY) : null;
 
@@ -23,10 +24,13 @@ export function useNotes(userId: string | null) {
       setLoading(false);
       return;
     }
+    setError(null);
     try {
       const raw = await AsyncStorage.getItem(storageKey);
       setNotes(raw ? JSON.parse(raw) : []);
-    } catch {
+    } catch (e) {
+      console.warn('[useNotes] Failed to load notes:', e);
+      setError(e instanceof Error ? e.message : 'Failed to load notes');
       setNotes([]);
     } finally {
       setLoading(false);
@@ -38,7 +42,11 @@ export function useNotes(userId: string | null) {
   const save = useCallback(async (list: NoteMeta[]) => {
     if (!storageKey) return;
     setNotes(list);
-    await AsyncStorage.setItem(storageKey, JSON.stringify(list));
+    try {
+      await AsyncStorage.setItem(storageKey, JSON.stringify(list));
+    } catch (e) {
+      setError(e instanceof Error ? e.message : 'Failed to save notes');
+    }
   }, [storageKey]);
 
   const addNote = useCallback(async (name: string): Promise<NoteMeta> => {
@@ -51,7 +59,9 @@ export function useNotes(userId: string | null) {
   const removeNote = useCallback(async (id: string) => {
     await save(notes.filter((n) => n.id !== id));
     if (userId) {
-      await AsyncStorage.removeItem(strokeKeyForNote(userId, id)).catch(() => {});
+      await AsyncStorage.removeItem(strokeKeyForNote(userId, id)).catch((e) => {
+        console.warn('[useNotes] Failed to remove strokes for note:', id, e);
+      });
     }
   }, [notes, save, userId]);
 
@@ -60,5 +70,5 @@ export function useNotes(userId: string | null) {
     [notes],
   );
 
-  return { notes, loading, addNote, removeNote, getNote };
+  return { notes, loading, error, addNote, removeNote, getNote };
 }

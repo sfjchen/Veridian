@@ -2,8 +2,6 @@ import logging
 from datetime import datetime
 from typing import Any, Tuple
 
-log = logging.getLogger(__name__)
-
 from flask import Blueprint, Response, g, jsonify, request
 from postgrest.exceptions import APIError
 
@@ -40,6 +38,8 @@ from app.services.live_monitoring import (
     validate_uuid,
 )
 from app.services.supabase_client import get_supabase_admin_client
+
+log = logging.getLogger(__name__)
 
 live_monitoring_bp = Blueprint("live_monitoring", __name__)
 

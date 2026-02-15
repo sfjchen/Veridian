@@ -48,12 +48,16 @@ function NoteRow({ note, onPress, onDelete }: { note: NoteMeta; onPress: () => v
 export default function NotesScreen() {
   const router = useRouter();
   const { userId } = useAuth();
-  const { notes, loading, addNote, removeNote } = useNotes(userId);
+  const { notes, loading, error, addNote, removeNote } = useNotes(userId);
 
   const handleAdd = () => {
     promptForName(async (name) => {
-      const note = await addNote(name);
-      router.push({ pathname: '/note/[id]', params: { id: note.id } });
+      try {
+        const note = await addNote(name);
+        router.push({ pathname: '/note/[id]', params: { id: note.id } });
+      } catch (e) {
+        Alert.alert('Error', e instanceof Error ? e.message : 'Failed to create note');
+      }
     });
   };
 
@@ -87,6 +91,12 @@ export default function NotesScreen() {
           <Text style={styles.addButtonText}>New Note</Text>
         </Pressable>
       </View>
+
+      {error ? (
+        <View style={styles.errorBanner}>
+          <Text style={styles.errorText}>{error}</Text>
+        </View>
+      ) : null}
 
       {notes.length === 0 ? (
         <View style={styles.empty}>
@@ -165,4 +175,12 @@ const styles = StyleSheet.create({
   empty: { flex: 1, justifyContent: 'center', alignItems: 'center', padding: 32 },
   emptyTitle: { fontSize: 18, fontWeight: '600', color: palette.textSecondary, marginTop: 20 },
   emptySubtitle: { fontSize: 14, color: palette.textMuted, marginTop: 6 },
+  errorBanner: {
+    paddingVertical: 10,
+    paddingHorizontal: 16,
+    backgroundColor: palette.surface,
+    borderBottomWidth: 1,
+    borderBottomColor: palette.border,
+  },
+  errorText: { fontSize: 14, color: palette.errorText, textAlign: 'center' },
 });

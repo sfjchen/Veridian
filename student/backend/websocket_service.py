@@ -34,12 +34,19 @@ def init_socketio(app: Flask) -> SocketIO:
 def _verify_token(token: str) -> str | None:
     try:
         resp = get_supabase_auth_client().auth.get_user(token)
-        user = getattr(resp, "user", None) or (resp or {}).get("user")
+        user = getattr(resp, "user", None)
+        if user is None and isinstance(resp, dict):
+            user = resp.get("user")
         if user is None:
             data = getattr(resp, "data", None)
             if data is not None:
                 user = getattr(data, "user", None)
-        return str(getattr(user, "id", None) or user.get("id", "")) or None
+        if user is None:
+            return None
+        user_id = getattr(user, "id", None)
+        if user_id is None and isinstance(user, dict):
+            user_id = user.get("id")
+        return str(user_id) if user_id else None
     except Exception as exc:
         log.warning("WebSocket token verification failed: %s", exc)
         return None

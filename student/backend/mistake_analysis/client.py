@@ -22,6 +22,7 @@ import os
 from concurrent.futures import ThreadPoolExecutor
 from datetime import datetime, timezone
 from pathlib import Path
+from typing import Any
 
 from openai import OpenAI
 
@@ -98,7 +99,7 @@ class MistakeAnalyzer:
         else:
             self.mistake_history = {"mistakes": [], "sessions": []}
 
-    def _call_api(self, context: str, **kwargs):
+    def _call_api(self, context: str, **kwargs: Any) -> Any:
         """Wrapper around client.messages.create with error handling."""
         if self.client is None:
             raise ValueError("Anthropic backend is disabled.")
@@ -206,45 +207,40 @@ class MistakeAnalyzer:
                     continue
                 raise
 
-    def _reconcile(self, analysis: dict, verification: dict) -> dict:
-        """
-        Merge the original analysis with the grader's verdict.
-        Drops false positives, applies corrections, adds missed mistakes.
-        """
-        original_mistakes = analysis.get("mistakes", [])
-        verified = verification.get("verified_mistakes", [])
-        missed = verification.get("missed_mistakes", [])
-
-        # build lookup of verdicts by index
-        verdicts = {v["original_index"]: v for v in verified}
-
-        reconciled = []
-        for i, mistake in enumerate(original_mistakes):
+    @staticmethod
+    def _apply_verdicts(mistakes: list[dict], verdicts: dict) -> list[dict]:
+        """Apply grader verdicts: drop false positives, apply corrections."""
+        reconciled: list[dict] = []
+        for i, mistake in enumerate(mistakes):
             v = verdicts.get(i)
             if v is None:
-                # grader didn't comment on it — keep as-is
                 reconciled.append(mistake)
             elif v["verdict"] == "false_positive":
-                continue  # drop it
+                continue
             elif v["verdict"] == "mistagged":
                 mistake["tag"] = v.get("corrected_tag", mistake["tag"])
                 mistake["severity"] = v.get("corrected_severity", mistake["severity"])
                 reconciled.append(mistake)
             else:
                 reconciled.append(mistake)
+        return reconciled
 
-        # add missed mistakes
-        reconciled.extend(missed)
-
-        # validate all tags
-        for m in reconciled:
+    @staticmethod
+    def _normalize_tags(mistakes: list[dict]) -> None:
+        """Ensure all tags and severities are valid."""
+        for m in mistakes:
             if m["tag"] not in ALL_TAGS:
-                # fall back to closest severity bucket's first tag
                 sev = m.get("severity", "mechanical")
                 m["tag"] = TAG_BANK.get(sev, TAG_BANK["mechanical"])[0]
             if m.get("severity") not in SEVERITIES:
                 m["severity"] = TAG_TO_SEVERITY.get(m["tag"], "mechanical")
 
+    def _reconcile(self, analysis: dict, verification: dict) -> dict:
+        """Merge original analysis with grader verdict."""
+        verdicts = {v["original_index"]: v for v in verification.get("verified_mistakes", [])}
+        reconciled = self._apply_verdicts(analysis.get("mistakes", []), verdicts)
+        reconciled.extend(verification.get("missed_mistakes", []))
+        self._normalize_tags(reconciled)
         analysis["mistakes"] = reconciled
         return analysis
 
@@ -270,65 +266,50 @@ class MistakeAnalyzer:
             self.continuation_model,
         )
 
-    def _annotate(self, student_tex: str, mistakes: list[dict]) -> str:
-        """
-        Insert \\mistake{...}{...}{...}{...} commands into the student's LaTeX source.
-
-        Strategy: for each mistake, find the erroneous snippet using
-        location_hint + erroneous_latex, then wrap it. We process
-        mistakes in reverse document order to preserve string indices.
-        """
-        annotated = student_tex
-
-        # find locations using matched spans from find_snippet
+    @staticmethod
+    def _locate_mistakes(source: str, mistakes: list[dict]) -> list[tuple[int, int, dict]]:
+        """Find each mistake's span in the source text."""
         located: list[tuple[int, int, dict]] = []
         for m in mistakes:
-            snippet = m["erroneous_latex"]
-            hint = m.get("location_hint", "")
-
-            start, end = find_snippet(annotated, snippet, hint)
+            start, end = find_snippet(source, m["erroneous_latex"], m.get("location_hint", ""))
             if start != -1:
                 located.append((start, end, m))
+        return located
 
-        # sort by start ascending, then by span width descending (wider first)
-        # so that when we deduplicate, the outermost range wins
+    @staticmethod
+    def _dedupe_spans(located: list[tuple[int, int, dict]]) -> list[tuple[int, int, dict]]:
+        """Sort by position and deduplicate overlapping ranges, keeping outermost."""
         located.sort(key=lambda x: (x[0], -(x[1] - x[0])))
-
-        # deduplicate overlapping ranges — keep the outermost (widest) one
         deduped: list[tuple[int, int, dict]] = []
         for entry in located:
-            start, end, _ = entry
-            if deduped and start < deduped[-1][1]:
-                # overlaps with the previous accepted range — skip
+            if deduped and entry[0] < deduped[-1][1]:
                 continue
             deduped.append(entry)
-
-        # reverse for safe index-preserving replacement
         deduped.reverse()
+        return deduped
 
+    @staticmethod
+    def _insert_preamble(annotated: str) -> str:
+        """Ensure \\input{mistake_preamble} is present."""
+        if "mistake_preamble" in annotated:
+            return annotated
+        dc_end = annotated.find("\\begin{document}")
+        if dc_end != -1:
+            return annotated[:dc_end] + "\\input{mistake_preamble}\n" + annotated[dc_end:]
+        return "\\input{mistake_preamble}\n" + annotated
+
+    def _annotate(self, student_tex: str, mistakes: list[dict]) -> str:
+        """Insert \\mistake{...} commands into the student's LaTeX source."""
+        annotated = student_tex
+        located = self._locate_mistakes(annotated, mistakes)
+        deduped = self._dedupe_spans(located)
         for start, end, m in deduped:
             original = annotated[start:end]
             explanation = escape_latex_text(m["explanation"])
-            tag = m["tag"]
-            severity = m["severity"]
             macro = "\\mistake" if _in_math_mode(annotated, start) else "\\mistaketext"
-            replacement = f"{macro}{{{original}}}{{{explanation}}}{{{tag}}}{{{severity}}}"
+            replacement = f"{macro}{{{original}}}{{{explanation}}}{{{m['tag']}}}{{{m['severity']}}}"
             annotated = annotated[:start] + replacement + annotated[end:]
-
-        # ensure preamble include is present
-        if "mistake_preamble" not in annotated:
-            # insert after \documentclass or at top
-            dc_end = annotated.find("\\begin{document}")
-            if dc_end != -1:
-                annotated = (
-                    annotated[:dc_end]
-                    + "\\input{mistake_preamble}\n"
-                    + annotated[dc_end:]
-                )
-            else:
-                annotated = "\\input{mistake_preamble}\n" + annotated
-
-        return annotated
+        return self._insert_preamble(annotated)
 
     def _update_history(self, analysis: dict, student_id: str = "default") -> None:
         timestamp = datetime.now(timezone.utc).isoformat()

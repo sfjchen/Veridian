@@ -1,31 +1,25 @@
-import sys
-import uuid
+import logging
 from typing import Any, Tuple
 
 from flask import Blueprint, Response, g, jsonify, request
 from postgrest.exceptions import APIError
 from supabase import Client
 
+from app.constants import POSTGRES_UNIQUE_VIOLATION
 from app.middleware.auth import require_auth, require_role
 from app.services.code_generator import generate_class_code
 from app.services.config_schema import validate_config
+from app.services.live_monitoring import validate_uuid
 from app.services.storage import delete_object
 from app.services.supabase_client import get_supabase_admin_client
 
+log = logging.getLogger(__name__)
+
 classrooms_bp = Blueprint("classrooms", __name__, url_prefix="/classrooms")
 
-POSTGRES_UNIQUE_VIOLATION = "23505"
 CODE_GENERATION_MAX_ATTEMPTS = 3
 MAX_CLASSROOM_NAME_LENGTH = 200
 ASSIGNMENTS_BUCKET = "assignments"
-
-
-def _validate_uuid(value: str) -> bool:
-    try:
-        uuid.UUID(value)
-        return True
-    except ValueError:
-        return False
 
 
 def _classroom_for_id(client: Client, classroom_id: str) -> dict | None:
@@ -111,7 +105,7 @@ def list_classrooms() -> Response | Tuple[Response, int]:
 @classrooms_bp.route("/<classroom_id>", methods=["GET"])
 @require_auth
 def get_classroom(classroom_id: str) -> Response | Tuple[Response, int]:
-    if not _validate_uuid(classroom_id):
+    if not validate_uuid(classroom_id):
         return jsonify({"error": "Invalid classroom ID"}), 400
 
     client = get_supabase_admin_client()
@@ -140,7 +134,7 @@ def get_classroom(classroom_id: str) -> Response | Tuple[Response, int]:
 @classrooms_bp.route("/<classroom_id>", methods=["PATCH"])
 @require_role("teacher")
 def update_classroom(classroom_id: str) -> Response | Tuple[Response, int]:
-    if not _validate_uuid(classroom_id):
+    if not validate_uuid(classroom_id):
         return jsonify({"error": "Invalid classroom ID"}), 400
 
     data = request.get_json()
@@ -173,8 +167,8 @@ def update_classroom(classroom_id: str) -> Response | Tuple[Response, int]:
         updated = client.table("classrooms").update(updates).eq(
             "id", classroom_id
         ).eq("teacher_id", g.user_id).execute()
-    except APIError as e:
-        print(f"Failed to update classroom {classroom_id}: {e}", file=sys.stderr)
+    except APIError:
+        log.exception("Failed to update classroom %s", classroom_id)
         return jsonify({"error": "Failed to update classroom"}), 500
 
     if not updated.data:
@@ -185,7 +179,7 @@ def update_classroom(classroom_id: str) -> Response | Tuple[Response, int]:
 @classrooms_bp.route("/<classroom_id>", methods=["DELETE"])
 @require_role("teacher")
 def delete_classroom(classroom_id: str) -> Response | Tuple[Response, int]:
-    if not _validate_uuid(classroom_id):
+    if not validate_uuid(classroom_id):
         return jsonify({"error": "Invalid classroom ID"}), 400
 
     client = get_supabase_admin_client()
@@ -198,8 +192,8 @@ def delete_classroom(classroom_id: str) -> Response | Tuple[Response, int]:
         deleted = client.table("classrooms").delete().eq(
             "id", classroom_id
         ).eq("teacher_id", g.user_id).execute()
-    except APIError as e:
-        print(f"Failed to delete classroom {classroom_id}: {e}", file=sys.stderr)
+    except APIError:
+        log.exception("Failed to delete classroom %s", classroom_id)
         return jsonify({"error": "Failed to delete classroom"}), 500
 
     if not deleted.data:
@@ -217,7 +211,7 @@ def _cleanup_assignment_storage(assignments: list[dict]) -> None:
             try:
                 delete_object(ASSIGNMENTS_BUCKET, path)
             except ValueError:
-                print(f"Failed to clean up storage object: {path}", file=sys.stderr)
+                log.exception("Failed to clean up storage object: %s", path)
 
 
 def _enrich_memberships_with_profiles(client: Client, memberships: list[dict]) -> list[dict]:
@@ -243,7 +237,7 @@ def _enrich_memberships_with_profiles(client: Client, memberships: list[dict]) -
 @classrooms_bp.route("/<classroom_id>/students", methods=["GET"])
 @require_role("teacher")
 def list_classroom_students(classroom_id: str) -> Response | Tuple[Response, int]:
-    if not _validate_uuid(classroom_id):
+    if not validate_uuid(classroom_id):
         return jsonify({"error": "Invalid classroom ID"}), 400
 
     client = get_supabase_admin_client()
@@ -265,9 +259,9 @@ def list_classroom_students(classroom_id: str) -> Response | Tuple[Response, int
 @classrooms_bp.route("/<classroom_id>/students/<student_id>", methods=["DELETE"])
 @require_role("teacher")
 def remove_classroom_student(classroom_id: str, student_id: str) -> Response | Tuple[Response, int]:
-    if not _validate_uuid(classroom_id):
+    if not validate_uuid(classroom_id):
         return jsonify({"error": "Invalid classroom ID"}), 400
-    if not _validate_uuid(student_id):
+    if not validate_uuid(student_id):
         return jsonify({"error": "Invalid student ID"}), 400
 
     client = get_supabase_admin_client()
@@ -281,11 +275,8 @@ def remove_classroom_student(classroom_id: str, student_id: str) -> Response | T
         deleted = client.table("classroom_memberships").delete().eq(
             "classroom_id", classroom_id
         ).eq("student_id", student_id).execute()
-    except APIError as e:
-        print(
-            f"Failed to remove student {student_id} from classroom {classroom_id}: {e}",
-            file=sys.stderr,
-        )
+    except APIError:
+        log.exception("Failed to remove student %s from classroom %s", student_id, classroom_id)
         return jsonify({"error": "Failed to remove student"}), 500
 
     if not deleted.data:

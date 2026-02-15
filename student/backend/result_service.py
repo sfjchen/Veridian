@@ -54,11 +54,17 @@ def set_result_status(
     )
 
 
+_RESULT_COLUMNS = (
+    "id,student_id,assignment_id,problem_num,student_tex,annotated_tex,"
+    "continuation_tex,mistake_count,mistakes,status,error_message,created_at,updated_at"
+)
+
+
 def get_result(student_id: str, assignment_id: str, problem_num: int) -> Optional[Dict[str, Any]]:
     supabase = get_supabase_service_client()
     response = (
         supabase.table(RESULTS_TABLE)
-        .select("*")
+        .select(_RESULT_COLUMNS)
         .eq("student_id", student_id)
         .eq("assignment_id", assignment_id)
         .eq("problem_num", problem_num)
@@ -73,7 +79,7 @@ def get_assignment_results(student_id: str, assignment_id: str) -> List[Dict[str
     supabase = get_supabase_service_client()
     response = (
         supabase.table(RESULTS_TABLE)
-        .select("*")
+        .select(_RESULT_COLUMNS)
         .eq("student_id", student_id)
         .eq("assignment_id", assignment_id)
         .order("problem_num")

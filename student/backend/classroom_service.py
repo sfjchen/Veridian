@@ -62,7 +62,7 @@ def join_classroom_by_code(student_id: str, class_code: str) -> Dict[str, Any]:
     )
     rows = unwrap_supabase_data(result) or []
     if not isinstance(rows, list) or not rows:
-        raise ValueError(f"No classroom found with code: {normalized}")
+        raise ValueError(f"Invalid class code: {normalized}")
     classroom = rows[0]
     try:
         supabase.table(MEMBERSHIPS_TABLE).insert({
@@ -72,9 +72,15 @@ def join_classroom_by_code(student_id: str, class_code: str) -> Dict[str, Any]:
     except APIError as exc:
         if exc.code == "23505":
             log.info("Duplicate join: student %s → classroom %s", student_id, classroom["id"])
-            raise ValueError("You have already joined this classroom") from exc
+            raise ValueError("Already joined this classroom") from exc
         raise
     return classroom
+
+
+_STUDENT_ASSIGNMENT_FIELDS = (
+    "id, classroom_id, title, due_date, config, "
+    "prompt_storage_path, problems, created_at, updated_at"
+)
 
 
 def list_assignments_for_classroom(
@@ -85,7 +91,7 @@ def list_assignments_for_classroom(
         return []
     response = (
         supabase.table(ASSIGNMENTS_TABLE)
-        .select("*")
+        .select(_STUDENT_ASSIGNMENT_FIELDS)
         .eq("classroom_id", classroom_id)
         .order("created_at", desc=True)
         .execute()

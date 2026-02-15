@@ -3,6 +3,7 @@
 import json
 import logging
 import re
+from typing import Any
 
 logger = logging.getLogger(__name__)
 
@@ -64,7 +65,7 @@ def extract_json_from_llm_response(text: str, context: str = "") -> dict:
     )
 
 
-def extract_text(response) -> str:
+def extract_text(response: Any) -> str:
     """Extract all text content from a Claude API response, skipping thinking blocks."""
     parts = [block.text for block in response.content if block.type == "text"]
     if not parts:

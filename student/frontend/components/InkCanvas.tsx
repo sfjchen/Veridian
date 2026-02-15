@@ -6,12 +6,14 @@ import {
   Text,
   View,
   type GestureResponderEvent,
+  type ViewStyle,
 } from 'react-native';
 import { MaterialCommunityIcons } from '@expo/vector-icons';
 import Svg, { Path } from 'react-native-svg';
 import ViewShot from 'react-native-view-shot';
 
 import { ShortcutHint } from '@/components/ShortcutHint';
+import { DOT_CURSOR } from '@/constants/cursor';
 import { palette, radius } from '@/constants/palette';
 
 export type Point = { x: number; y: number };
@@ -413,8 +415,6 @@ const styles = StyleSheet.create({
   touchLayer: {
     flex: 1,
   },
-  touchLayerWeb: {
-    // Small dot cursor for the drawing area on desktop web.
-    cursor: 'url("data:image/svg+xml,%3Csvg xmlns=%27http://www.w3.org/2000/svg%27 width=%278%27 height=%278%27%3E%3Ccircle cx=%274%27 cy=%274%27 r=%273%27 fill=%27%23333%27/%3E%3C/svg%3E") 4 4, crosshair',
-  } as any,
+  // RN ViewStyle.CursorValue omits custom url(); valid on web
+  touchLayerWeb: { cursor: DOT_CURSOR } as unknown as ViewStyle,
 });

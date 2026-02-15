@@ -1,23 +1,11 @@
-import { forwardRef, useEffect, useImperativeHandle, useMemo, useRef, useState } from 'react';
+import { forwardRef, useEffect, useImperativeHandle, useRef, useState } from 'react';
 import { Platform, StyleSheet, View, type GestureResponderEvent } from 'react-native';
 import Svg, { Path } from 'react-native-svg';
 import ViewShot from 'react-native-view-shot';
 
 import type { Tool } from '@/components/ToolBar';
 import { captureStrokesAsDataUri } from '@/lib/capture-web';
-
-const CURSOR_SIZE = 32;
-
-const getWebCursorStyle = (tool: Tool): object | undefined => {
-  if (Platform.OS !== 'web') return undefined;
-  const asset = tool === 'pen'
-    ? require('@/assets/cursor/pen-cursor.png')
-    : require('@/assets/cursor/erasor-cursor.png');
-  // On web, require() returns the URI string directly (or an object with .uri)
-  const uri = typeof asset === 'string' ? asset : asset?.uri ?? asset?.default;
-  if (!uri) return undefined;
-  return { cursor: `url(${uri}) 0 ${CURSOR_SIZE - 1}, auto` };
-};
+import { WEB_CURSOR_STYLE } from '@/constants/cursor';
 
 type Point = {
   x: number;
@@ -246,15 +234,13 @@ export const DrawingCanvas = forwardRef<DrawingCanvasRef, DrawingCanvasProps>(fu
     else if (activeStrokeIdRef.current) activeStrokeIdRef.current = null;
   };
 
-  const webCursor = useMemo(() => getWebCursorStyle(tool), [tool]);
-
   return (
     <ViewShot
       ref={viewShotRef}
       style={styles.canvasContainer}
       options={{ format: 'png', quality: 1, result: 'tmpfile' }}>
       <View
-        style={[styles.touchLayer, webCursor]}
+        style={[styles.touchLayer, WEB_CURSOR_STYLE]}
         collapsable={false}
         onStartShouldSetResponder={() => true}
         onMoveShouldSetResponder={() => true}

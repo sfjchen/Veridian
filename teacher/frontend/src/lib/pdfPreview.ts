@@ -109,9 +109,8 @@ export function looksLikeText(contentType: string, bytes: Uint8Array): boolean {
 }
 
 export async function createPdfPreviewDataUri(pdfBlob: Blob): Promise<string> {
-  const {
-    data: { session },
-  } = await supabase.auth.getSession();
+  const { data } = await supabase.auth.getSession();
+  const session = data?.session ?? null;
 
   const formData = new FormData();
   formData.append("file", pdfBlob as any, "assignment.pdf");

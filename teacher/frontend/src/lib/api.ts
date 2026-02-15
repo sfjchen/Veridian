@@ -14,9 +14,8 @@ export async function api<T = unknown>(
 ): Promise<T> {
   const { method = "GET", body } = options;
 
-  const {
-    data: { session },
-  } = await supabase.auth.getSession();
+  const { data } = await supabase.auth.getSession();
+  const session = data?.session ?? null;
 
   const headers: Record<string, string> = {
     "Content-Type": "application/json",

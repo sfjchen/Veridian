@@ -57,6 +57,10 @@ export function AssignmentScreen({ route }: { route: any }) {
       try {
         const data = await api<AssignmentDetail>(`/assignments/${assignmentId}`);
         if (cancelled) return;
+        if (!data) {
+          if (!cancelled) setLoading(false);
+          return;
+        }
         setAssignment(data);
         setAssignmentContent(null);
         setIsPdf(false);

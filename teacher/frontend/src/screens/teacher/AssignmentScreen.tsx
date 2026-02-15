@@ -69,6 +69,15 @@ export function TeacherAssignmentScreen({ route, navigation }: { route: any; nav
       const data = await api<AssignmentDetail>(`/assignments/${assignmentId}`);
       if (!mountedRef.current) return;
       if (!data) {
+        setAssignment(null);
+        setEditTitle("");
+        setEditDueDate("");
+        setAssignmentContent(null);
+        setIsPdf(false);
+        setPdfPreviewUri(null);
+        setImagePreviewUrl(null);
+        setBinaryDownloadUrl(null);
+        setReuploadUrls(null);
         if (mountedRef.current) setLoading(false);
         return;
       }

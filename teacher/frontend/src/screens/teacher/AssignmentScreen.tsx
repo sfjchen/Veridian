@@ -529,7 +529,7 @@ export function TeacherAssignmentScreen({ route, navigation }: { route: any; nav
                   ))}
                 </View>
               )}
-              {!detectedSolutions && (
+              {!detectedSolutions && !(assignment.solutions?.length) && (
                 <View style={{ marginTop: 16 }}>
                   <Text style={styles.sectionTitle}>Answer Key</Text>
                   <Button
@@ -537,9 +537,7 @@ export function TeacherAssignmentScreen({ route, navigation }: { route: any; nav
                     loading={uploadingAnswerKey}
                     disabled={uploadingAnswerKey}
                   >
-                    {assignment.answer_key_latex
-                      ? "Re-upload Answer Key (PDF/TEX)"
-                      : "Upload Answer Key (PDF/TEX)"}
+                    Upload Answer Key (PDF/TEX)
                   </Button>
                   {uploadingAnswerKey && (
                     <Text style={styles.convertHint}>

@@ -4,7 +4,6 @@ import * as DocumentPicker from "expo-document-picker";
 import { Button, Card, Input, ScreenContainer, Section } from "../../components/ui";
 import { LeafAccent } from "../../components/forest";
 import { ConfigEditor } from "../../components/ConfigEditor";
-import { ProblemEditor } from "../../components/ProblemEditor";
 import { ConversionProgressModal } from "../../components/ConversionProgressModal";
 import { DetectedProblemsPreview, Problem as DetectedProblem } from "../../components/DetectedProblemsPreview";
 import { palette } from "../../constants/palette";
@@ -19,9 +18,8 @@ import {
   ConversionSocketHandle,
   openConversionSocket,
 } from "../../lib/conversionProgress";
-import { uploadFile } from "../../lib/upload";
 import { generateUuidV4 } from "../../lib/uuid";
-import { AssignmentConfig, Problem } from "../../types";
+import { AssignmentConfig } from "../../types";
 
 const DATE_PATTERN = /^\d{4}-\d{2}-\d{2}$/;
 
@@ -88,20 +86,12 @@ export function CreateAssignmentScreen({ route, navigation }: { route: any; navi
   const { classroomId } = route.params;
   const { showToast } = useToast();
   const { files: corpusFiles, loading: corpusLoading } = useCorpus(classroomId);
-
-  // Manual creation state
-  const [title, setTitle] = useState("");
-  const [dueDate, setDueDate] = useState("");
-  const [assignmentFile, setAssignmentFile] = useState<PickedFile | null>(null);
-  const [answerKeyFile, setAnswerKeyFile] = useState<PickedFile | null>(null);
-  const [creating, setCreating] = useState(false);
-  const [problems, setProblems] = useState<Problem[]>([]);
   const [selectedContextFiles, setSelectedContextFiles] = useState<string[]>([]);
   const [configExpanded, setConfigExpanded] = useState(false);
   const [configDraft, setConfigDraft] = useState<Partial<AssignmentConfig>>({});
   const classroomConfig: AssignmentConfig | undefined = route.params?.classroomConfig;
 
-  // Auto-conversion state
+  // Quick-create state
   const [converting, setConverting] = useState(false);
   const [conversionStatus, setConversionStatus] = useState<ConversionStatus>(INITIAL_CONVERSION_STATUS);
   const [conversionFileName, setConversionFileName] = useState<string>("");
@@ -109,6 +99,7 @@ export function CreateAssignmentScreen({ route, navigation }: { route: any; navi
   const [convertedAssignmentId, setConvertedAssignmentId] = useState<string | null>(null);
   const [publishing, setPublishing] = useState(false);
   const [quickTitle, setQuickTitle] = useState("");
+  const [quickDueDate, setQuickDueDate] = useState("");
   const [quickFile, setQuickFile] = useState<PickedFile | null>(null);
   const [quickAnswerKeyFile, setQuickAnswerKeyFile] = useState<PickedFile | null>(null);
 
@@ -128,7 +119,12 @@ export function CreateAssignmentScreen({ route, navigation }: { route: any; navi
   };
 
   const handleQuickCreate = async () => {
-    if (!quickTitle.trim() || !quickFile) return;
+    if (!quickTitle.trim() || !quickFile || !quickDueDate.trim()) return;
+
+    if (!DATE_PATTERN.test(quickDueDate.trim())) {
+      alert("Error", "Due date must be in YYYY-MM-DD format");
+      return;
+    }
 
     const fileName = quickFile.name.toLowerCase();
     if (!fileName.endsWith(".pdf") && !fileName.endsWith(".tex")) {
@@ -171,9 +167,13 @@ export function CreateAssignmentScreen({ route, navigation }: { route: any; navi
       const formData = new FormData();
       formData.append("file", toMultipartFile(quickFile) as any);
       formData.append("title", quickTitle.trim());
+      formData.append("due_date", quickDueDate.trim());
       formData.append("job_id", jobId);
       if (selectedContextFiles.length > 0) {
         formData.append("context_file_ids", JSON.stringify(selectedContextFiles));
+      }
+      if (Object.keys(configDraft).length > 0) {
+        formData.append("config", JSON.stringify(configDraft));
       }
 
       const data = await apiMultipart<{ id: string; problems?: DetectedProblem[] }>(
@@ -233,81 +233,6 @@ export function CreateAssignmentScreen({ route, navigation }: { route: any; navi
     navigation.navigate("ReviewAssignment", { assignmentId: convertedAssignmentId });
   };
 
-  const handleCreate = async () => {
-    if (!title.trim()) {
-      alert("Error", "Title is required");
-      return;
-    }
-
-    let dueDateValue: string | undefined;
-    if (dueDate.trim()) {
-      if (!DATE_PATTERN.test(dueDate.trim())) {
-        alert("Error", "Due date must be in YYYY-MM-DD format");
-        return;
-      }
-      const parsed = new Date(dueDate.trim());
-      if (isNaN(parsed.getTime())) {
-        alert("Error", "Invalid date");
-        return;
-      }
-      dueDateValue = dueDate.trim();
-    }
-
-    setCreating(true);
-    try {
-      const body: Record<string, any> = { title: title.trim(), due_date: dueDateValue };
-      if (assignmentFile) body.has_assignment_file = true;
-      if (answerKeyFile) body.has_answer_key = true;
-      if (problems.length > 0) {
-        body.problems = problems;
-      }
-      if (selectedContextFiles.length > 0) {
-        body.context_file_ids = selectedContextFiles;
-      }
-      if (Object.keys(configDraft).length > 0) {
-        body.config = configDraft;
-      }
-      const result = await api<{
-        assignment_file_upload_url?: string;
-        answer_key_upload_url?: string;
-      }>(`/classrooms/${classroomId}/assignments`, {
-        method: "POST",
-        body,
-      });
-
-      const uploads: Promise<void>[] = [];
-      if (assignmentFile && result.assignment_file_upload_url) {
-        uploads.push(
-          uploadFile({
-            uri: assignmentFile.uri,
-            uploadUrl: result.assignment_file_upload_url,
-            mimeType: assignmentFile.mimeType,
-            file: assignmentFile.file,
-          })
-        );
-      }
-      if (answerKeyFile && result.answer_key_upload_url) {
-        uploads.push(
-          uploadFile({
-            uri: answerKeyFile.uri,
-            uploadUrl: result.answer_key_upload_url,
-            mimeType: answerKeyFile.mimeType,
-            file: answerKeyFile.file,
-          })
-        );
-      }
-
-      if (uploads.length > 0) await Promise.all(uploads);
-
-      showToast("Assignment created!");
-      navigation.goBack();
-    } catch (e: unknown) {
-      alert("Error", e instanceof Error ? e.message : "Failed to create assignment");
-    } finally {
-      setCreating(false);
-    }
-  };
-
   // Show detected problems preview after successful conversion
   if (detectedProblems && convertedAssignmentId) {
     return (
@@ -344,12 +269,16 @@ export function CreateAssignmentScreen({ route, navigation }: { route: any; navi
           <Text style={styles.title}>New Assignment</Text>
         </View>
 
-        {/* Quick Upload Section */}
-        <Section title="Quick Create from PDF/TEX">
+        <Section title="Create from PDF/TEX">
           <Input
             placeholder="Assignment title"
             value={quickTitle}
             onChangeText={setQuickTitle}
+          />
+          <Input
+            placeholder="Due date (YYYY-MM-DD)"
+            value={quickDueDate}
+            onChangeText={setQuickDueDate}
           />
           <Card onPress={() => pickFile(setQuickFile)} style={styles.fileCard}>
             <Text style={styles.filePickerText}>
@@ -361,57 +290,6 @@ export function CreateAssignmentScreen({ route, navigation }: { route: any; navi
               {quickAnswerKeyFile ? quickAnswerKeyFile.name : "Select Answer Key (PDF/TEX)"}
             </Text>
           </Card>
-          <Button
-            onPress={handleQuickCreate}
-            disabled={!quickTitle.trim() || !quickFile || converting}
-            loading={converting}
-            fullWidth
-          >
-            Quick Create
-          </Button>
-        </Section>
-
-        <View style={styles.divider}>
-          <View style={styles.dividerLine} />
-          <Text style={styles.dividerText}>OR CREATE MANUALLY</Text>
-          <View style={styles.dividerLine} />
-        </View>
-
-        {/* Manual Creation Section */}
-        <Section title="Details">
-          <Input
-            placeholder="Assignment title"
-            value={title}
-            onChangeText={setTitle}
-          />
-          <Input
-            placeholder="Due date (YYYY-MM-DD, optional)"
-            value={dueDate}
-            onChangeText={setDueDate}
-          />
-        </Section>
-
-        <Section title="Assignment File (optional)">
-          <Card onPress={() => pickFile(setAssignmentFile)} style={styles.fileCard}>
-            <Text style={styles.filePickerText}>
-              {assignmentFile ? assignmentFile.name : "Select Assignment File"}
-            </Text>
-          </Card>
-        </Section>
-
-        <Section title="Answer Key (optional)">
-          <Card onPress={() => pickFile(setAnswerKeyFile)} style={styles.fileCard}>
-            <Text style={styles.filePickerText}>
-              {answerKeyFile ? answerKeyFile.name : "Select Answer Key"}
-            </Text>
-          </Card>
-        </Section>
-
-        <Section title="Problems">
-          <Text style={styles.hint}>
-            Add problems that students will solve one per page. Use LaTeX for math notation.
-          </Text>
-          <ProblemEditor problems={problems} onChange={setProblems} />
         </Section>
 
         <Section title="Course Texts (optional)">
@@ -469,12 +347,11 @@ export function CreateAssignmentScreen({ route, navigation }: { route: any; navi
         )}
 
         <Button
-          onPress={handleCreate}
-          loading={creating}
-          disabled={creating}
+          onPress={handleQuickCreate}
+          disabled={!quickTitle.trim() || !quickDueDate.trim() || !quickFile || converting}
+          loading={converting}
           fullWidth
           style={styles.submitButton}
-          accessibilityLabel="Create assignment"
         >
           Create Assignment
         </Button>
@@ -487,21 +364,6 @@ const styles = StyleSheet.create({
   content: { paddingVertical: spacing.lg },
   titleRow: { flexDirection: "row", alignItems: "center", gap: spacing.xs, marginBottom: spacing.lg },
   title: { ...typography.h1, color: palette.textPrimary },
-  divider: {
-    flexDirection: "row",
-    alignItems: "center",
-    marginVertical: spacing.lg,
-  },
-  dividerLine: {
-    flex: 1,
-    height: 1,
-    backgroundColor: palette.border,
-  },
-  dividerText: {
-    ...typography.caption,
-    color: palette.textMuted,
-    paddingHorizontal: spacing.md,
-  },
   fileCard: { marginBottom: spacing.md },
   filePickerText: { ...typography.body, color: palette.textMuted },
   hint: { ...typography.caption, color: palette.textMuted, marginBottom: spacing.sm },

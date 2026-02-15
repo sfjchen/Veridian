@@ -18,6 +18,7 @@ import type {
   AssignmentTrend,
   SeverityDistribution,
 } from "../../types";
+import { SEVERITY_ORDER, SEVERITY_COLORS } from "../../constants/severity";
 
 type SubTab = "overview" | "faq" | "mistakes" | "trends";
 const SUB_TABS: { key: SubTab; label: string }[] = [
@@ -47,11 +48,6 @@ const TAG_TO_SEVERITY: Record<string, string> = {
   "algebra-error": "mechanical", "lost-term": "mechanical",
   "ambiguous-notation": "notational", "missing-quantifier": "notational",
   "inconsistent-variables": "notational",
-};
-
-const SEVERITY_ORDER = ["conceptual", "procedural", "mechanical", "notational"];
-const SEVERITY_COLORS: Record<string, string> = {
-  conceptual: "#EF4444", procedural: "#F59E0B", mechanical: "#3B82F6", notational: "#8B5CF6",
 };
 
 function cellColor(count: number, maxCount: number): string {

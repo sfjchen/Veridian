@@ -98,7 +98,7 @@ def _persist_error(client: Any, ctx: AssignmentContext, p: ErrorLogPayload) -> T
     rec = ErrorLogRecord(p.error_message, p.assignment_part, p.topic, cat, fp, p.metadata, p.occurred_at)
     try:
         row = insert_error_log(client, ctx, g.user_id, rec)
-    except (APIError, ValueError) as exc:
+    except (APIError, ValueError):
         log.exception("Failed to insert error log")
         return _err("Failed to persist error log", 500)
     return jsonify(row), 201
@@ -120,7 +120,7 @@ def get_error_logs(assignment_id: str) -> Tuple[Response, int]:
         return _err(str(exc), 400)
     try:
         logs = list_error_logs(client, q)
-    except APIError as exc:
+    except APIError:
         log.exception("Failed to query error logs")
         return _err("Failed to fetch error logs", 500)
     if g.user_role == "teacher":
@@ -145,7 +145,7 @@ def ingest_progress(assignment_id: str) -> Tuple[Response, int]:
     )
     try:
         row = insert_progress_event(client, ctx, g.user_id, rec)
-    except (APIError, ValueError) as exc:
+    except (APIError, ValueError):
         log.exception("Failed to insert progress")
         return _err("Failed to persist progress event", 500)
     return jsonify(row), 201
@@ -168,7 +168,7 @@ def get_progress(assignment_id: str) -> Tuple[Response, int]:
         return _err(str(exc), 400)
     try:
         pmap = fetch_latest_progress_per_student(client, assignment_id, since)
-    except APIError as exc:
+    except APIError:
         log.exception("Failed to query progress")
         return _err("Failed to fetch progress events", 500)
     recs = list(pmap.values()) if sf is None else ([pmap[sf]] if sf in pmap else [])
@@ -185,7 +185,7 @@ def _progress_resp(
     if request.args.get("include_events", "false").lower() == "true":
         try:
             evts = list_progress_events(client, q)
-        except APIError as exc:
+        except APIError:
             log.exception("Failed to query events")
             return _err("Failed to fetch progress events", 500)
         resp["events"] = evts
@@ -222,7 +222,7 @@ def _do_insights(
         names = list_display_names(client, sids)
         errs = list_error_logs(client, ListQuery(ctx.assignment_id, elim, None, since))
         pmap = fetch_latest_progress_per_student(client, ctx.assignment_id, since)
-    except APIError as exc:
+    except APIError:
         log.exception("Failed to query insights")
         return _err("Failed to fetch insight data", 500)
     roster = {sid: names.get(sid, "") for sid in sids}
@@ -254,7 +254,7 @@ def _do_failure_summary(client: Any, aid: str, sid: str) -> Tuple[Response, int]
         prog = list_progress_events(client, ListQuery(aid, parse_positive_int(request.args.get("progress_limit"), 200, 5000), sid))
     except ValueError as exc:
         return _err(str(exc), 400)
-    except APIError as exc:
+    except APIError:
         log.exception("Failed to query failure summary")
         return _err("Failed to fetch failure summary data", 500)
     names = list_display_names(client, [sid])

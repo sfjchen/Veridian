@@ -8,11 +8,7 @@ import {
 } from "react-native";
 import { api } from "../../lib/api";
 import { StudentMistakeProfile, SeverityDistribution } from "../../types";
-
-const SEVERITY_ORDER = ["conceptual", "procedural", "mechanical", "notational"];
-const SEVERITY_COLORS: Record<string, string> = {
-  conceptual: "#EF4444", procedural: "#F59E0B", mechanical: "#3B82F6", notational: "#8B5CF6",
-};
+import { SEVERITY_ORDER, SEVERITY_COLORS } from "../../constants/severity";
 
 export function StudentMistakeDetailScreen({ route }: { route: any }) {
   const { classroomId, studentId, displayName } = route.params as {

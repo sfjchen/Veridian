@@ -65,7 +65,7 @@ def get_classroom_overview(classroom_id: str) -> Tuple[Response, int]:
         results = fetch_classroom_results(client, classroom_id)
         student_count = get_student_count(client, classroom_id)
         overview = build_classroom_overview(results, student_count)
-    except Exception as exc:
+    except Exception:
         log.exception("Failed to compute overview for %s", classroom_id)
         return _err("Failed to compute overview data", 500)
     return jsonify({"classroom_id": classroom_id, **overview}), 200
@@ -81,7 +81,7 @@ def get_classroom_trends(classroom_id: str) -> Tuple[Response, int]:
     try:
         results = fetch_classroom_results(client, classroom_id)
         trends = build_classroom_trends(client, results)
-    except Exception as exc:
+    except Exception:
         log.exception("Failed to compute trends for %s", classroom_id)
         return _err("Failed to compute trend data", 500)
     return jsonify({"classroom_id": classroom_id, "assignments": trends}), 200
@@ -98,7 +98,7 @@ def get_classroom_faq(classroom_id: str) -> Tuple[Response, int]:
         messages = fetch_classroom_chat_messages(client, classroom_id)
         student_count = get_student_count(client, classroom_id)
         faq = aggregate_faq(messages, student_count)
-    except Exception as exc:
+    except Exception:
         log.exception("Failed to compute FAQ for %s", classroom_id)
         return _err("Failed to compute FAQ data", 500)
     return jsonify({"classroom_id": classroom_id, "student_count": student_count, "topics": faq}), 200
@@ -111,7 +111,7 @@ def get_teacher_faq() -> Tuple[Response, int]:
     try:
         classrooms = client.table("classrooms").select("id").eq("teacher_id", g.user_id).execute()
         cids = [r["id"] for r in (classrooms.data or [])]
-    except Exception as exc:
+    except Exception:
         log.exception("Failed to fetch classrooms for teacher FAQ")
         return _err("Failed to fetch classrooms", 500)
     if not cids:
@@ -123,7 +123,7 @@ def get_teacher_faq() -> Tuple[Response, int]:
             all_messages.extend(fetch_classroom_chat_messages(client, cid))
             total_students += get_student_count(client, cid)
         faq = aggregate_faq(all_messages, total_students)
-    except Exception as exc:
+    except Exception:
         log.exception("Failed to compute teacher FAQ")
         return _err("Failed to compute FAQ data", 500)
     return jsonify({"topics": faq, "total_students": total_students}), 200
@@ -140,7 +140,7 @@ def get_classroom_mistakes(classroom_id: str) -> Tuple[Response, int]:
         results = fetch_classroom_results(client, classroom_id)
         names = _student_names_for_classroom(client, classroom_id)
         heatmap = build_mistake_heatmap(results, names)
-    except Exception as exc:
+    except Exception:
         log.exception("Failed to compute mistake heatmap for %s", classroom_id)
         return _err("Failed to compute mistake data", 500)
     return jsonify(heatmap), 200
@@ -157,7 +157,7 @@ def get_student_mistakes(classroom_id: str, student_id: str) -> Tuple[Response, 
         return check
     try:
         profile = build_student_profile(client, student_id, classroom_id)
-    except Exception as exc:
+    except Exception:
         log.exception("Failed to compute student profile for %s/%s", classroom_id, student_id)
         return _err("Failed to compute student mistake profile", 500)
     return jsonify(profile), 200

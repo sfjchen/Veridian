@@ -57,13 +57,6 @@ MATH_TOPIC_KEYWORDS: dict[str, list[str]] = {
     "number-theory": ["prime", "divisibility", "gcd", "lcm"],
 }
 
-# Single lookup table: keyword (lowercase) -> topic. O(1) per word.
-_KEYWORD_TO_TOPIC: dict[str, str] = {
-    kw.lower(): topic
-    for topic, keywords in MATH_TOPIC_KEYWORDS.items()
-    for kw in keywords
-}
-
 # Multi-word keywords need substring matching — separate them out.
 _MULTIWORD_KEYWORDS: list[tuple[str, str]] = [
     (kw.lower(), topic)

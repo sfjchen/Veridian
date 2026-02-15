@@ -503,7 +503,7 @@ export function TeacherAssignmentScreen({ route, navigation }: { route: any; nav
                       <Text style={styles.problemNum}>#{p.num}</Text>
                       {p.statement_tex ? (
                         <View style={{ flex: 1 }}>
-                          <InlineLatexRenderer latex={`$${p.statement_tex}$`} />
+                          <InlineLatexRenderer latex={p.statement_tex} />
                         </View>
                       ) : (
                         <Text style={styles.problemTex}>(no statement)</Text>
@@ -520,7 +520,7 @@ export function TeacherAssignmentScreen({ route, navigation }: { route: any; nav
                       <Text style={styles.problemNum}>#{s.num}</Text>
                       {s.solution_tex ? (
                         <View style={{ flex: 1 }}>
-                          <InlineLatexRenderer latex={`$${s.solution_tex}$`} />
+                          <InlineLatexRenderer latex={s.solution_tex} />
                         </View>
                       ) : (
                         <Text style={styles.problemTex}>(no solution)</Text>

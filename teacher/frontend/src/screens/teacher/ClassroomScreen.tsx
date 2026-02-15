@@ -7,7 +7,6 @@ import {
   StyleSheet,
   RefreshControl,
   Platform,
-  Alert,
   ScrollView,
 } from "react-native";
 import { spacing } from "../../constants/spacing";
@@ -113,14 +112,13 @@ export function TeacherClassroomScreen({ route, navigation }: { route: any; navi
   };
 
   const handleDeleteClassroom = () => {
-    Alert.alert(
+    alert(
       "Delete Classroom",
       `Are you sure you want to delete "${classroom.name}"? This action cannot be undone.`,
       [
-        { text: "Cancel", style: "cancel" },
+        { text: "Cancel" },
         {
           text: "Delete",
-          style: "destructive",
           onPress: async () => {
             try {
               await api(`/classrooms/${classroom.id}`, { method: "DELETE" });

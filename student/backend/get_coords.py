@@ -34,8 +34,6 @@ from assignment_service import (
     get_resolved_config,
 )
 from auth_middleware import (
-    extract_user_from_auth_response,
-    get_field,
     require_auth,
     require_auth_or_sample,
     require_auth_or_sample_chat,
@@ -452,13 +450,13 @@ def _owner_id_from_auth_header() -> tuple[str | None, bool]:
     if not token:
         raise ValueError("Missing bearer token.")
 
+    from auth_middleware import _decode_token
     try:
-        auth_response = get_supabase_auth_client().auth.get_user(token)
+        payload = _decode_token(token)
     except Exception as exc:
         raise ValueError(f"Invalid bearer token: {exc}") from exc
 
-    user = extract_user_from_auth_response(auth_response)
-    user_id = get_field(user, "id")
+    user_id = payload.get("sub")
     if not user_id:
         raise ValueError("Invalid bearer token.")
     return (str(user_id), True)

@@ -238,12 +238,21 @@ export function TeacherAssignmentScreen({ route, navigation }: { route: any; nav
 
       if (result.canceled) return;
 
-      const file = result.assets[0];
+      const asset = result.assets[0];
+      const fileName = asset.name?.toLowerCase() ?? "";
+      if (!fileName.endsWith(".pdf") && !fileName.endsWith(".tex")) {
+        alert("Error", "Please select a PDF or TEX file");
+        return;
+      }
       setUploadingAnswerKey(true);
 
       const { data: { session } } = await supabase.auth.getSession();
       const formData = new FormData();
-      formData.append("file", file.file as any);
+      if (asset.file) {
+        formData.append("file", asset.file);
+      } else {
+        formData.append("file", { uri: asset.uri, name: asset.name, type: asset.mimeType } as any);
+      }
 
       const response = await fetch(`${API_URL}/assignments/${assignmentId}/convert-answer-key`, {
         method: "POST",

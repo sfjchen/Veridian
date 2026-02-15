@@ -140,7 +140,7 @@ export function CreateAssignmentScreen({ route, navigation }: { route: any; navi
     setQuickTitleModalVisible(false);
 
     const result = await DocumentPicker.getDocumentAsync({
-      type: ["application/pdf", "text/plain"],
+      type: ["application/pdf", "text/*"],
       copyToCacheDirectory: true,
     });
     if (result.canceled) return;

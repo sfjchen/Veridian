@@ -79,6 +79,38 @@
       "severity": "mechanical",
       "explanation": "The student left the expression unsimplified. After identifying the four terms (even if incorrectly), they should combine like terms to reach a final answer. The expression should simplify to x\u00b2 + 8x + 16 (or x\u00b2 + 12x + 24 with their error). This is an incomplete solution.",
       "erroneous_latex": "x^2 + 4x + 8 + 16"
+    },
+    {
+      "student_id": "default",
+      "timestamp": "2026-02-15T15:58:02.146131+00:00",
+      "tag": "sign-error",
+      "severity": "mechanical",
+      "explanation": "The analysis is correct. The student's work $(x + 4)^2 = x^2 + 8x + 16$ is mathematically correct. This is a proper application of the binomial square formula $(a+b)^2 = a^2 + 2ab + b^2$ where $a=x$ and $b=4$, giving $x^2 + 2(x)(4) + 16 = x^2 + 8x + 16$. While the student may not have shown intermediate steps, the final answer is accurate and there are no computational or conceptual errors.",
+      "erroneous_latex": "N/A - no mathematical error present"
+    },
+    {
+      "student_id": "default",
+      "timestamp": "2026-02-15T16:05:59.941276+00:00",
+      "tag": "arithmetic-error",
+      "severity": "mechanical",
+      "explanation": "The constant term should be 4^2 = 16, not 2; the student likely wrote 2 instead of 16 (possibly confusing the exponent with the result of squaring).",
+      "erroneous_latex": "x^{2} + 8x + 2"
+    },
+    {
+      "student_id": "default",
+      "timestamp": "2026-02-15T16:34:19.469016+00:00",
+      "tag": "sign-error",
+      "severity": "mechanical",
+      "explanation": "The student failed to combine like terms. The constant terms 8 + 16 should be simplified to 24, giving x^2 + 4x + 24 (or x^2 + 4x + 24 = 0 if an equation). Leaving uncombined constants is a clear algebraic error regardless of the original problem.",
+      "erroneous_latex": "x^2 + 4x + 8 + 16 = 0"
+    },
+    {
+      "student_id": "default",
+      "timestamp": "2026-02-15T16:39:01.416508+00:00",
+      "tag": "misunderstood-definition",
+      "severity": "conceptual",
+      "explanation": "Squaring means multiplying the expression by itself, i.e. (x+4)(x+4), not multiplying by 2; the correct result is x^2 + 8x + 16.",
+      "erroneous_latex": "(x + 4)^2 &= 2x + 8"
     }
   ],
   "sessions": [
@@ -123,6 +155,48 @@
       "approach_assessment": "viable_with_errors",
       "approach_notes": "The student appears to be expanding via FOIL, listing four terms from (x+4)(x+4), but mishandles the inner product term.",
       "mistake_count": 2
+    },
+    {
+      "student_id": "default",
+      "timestamp": "2026-02-15T15:52:44.449076+00:00",
+      "approach_assessment": "viable_with_errors",
+      "approach_notes": "The student is applying the binomial square formula (a+b)^2 = a^2 + 2ab + b^2, and gets the first two terms correct but errs on the constant term.",
+      "mistake_count": 0
+    },
+    {
+      "student_id": "default",
+      "timestamp": "2026-02-15T15:55:03.603477+00:00",
+      "approach_assessment": "viable_with_errors",
+      "approach_notes": "The student appears to be applying the binomial square formula (a+b)^2 = a^2 + 2ab + b^2 but made an error computing the constant term.",
+      "mistake_count": 0
+    },
+    {
+      "student_id": "default",
+      "timestamp": "2026-02-15T15:58:02.146131+00:00",
+      "approach_assessment": "viable_different",
+      "approach_notes": "The student correctly expanded the binomial square, though they did not show intermediate steps as requested by the problem.",
+      "mistake_count": 1
+    },
+    {
+      "student_id": "default",
+      "timestamp": "2026-02-15T16:05:59.941276+00:00",
+      "approach_assessment": "viable_with_errors",
+      "approach_notes": "The student is applying the binomial square formula (a+b)^2 = a^2 + 2ab + b^2 but made an error in the constant term.",
+      "mistake_count": 1
+    },
+    {
+      "student_id": "default",
+      "timestamp": "2026-02-15T16:34:19.469016+00:00",
+      "approach_assessment": "viable_with_errors",
+      "approach_notes": "The student appears to be attempting FOIL expansion of (x+4)(x+4) but makes errors in combining like terms and incorrectly frames the result as an equation.",
+      "mistake_count": 1
+    },
+    {
+      "student_id": "default",
+      "timestamp": "2026-02-15T16:39:01.416508+00:00",
+      "approach_assessment": "misguided",
+      "approach_notes": "The student treated the exponent 2 as a multiplicative coefficient, computing 2(x+4) instead of (x+4)(x+4).",
+      "mistake_count": 1
     }
   ]
 }

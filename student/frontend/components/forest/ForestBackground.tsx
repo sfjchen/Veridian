@@ -1,6 +1,7 @@
 import React, { useMemo } from "react";
 import { StyleSheet, useWindowDimensions } from "react-native";
 import { LinearGradient } from "expo-linear-gradient";
+import { useAppTheme } from "@/constants/theme";
 import Svg, {
   Defs,
   LinearGradient as SvgLinearGradient,
@@ -219,8 +220,6 @@ function nearTreeCrownPath(tree: Tree, baseY: number): string {
   // Generate Tiers
   for (let i = 0; i < tiers; i++) {
     const t = (i + 1) / tiers; // Progress 0 -> 1
-    const tPrev = i / tiers;
-
     // Non-linear width growth (concave profile looks more like a tall pine)
     const widthFactor = Math.pow(t, 1.2);
 
@@ -266,15 +265,6 @@ function nearTreeCrownPath(tree: Tree, baseY: number): string {
 
   // Combine: Top -> Left Side -> Bottom -> Right Side (Reverse) -> Close
   // Note: We need to reverse the logic for right points to draw upwards
-  const reversedRight: string[] = [];
-  for(let k = tiers - 1; k >= 0; k--) {
-     // Reconstruct the logic to push in correct drawing order (bottom to top)
-     // Or simpler: just reverse the pairs we stored.
-     // But strictly, we stored (Tip, Tuck).
-     // Drawing up, we need (Tuck, Tip) of the previous layer...
-     // actually simpler to just trace the points.
-  }
-
   // Let's just rebuild right side string simply to avoid order confusion
   const rightString: string[] = [];
   // Add bottom trunk connection
@@ -313,12 +303,42 @@ function nearTreeCrownPath(tree: Tree, baseY: number): string {
 /* -- Component ----------------------------- */
 
 export function ForestBackground() {
+  const { mode, palette, semantic } = useAppTheme();
   const { width, height } = useWindowDimensions();
   const scaleRef = Math.min(width, height);
+  const layerColors = useMemo(
+    () => [
+      palette.forestLayer1,
+      palette.forestLayer2,
+      palette.forestLayer3,
+      palette.forestLayer4,
+      palette.forestLayer5,
+      palette.forestLayer6,
+      palette.forestLayer7,
+    ],
+    [
+      palette.forestLayer1,
+      palette.forestLayer2,
+      palette.forestLayer3,
+      palette.forestLayer4,
+      palette.forestLayer5,
+      palette.forestLayer6,
+      palette.forestLayer7,
+    ]
+  );
+  const lightGradientColors = ["#F0F7F0", "#E6F0E8", "#D8E8DA", "#CADCCC", "#BCD4BE"] as const;
+  const darkGradientColors = [palette.sunsetSkyTop, palette.sunsetSkyMid, palette.sunsetSkyGlow] as const;
+  const gradientColors =
+    mode === "dark"
+      ? darkGradientColors
+      : lightGradientColors;
+  const lightGradientLocations = [0, 0.18, 0.42, 0.68, 1] as const;
+  const darkGradientLocations = [0, 0.45, 1] as const;
+  const gradientLocations = mode === "dark" ? darkGradientLocations : lightGradientLocations;
 
   const layerRender = useMemo(
     () =>
-      LAYERS.map((l) => {
+      LAYERS.map((l, index) => {
         const amp = scaleRef * l.ampFrac;
         const treeMinHeight = scaleRef * l.hFrac[0];
         const treeMaxHeight = scaleRef * l.hFrac[1];
@@ -381,12 +401,12 @@ export function ForestBackground() {
               })
             : [];
         return {
-          color: l.color,
+          color: layerColors[index] ?? l.color,
           ridge,
           separateTrees,
         };
       }),
-    [width, height, scaleRef]
+    [width, height, scaleRef, layerColors]
   );
 
   const birds = useMemo(() => {
@@ -404,8 +424,8 @@ export function ForestBackground() {
 
   return (
     <LinearGradient
-      colors={["#F0F7F0", "#E6F0E8", "#D8E8DA", "#CADCCC", "#BCD4BE"]}
-      locations={[0, 0.18, 0.42, 0.68, 1]}
+      colors={gradientColors}
+      locations={gradientLocations}
       style={[StyleSheet.absoluteFill, { zIndex: 0 }]}
       pointerEvents="none"
     >
@@ -420,8 +440,8 @@ export function ForestBackground() {
             ry={height * 0.28}
             gradientUnits="userSpaceOnUse"
           >
-            <Stop offset="0" stopColor="#D8ECBE" stopOpacity="0.55" />
-            <Stop offset="0.45" stopColor="#D0E8C4" stopOpacity="0.22" />
+            <Stop offset="0" stopColor={semantic.forest.skyGlow} stopOpacity={mode === "dark" ? "0.7" : "0.55"} />
+            <Stop offset="0.45" stopColor={semantic.forest.skyGlow} stopOpacity={mode === "dark" ? "0.28" : "0.22"} />
             <Stop offset="1" stopColor="transparent" stopOpacity="0" />
           </SvgRadialGradient>
 
@@ -435,8 +455,8 @@ export function ForestBackground() {
             gradientUnits="objectBoundingBox"
           >
             <Stop offset="0.78" stopColor="transparent" stopOpacity="0" />
-            <Stop offset="0.93" stopColor="#061408" stopOpacity="0.22" />
-            <Stop offset="1" stopColor="#040E06" stopOpacity="0.50" />
+            <Stop offset="0.93" stopColor={mode === "dark" ? "#05050B" : "#061408"} stopOpacity={mode === "dark" ? "0.4" : "0.22"} />
+            <Stop offset="1" stopColor={mode === "dark" ? "#030307" : "#040E06"} stopOpacity={mode === "dark" ? "0.72" : "0.50"} />
           </SvgLinearGradient>
 
         </Defs>
@@ -462,7 +482,7 @@ export function ForestBackground() {
               key={`b${i}`}
               d={b.d}
               fill="none"
-              stroke="#5A7A5A"
+              stroke={mode === "dark" ? "#C79B7A" : "#5A7A5A"}
               strokeWidth={1.2}
               strokeLinecap="round"
               opacity={b.opacity}

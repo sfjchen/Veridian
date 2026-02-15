@@ -1,4 +1,5 @@
 import { useCallback, useRef, useState } from 'react';
+import { Platform } from 'react-native';
 import type { Stroke } from '@/components/InkCanvas';
 import { captureStrokesAsDataUri } from '@/lib/capture-web';
 import { fetchAutocomplete } from '@/lib/api';
@@ -31,6 +32,7 @@ export function useStrokeAutocomplete(opts: AutocompleteOpts) {
   }, []);
 
   const onStrokeComplete = useCallback((strokes: Stroke[], completedStrokeId: string) => {
+    if (Platform.OS !== 'web') return;
     const { problemContext, canvasDims } = optsRef.current;
     if (!canvasDims || strokes.length === 0) return;
 

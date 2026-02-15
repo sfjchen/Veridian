@@ -1,7 +1,6 @@
 import { useEffect, useRef } from "react";
-import { Animated, type DimensionValue, StyleSheet, View, type ViewStyle } from "react-native";
-import { palette, radius } from "@/constants/palette";
-import { spacing } from "@/constants/spacing";
+import { Animated, type DimensionValue, View, type ViewStyle } from "react-native";
+import { useAppTheme } from "@/constants/theme";
 
 interface SkeletonProps {
   width?: number | string;
@@ -10,6 +9,7 @@ interface SkeletonProps {
 }
 
 export function Skeleton({ width, height = 20, style }: SkeletonProps) {
+  const { radius, semantic } = useAppTheme();
   const opacity = useRef(new Animated.Value(0.3)).current;
 
   useEffect(() => {
@@ -26,29 +26,17 @@ export function Skeleton({ width, height = 20, style }: SkeletonProps) {
   const widthVal = (width ?? "100%") as DimensionValue;
   return (
     <Animated.View
-      style={[styles.skeleton, { width: widthVal, height, opacity }, style]}
+      style={[{ width: widthVal, height, opacity, backgroundColor: semantic.border.default, borderRadius: radius.input }, style]}
     />
   );
 }
 
 export function SkeletonCard() {
+  const { radius, spacing, semantic } = useAppTheme();
   return (
-    <View style={styles.card}>
+    <View style={{ backgroundColor: semantic.bg.card, borderRadius: radius.card, padding: spacing.md, marginBottom: spacing.sm }}>
       <Skeleton height={20} style={{ marginBottom: spacing.xs }} />
       <Skeleton height={14} width="60%" />
     </View>
   );
 }
-
-const styles = StyleSheet.create({
-  skeleton: {
-    backgroundColor: palette.border,
-    borderRadius: radius.input,
-  },
-  card: {
-    backgroundColor: palette.card,
-    borderRadius: radius.card,
-    padding: spacing.md,
-    marginBottom: spacing.sm,
-  },
-});

@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useRef, useCallback } from "react";
-import { Animated, FlatList, Modal, StyleSheet, Text, TouchableOpacity, View, ViewStyle } from "react-native";
+import { Animated, FlatList, Modal, Platform, StyleSheet, Text, TouchableOpacity, View, ViewStyle } from "react-native";
 import { useFocusEffect } from "@react-navigation/native";
 import { useClassrooms } from "../../hooks/useClassrooms";
 import { useToast } from "../../contexts/ToastContext";
@@ -15,6 +15,7 @@ import {
   Section,
 } from "../../components/ui";
 import { TreeIcon, LeafAccent } from "../../components/forest";
+import { MotionView } from "../../components/motion/MotionView";
 import { elevation, palette, radius } from "../../constants/palette";
 import { motion } from "../../constants/motion";
 import { spacing } from "../../constants/spacing";
@@ -25,10 +26,14 @@ const STAGGER_DELAY_MS = 60;
 /* ── Animated classroom card with stagger + press feedback ── */
 
 function StaggeredCard({ index, style, children }: { index: number; style?: ViewStyle; children: React.ReactNode }) {
+  const isWeb = Platform.OS === "web";
   const opacity = useRef(new Animated.Value(0)).current;
   const translateY = useRef(new Animated.Value(12)).current;
 
   useEffect(() => {
+    if (isWeb) {
+      return;
+    }
     const delay = index * STAGGER_DELAY_MS;
     Animated.parallel([
       Animated.timing(opacity, {
@@ -44,7 +49,15 @@ function StaggeredCard({ index, style, children }: { index: number; style?: View
         useNativeDriver: true,
       }),
     ]).start();
-  }, [index, opacity, translateY]);
+  }, [index, isWeb, opacity, translateY]);
+
+  if (isWeb) {
+    return (
+      <MotionView preset="fadeInUp" delayMs={index * STAGGER_DELAY_MS} durationMs={motion.normal} style={style}>
+        {children}
+      </MotionView>
+    );
+  }
 
   return (
     <Animated.View style={[style, { opacity, transform: [{ translateY }] }]}>
@@ -243,28 +256,53 @@ export function TeacherDashboardScreen({ navigation }: { navigation: { navigate:
           onPress={closeModal}
         >
           <TouchableOpacity activeOpacity={1} onPress={() => {}}>
-            <Animated.View style={[styles.modalCard, elevation.shadowLg, { transform: [{ scale: modalScale }] }]}>
-              <View style={styles.modalHeader}>
-                <LeafAccent size={18} color={palette.forestLeaf} />
-                <Text style={styles.modalTitle}>New classroom</Text>
-              </View>
-              <Section>
-                <Input
-                  placeholder="Classroom name"
-                  value={newName}
-                  onChangeText={setNewName}
-                  autoFocus
-                />
-                <View style={styles.modalActions}>
-                  <Button variant="secondary" onPress={closeModal} style={styles.modalButton} accessibilityLabel="Cancel">
-                    Cancel
-                  </Button>
-                  <Button onPress={handleCreate} disabled={creating} loading={creating} style={styles.modalButton} accessibilityLabel="Create classroom">
-                    Create
-                  </Button>
+            {Platform.OS === "web" ? (
+              <MotionView preset="softScaleIn" durationMs={motion.normal} style={[styles.modalCard, elevation.shadowLg]}>
+                <View style={styles.modalHeader}>
+                  <LeafAccent size={18} color={palette.forestLeaf} />
+                  <Text style={styles.modalTitle}>New classroom</Text>
                 </View>
-              </Section>
-            </Animated.View>
+                <Section>
+                  <Input
+                    placeholder="Classroom name"
+                    value={newName}
+                    onChangeText={setNewName}
+                    autoFocus
+                  />
+                  <View style={styles.modalActions}>
+                    <Button variant="secondary" onPress={closeModal} style={styles.modalButton} accessibilityLabel="Cancel">
+                      Cancel
+                    </Button>
+                    <Button onPress={handleCreate} disabled={creating} loading={creating} style={styles.modalButton} accessibilityLabel="Create classroom">
+                      Create
+                    </Button>
+                  </View>
+                </Section>
+              </MotionView>
+            ) : (
+              <Animated.View style={[styles.modalCard, elevation.shadowLg, { transform: [{ scale: modalScale }] }]}>
+                <View style={styles.modalHeader}>
+                  <LeafAccent size={18} color={palette.forestLeaf} />
+                  <Text style={styles.modalTitle}>New classroom</Text>
+                </View>
+                <Section>
+                  <Input
+                    placeholder="Classroom name"
+                    value={newName}
+                    onChangeText={setNewName}
+                    autoFocus
+                  />
+                  <View style={styles.modalActions}>
+                    <Button variant="secondary" onPress={closeModal} style={styles.modalButton} accessibilityLabel="Cancel">
+                      Cancel
+                    </Button>
+                    <Button onPress={handleCreate} disabled={creating} loading={creating} style={styles.modalButton} accessibilityLabel="Create classroom">
+                      Create
+                    </Button>
+                  </View>
+                </Section>
+              </Animated.View>
+            )}
           </TouchableOpacity>
         </TouchableOpacity>
       </Modal>
@@ -278,32 +316,61 @@ export function TeacherDashboardScreen({ navigation }: { navigation: { navigate:
       ) : error ? (
         <ErrorState message={error} onRetry={refresh} />
       ) : (
-        <Animated.View style={[styles.listFadeWrap, { opacity: listFade }]}>
-          <FlatList
-            data={classrooms}
-            keyExtractor={(item) => item.id}
-            contentContainerStyle={classrooms.length === 0 ? styles.emptyList : styles.list}
-            renderItem={({ item, index }) => (
-              <StaggeredCard index={index} style={styles.cardWrapper}>
-                <Card
-                  onPress={() => navigation.navigate("Classroom", { classroom: item })}
-                  style={styles.card}
-                >
-                  <CardGradientBorder even={index % 2 === 0} />
-                  <View style={styles.cardContent}>
-                    <View style={styles.cardLeafCorner}>
-                      <LeafAccent size={14} color={index % 2 === 0 ? palette.forestLeaf : palette.forestCanopy} />
+        Platform.OS === "web" ? (
+          <MotionView preset="fadeIn" durationMs={motion.normal} style={styles.listFadeWrap}>
+            <FlatList
+              data={classrooms}
+              keyExtractor={(item) => item.id}
+              contentContainerStyle={classrooms.length === 0 ? styles.emptyList : styles.list}
+              renderItem={({ item, index }) => (
+                <StaggeredCard index={index} style={styles.cardWrapper}>
+                  <Card
+                    onPress={() => navigation.navigate("Classroom", { classroom: item })}
+                    style={styles.card}
+                  >
+                    <CardGradientBorder even={index % 2 === 0} />
+                    <View style={styles.cardContent}>
+                      <View style={styles.cardLeafCorner}>
+                        <LeafAccent size={14} color={index % 2 === 0 ? palette.forestLeaf : palette.forestCanopy} />
+                      </View>
+                      <Text style={styles.cardTitle} numberOfLines={2}>{item.name}</Text>
+                      <Text style={styles.cardLabel}>Class code</Text>
+                      <CopyableBadge text={item.class_code} onCopy={() => showToast("Class code copied")} />
                     </View>
-                    <Text style={styles.cardTitle} numberOfLines={2}>{item.name}</Text>
-                    <Text style={styles.cardLabel}>Class code</Text>
-                    <CopyableBadge text={item.class_code} onCopy={() => showToast("Class code copied")} />
-                  </View>
-                </Card>
-              </StaggeredCard>
-            )}
-            ListEmptyComponent={<ForestEmptyState onAction={openModal} />}
-          />
-        </Animated.View>
+                  </Card>
+                </StaggeredCard>
+              )}
+              ListEmptyComponent={<ForestEmptyState onAction={openModal} />}
+            />
+          </MotionView>
+        ) : (
+          <Animated.View style={[styles.listFadeWrap, { opacity: listFade }]}>
+            <FlatList
+              data={classrooms}
+              keyExtractor={(item) => item.id}
+              contentContainerStyle={classrooms.length === 0 ? styles.emptyList : styles.list}
+              renderItem={({ item, index }) => (
+                <StaggeredCard index={index} style={styles.cardWrapper}>
+                  <Card
+                    onPress={() => navigation.navigate("Classroom", { classroom: item })}
+                    style={styles.card}
+                  >
+                    <CardGradientBorder even={index % 2 === 0} />
+                    <View style={styles.cardContent}>
+                      <View style={styles.cardLeafCorner}>
+                        <LeafAccent size={14} color={index % 2 === 0 ? palette.forestLeaf : palette.forestCanopy} />
+                      </View>
+                      <Text style={styles.cardTitle} numberOfLines={2}>{item.name}</Text>
+                      <Text style={styles.cardLabel}>Class code</Text>
+                      <CopyableBadge text={item.class_code} onCopy={() => showToast("Class code copied")} />
+                    </View>
+                  </Card>
+                </StaggeredCard>
+              )}
+              ListEmptyComponent={<ForestEmptyState onAction={openModal} />}
+            />
+          </Animated.View>
+        )
       )}
     </ScreenContainer>
   );

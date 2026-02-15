@@ -1,38 +1,19 @@
 import type { ReactNode } from "react";
 import {
   ActivityIndicator,
+  Platform,
   Pressable,
   StyleSheet,
   Text,
   type TextStyle,
   type ViewStyle,
 } from "react-native";
-import { palette, radius } from "@/constants/palette";
-import { spacing } from "@/constants/spacing";
-import { typography } from "@/constants/typography";
+import { useAppTheme } from "@/constants/theme";
 
 type Variant = "primary" | "secondary" | "ghost" | "danger";
 type Size = "sm" | "md" | "lg";
 
 const MIN_TOUCH = 44;
-
-const variantStyles: Record<Variant, ViewStyle> = {
-  primary: { backgroundColor: palette.primary },
-  secondary: {
-    backgroundColor: "transparent",
-    borderWidth: 2,
-    borderColor: palette.primary,
-  },
-  ghost: { backgroundColor: "transparent" },
-  danger: { backgroundColor: palette.error },
-};
-
-const textVariantStyles: Record<Variant, TextStyle> = {
-  primary: { color: palette.textOnPrimary },
-  secondary: { color: palette.primary },
-  ghost: { color: palette.primary },
-  danger: { color: palette.textOnPrimary },
-};
 
 interface ButtonProps {
   onPress: () => void;
@@ -57,7 +38,34 @@ export function Button({
   fullWidth,
   accessibilityLabel,
 }: ButtonProps) {
+  const { radius, motion, spacing, typography, semantic } = useAppTheme();
   const isDisabled = disabled || loading;
+  const variantStyles: Record<Variant, ViewStyle> = {
+    primary: { backgroundColor: semantic.action.primary },
+    secondary: {
+      backgroundColor: "transparent",
+      borderWidth: 2,
+      borderColor: semantic.action.primary,
+    },
+    ghost: { backgroundColor: "transparent" },
+    danger: { backgroundColor: semantic.state.error },
+  };
+
+  const textVariantStyles: Record<Variant, TextStyle> = {
+    primary: { color: semantic.text.onPrimary },
+    secondary: { color: semantic.action.primary },
+    ghost: { color: semantic.action.primary },
+    danger: { color: semantic.text.onPrimary },
+  };
+  const webTransition =
+    Platform.OS === "web"
+      ? ({
+          transitionDuration: `${motion.fast}ms`,
+          transitionProperty: "transform, opacity",
+          transitionTimingFunction: "ease-out",
+        } as unknown as ViewStyle)
+      : undefined;
+
   return (
     <Pressable
       onPress={onPress}
@@ -65,12 +73,20 @@ export function Button({
       accessibilityRole="button"
       accessibilityLabel={accessibilityLabel}
       style={({ pressed }) => [
-        styles.base,
+        {
+          alignItems: "center",
+          justifyContent: "center",
+          minHeight: MIN_TOUCH,
+          borderRadius: radius.button,
+          paddingVertical: spacing.sm,
+          paddingHorizontal: spacing.lg,
+        },
         variantStyles[variant],
-        size === "sm" && styles.sizeSm,
-        size === "lg" && styles.sizeLg,
+        size === "sm" && { paddingVertical: spacing.xs, paddingHorizontal: spacing.md, minHeight: 36 },
+        size === "lg" && { paddingVertical: spacing.md, paddingHorizontal: spacing.xl, minHeight: 52 },
         isDisabled && styles.disabled,
         fullWidth && styles.fullWidth,
+        webTransition,
         !isDisabled && pressed && styles.pressed,
         style,
       ]}
@@ -78,14 +94,14 @@ export function Button({
       {loading ? (
         <ActivityIndicator
           size="small"
-          color={variant === "primary" || variant === "danger" ? palette.textOnPrimary : palette.primary}
+          color={variant === "primary" || variant === "danger" ? semantic.text.onPrimary : semantic.action.primary}
         />
       ) : (
         <Text
           style={[
             size === "sm" ? typography.buttonSmall : typography.button,
             textVariantStyles[variant],
-            isDisabled && styles.textDisabled,
+            isDisabled && { color: semantic.text.disabled },
           ]}
         >
           {children}
@@ -96,18 +112,7 @@ export function Button({
 }
 
 const styles = StyleSheet.create({
-  base: {
-    borderRadius: radius.button,
-    paddingVertical: spacing.sm,
-    paddingHorizontal: spacing.lg,
-    alignItems: "center",
-    justifyContent: "center",
-    minHeight: MIN_TOUCH,
-  },
-  sizeSm: { paddingVertical: spacing.xs, paddingHorizontal: spacing.md, minHeight: 36 },
-  sizeLg: { paddingVertical: spacing.md, paddingHorizontal: spacing.xl, minHeight: 52 },
   fullWidth: { width: "100%" },
   disabled: { opacity: 0.6 },
   pressed: { opacity: 0.9, transform: [{ scale: 0.98 }] },
-  textDisabled: { color: palette.textDisabled },
 });

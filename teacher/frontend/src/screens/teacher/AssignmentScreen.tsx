@@ -9,6 +9,7 @@ import {
   ScrollView,
   ActivityIndicator,
   RefreshControl,
+  useWindowDimensions,
 } from "react-native";
 import * as Linking from "expo-linking";
 import * as DocumentPicker from "expo-document-picker";
@@ -54,6 +55,7 @@ type ViewMode = "teacher" | "student";
 
 export function TeacherAssignmentScreen({ route, navigation }: { route: any; navigation: any }) {
   const { assignmentId } = route.params;
+  const { width, height } = useWindowDimensions();
   const mountedRef = useRef(true);
   const [assignment, setAssignment] = useState<AssignmentDetail | null>(null);
   const [loading, setLoading] = useState(true);
@@ -79,6 +81,9 @@ export function TeacherAssignmentScreen({ route, navigation }: { route: any; nav
   const [saving, setSaving] = useState(false);
   const [uploadingAnswerKey, setUploadingAnswerKey] = useState(false);
   const [detectedSolutions, setDetectedSolutions] = useState<Solution[] | null>(null);
+  const [problemsExpanded, setProblemsExpanded] = useState(false);
+  const [solutionsExpanded, setSolutionsExpanded] = useState(false);
+  const [answerKeyExpanded, setAnswerKeyExpanded] = useState(false);
 
   const [reuploadUrls, setReuploadUrls] = useState<{
     assignment_file_upload_url?: string;
@@ -86,6 +91,7 @@ export function TeacherAssignmentScreen({ route, navigation }: { route: any; nav
   } | null>(null);
   const [reuploading, setReuploading] = useState(false);
   const [refreshing, setRefreshing] = useState(false);
+  const isTwoColumnTeacherLayout = width >= 900 && height > 0 && width / height >= 1.25;
   const {
     submissions,
     loading: submissionsLoading,
@@ -103,6 +109,9 @@ export function TeacherAssignmentScreen({ route, navigation }: { route: any; nav
       setEditConfig(data.config ?? {});
       setEditProblems(data.problems ?? []);
       setEditSolutions(data.solutions ?? []);
+      setProblemsExpanded(false);
+      setSolutionsExpanded(false);
+      setAnswerKeyExpanded(false);
       setAssignmentContent(null);
       setIsPdf(false);
       setPdfPreviewUri(null);
@@ -339,8 +348,360 @@ export function TeacherAssignmentScreen({ route, navigation }: { route: any; nav
   if (loading && !refreshing) return <ActivityIndicator size="large" style={{ marginTop: 40 }} color={palette.primary} />;
   if (!assignment) return <Text style={styles.error}>Assignment not found</Text>;
 
+  const teacherEditSection = (
+    <View>
+      <Text style={styles.sectionTitle}>Edit Assignment</Text>
+      <TextInput
+        style={styles.input}
+        placeholder="Assignment title"
+        value={editTitle}
+        onChangeText={setEditTitle}
+        accessibilityLabel="Assignment title"
+      />
+      <DateField
+        value={editDueDate}
+        onChange={setEditDueDate}
+        placeholder="Due date (optional)"
+        accessibilityLabel="Due date"
+      />
+      <Text style={styles.sectionTitle}>Problems</Text>
+      <ProblemEditor problems={editProblems} onChange={setEditProblems} />
+      <Text style={[styles.sectionTitle, { marginTop: 24 }]}>Solutions</Text>
+      <SolutionEditor solutions={editSolutions} onChange={setEditSolutions} />
+      <View style={styles.editActions}>
+        <TouchableOpacity
+          style={[styles.actionButton, styles.saveButton]}
+          onPress={handleSave}
+          disabled={saving}
+          accessibilityRole="button"
+          accessibilityLabel={saving ? "Saving" : "Save changes"}
+        >
+          <Text style={styles.actionButtonText}>{saving ? "Saving..." : "Save"}</Text>
+        </TouchableOpacity>
+        <TouchableOpacity
+          style={[styles.actionButton, styles.cancelButton]}
+          onPress={() => {
+            setEditing(false);
+            setEditTitle(assignment.title);
+            setEditDueDate(assignment.due_date ? assignment.due_date.split("T")[0] : "");
+            setEditConfig(assignment.config ?? {});
+            setEditProblems(assignment.problems ?? []);
+            setEditSolutions(assignment.solutions ?? []);
+          }}
+          accessibilityRole="button"
+          accessibilityLabel="Cancel edit"
+        >
+          <Text style={styles.cancelButtonText}>Cancel</Text>
+        </TouchableOpacity>
+      </View>
+    </View>
+  );
+
+  const teacherOverviewSection = (
+    <View style={styles.teacherOverviewCard}>
+      <View style={styles.headerRow}>
+        <LeafAccent size={22} />
+        <Text style={styles.title}>{assignment.title}</Text>
+        <TouchableOpacity
+          style={styles.editChip}
+          onPress={() => setEditing(true)}
+          accessibilityRole="button"
+          accessibilityLabel="Edit assignment"
+        >
+          <Text style={styles.editChipText}>Edit</Text>
+        </TouchableOpacity>
+      </View>
+      {assignment.due_date && (
+        <Text style={styles.due}>
+          Due: {new Date(assignment.due_date).toLocaleDateString("en-US", {
+            year: "numeric", month: "short", day: "numeric", timeZone: "UTC",
+          })}
+        </Text>
+      )}
+      {(assignment.problems?.length ?? 0) > 0 && (
+        <View style={styles.problemsSummary}>
+          <TouchableOpacity
+            style={[styles.collapsibleHeader, problemsExpanded && styles.collapsibleHeaderExpanded]}
+            onPress={() => setProblemsExpanded(prev => !prev)}
+            accessibilityRole="button"
+            accessibilityLabel="Toggle problems section"
+            accessibilityState={{ expanded: problemsExpanded }}
+          >
+            <Text style={styles.collapsibleTitle}>Problems ({assignment.problems.length})</Text>
+            <Text style={styles.collapsibleIcon}>{problemsExpanded ? "−" : "+"}</Text>
+          </TouchableOpacity>
+          {problemsExpanded && assignment.problems.map((p) => (
+            <View key={p.num} style={styles.problemRow}>
+              <Text style={styles.problemNum}>#{p.num}</Text>
+              {p.statement_tex ? (
+                <View style={{ flex: 1 }}>
+                  <InlineLatexRenderer latex={p.statement_tex} />
+                </View>
+              ) : (
+                <Text style={styles.problemTex}>(no statement)</Text>
+              )}
+            </View>
+          ))}
+        </View>
+      )}
+      {(assignment.solutions?.length ?? 0) > 0 && (
+        <View style={styles.problemsSummary}>
+          <TouchableOpacity
+            style={[styles.collapsibleHeader, solutionsExpanded && styles.collapsibleHeaderExpanded]}
+            onPress={() => setSolutionsExpanded(prev => !prev)}
+            accessibilityRole="button"
+            accessibilityLabel="Toggle solutions section"
+            accessibilityState={{ expanded: solutionsExpanded }}
+          >
+            <Text style={styles.collapsibleTitle}>Solutions ({assignment.solutions.length})</Text>
+            <Text style={styles.collapsibleIcon}>{solutionsExpanded ? "−" : "+"}</Text>
+          </TouchableOpacity>
+          {solutionsExpanded && assignment.solutions.map((s) => (
+            <View key={s.num} style={styles.problemRow}>
+              <Text style={styles.problemNum}>#{s.num}</Text>
+              {s.solution_tex ? (
+                <View style={{ flex: 1 }}>
+                  <InlineLatexRenderer latex={s.solution_tex} />
+                </View>
+              ) : (
+                <Text style={styles.problemTex}>(no solution)</Text>
+              )}
+            </View>
+          ))}
+        </View>
+      )}
+      <View style={{ marginTop: 16 }}>
+        <TouchableOpacity
+          style={[styles.collapsibleHeader, answerKeyExpanded && styles.collapsibleHeaderExpanded]}
+          onPress={() => setAnswerKeyExpanded(prev => !prev)}
+          accessibilityRole="button"
+          accessibilityLabel="Toggle answer key section"
+          accessibilityState={{ expanded: answerKeyExpanded }}
+        >
+          <Text style={styles.collapsibleTitle}>Answer Key</Text>
+          <Text style={styles.collapsibleIcon}>{answerKeyExpanded ? "−" : "+"}</Text>
+        </TouchableOpacity>
+      </View>
+      {answerKeyExpanded && !detectedSolutions && !(assignment.solutions?.length) && (
+        <View style={{ marginTop: 16 }}>
+          <Button
+            onPress={handleAnswerKeyUpload}
+            loading={uploadingAnswerKey}
+            disabled={uploadingAnswerKey}
+          >
+            Upload Answer Key (PDF/TEX)
+          </Button>
+          {uploadingAnswerKey && (
+            <Text style={styles.convertHint}>
+              Converting answer key... This may take up to a minute.
+            </Text>
+          )}
+        </View>
+      )}
+      {answerKeyExpanded && !detectedSolutions && (assignment.solutions?.length ?? 0) > 0 && (
+        <Text style={styles.noFile}>
+          Answer key already converted. Expand Solutions to view all detected answers.
+        </Text>
+      )}
+      {answerKeyExpanded && detectedSolutions && (
+        <DetectedSolutionsPreview
+          solutions={detectedSolutions}
+          onReview={() => {
+            setEditSolutions(detectedSolutions);
+            setDetectedSolutions(null);
+            setEditing(true);
+          }}
+          onSave={handleSaveSolutions}
+          isSaving={saving}
+        />
+      )}
+      <View style={styles.configSummary}>
+        <Text style={styles.sectionTitle}>Config</Text>
+        {Object.entries(assignment.config ?? {}).length === 0 ? (
+          <Text style={styles.noFile}>No assignment-specific overrides</Text>
+        ) : (
+          Object.entries(assignment.config ?? {}).map(([key, value]) => (
+            <View key={key} style={styles.configRow}>
+              <Text style={styles.configKey}>{key}</Text>
+              <Text style={styles.configValue}>{String(value)}</Text>
+            </View>
+          ))
+        )}
+      </View>
+      <TouchableOpacity
+        style={styles.deleteButton}
+        onPress={handleDeleteAssignment}
+        accessibilityRole="button"
+        accessibilityLabel="Delete assignment"
+      >
+        <Text style={styles.deleteButtonText}>Delete Assignment</Text>
+      </TouchableOpacity>
+    </View>
+  );
+
+  const teacherRightSection = (
+    <>
+      <Text style={[styles.sectionTitle, editing ? styles.sectionTitleWithTop : styles.sectionTitleNoTop]}>Files</Text>
+      <View style={styles.fileCard}>
+        <Text style={styles.fileLabel}>Assignment File</Text>
+        {assignment.assignment_file_download_url ? (
+          <TouchableOpacity
+            style={styles.downloadButton}
+            onPress={() => handleOpenFile(assignment.assignment_file_download_url!)}
+          >
+            <Text style={styles.downloadButtonText}>View / Download</Text>
+          </TouchableOpacity>
+        ) : (
+          <Text style={styles.noFile}>Not uploaded</Text>
+        )}
+      </View>
+
+      <View style={styles.fileCard}>
+        <Text style={styles.fileLabel}>Answer Key</Text>
+        {assignment.answer_key_download_url ? (
+          <TouchableOpacity
+            style={styles.downloadButton}
+            onPress={() => handleOpenFile(assignment.answer_key_download_url!)}
+          >
+            <Text style={styles.downloadButtonText}>View / Download</Text>
+          </TouchableOpacity>
+        ) : (
+          <Text style={styles.noFile}>Not uploaded</Text>
+        )}
+      </View>
+
+      {!reuploadUrls ? (
+        <Button variant="secondary" onPress={handleReupload} disabled={reuploading} loading={reuploading} style={styles.reuploadButton}>
+          Re-upload Files
+        </Button>
+      ) : (
+        <View style={styles.reuploadSection}>
+          {reuploadUrls.assignment_file_upload_url && (
+            <>
+              <Text style={styles.sectionTitle}>Replace Assignment File</Text>
+              <FileUploader
+                uploadUrl={reuploadUrls.assignment_file_upload_url}
+                label="Select New Assignment File"
+                onUploadComplete={() => {
+                  alert("Success", "Assignment file replaced");
+                  setReuploadUrls(null);
+                  setLoading(true);
+                  fetchAssignment();
+                }}
+              />
+            </>
+          )}
+          {reuploadUrls.answer_key_upload_url && (
+            <>
+              <Text style={styles.sectionTitle}>Replace Answer Key</Text>
+              <FileUploader
+                uploadUrl={reuploadUrls.answer_key_upload_url}
+                label="Select New Answer Key"
+                onUploadComplete={() => {
+                  alert("Success", "Answer key replaced");
+                  setReuploadUrls(null);
+                  setLoading(true);
+                  fetchAssignment();
+                }}
+              />
+            </>
+          )}
+          <Button variant="secondary" onPress={() => setReuploadUrls(null)} style={styles.cancelReupload}>
+            Cancel Re-upload
+          </Button>
+        </View>
+      )}
+
+      {isPdf && (
+        <Card style={styles.convertSection}>
+          <Text style={styles.sectionTitle}>PDF Detected</Text>
+          {pdfPreviewUri && (
+            <Image source={{ uri: pdfPreviewUri }} style={styles.pdfPreview} resizeMode="contain" />
+          )}
+          <Text style={styles.convertHint}>
+            Convert the uploaded PDF to LaTeX for in-app math rendering.
+          </Text>
+          <Button onPress={handleConvertPdf} disabled={converting} loading={converting}>
+            Convert PDF to LaTeX
+          </Button>
+        </Card>
+      )}
+
+      <Section title="Student Submissions">
+        {submissionsLoading ? (
+          <ActivityIndicator color={palette.primary} />
+        ) : submissionsError ? (
+          <Text style={styles.errorText}>{submissionsError}</Text>
+        ) : submissions.length === 0 ? (
+          <Text style={styles.noContent}>No submissions yet</Text>
+        ) : (
+          submissions.map((submission: Submission) => (
+            <Card key={submission.id} style={styles.submissionCard}>
+              <View style={styles.listItemContent}>
+                <Text style={styles.itemTitle}>
+                  {submission.student_display_name ?? `Student ${submission.student_id.slice(0, 8)}`}
+                </Text>
+                <Text style={styles.itemSub}>
+                  Submitted {new Date(submission.submitted_at).toLocaleString("en-US", {
+                    year: "numeric",
+                    month: "short",
+                    day: "numeric",
+                    hour: "numeric",
+                    minute: "2-digit",
+                    timeZone: "UTC",
+                  })}
+                </Text>
+              </View>
+              <View style={styles.submissionActions}>
+                <Button
+                  size="sm"
+                  variant="secondary"
+                  onPress={() => navigation.navigate("StudentWorkReview", {
+                    assignmentId,
+                    studentId: submission.student_id,
+                    studentDisplayName: submission.student_display_name ?? `Student ${submission.student_id.slice(0, 8)}`
+                  })}
+                >
+                  Review
+                </Button>
+                {submission.download_url ? (
+                  <Button size="sm" onPress={() => handleOpenFile(submission.download_url!)}>
+                    Open
+                  </Button>
+                ) : (
+                  <Text style={styles.noFile}>Unavailable</Text>
+                )}
+              </View>
+            </Card>
+          ))
+        )}
+      </Section>
+
+      {assignmentContent && (
+        <View style={styles.contentPreview}>
+          <Text style={styles.sectionTitle}>Assignment Preview (LaTeX)</Text>
+          <LatexRenderer latex={assignmentContent} />
+        </View>
+      )}
+      {imagePreviewUrl && (
+        <View style={styles.contentPreview}>
+          <Text style={styles.sectionTitle}>Assignment Preview (Image)</Text>
+          <Image source={{ uri: imagePreviewUrl }} style={styles.assignmentImage} resizeMode="contain" />
+        </View>
+      )}
+      {binaryDownloadUrl && (
+        <Card style={styles.binaryNotice}>
+          <Text style={styles.binaryNoticeText}>This file type cannot be previewed in-app.</Text>
+          <Button size="sm" onPress={() => handleOpenFile(binaryDownloadUrl)}>Download File</Button>
+        </Card>
+      )}
+    </>
+  );
+
   return (
-    <ScreenContainer maxWidth="dashboard">
+    <ScreenContainer maxWidth="full">
+      <View style={styles.screenRoot}>
+      <View pointerEvents="none" style={styles.readabilityOverlay} />
       <ScrollView
         contentContainerStyle={styles.scroll}
         showsVerticalScrollIndicator={false}
@@ -348,7 +709,7 @@ export function TeacherAssignmentScreen({ route, navigation }: { route: any; nav
           <RefreshControl refreshing={refreshing} onRefresh={onRefresh} colors={[palette.primary]} />
         }
       >
-        <View style={{ flex: 1 }}>
+          <View style={styles.contentConstrained}>
           <View style={styles.modeToggle}>
             <TouchableOpacity
           style={[styles.modeButton, viewMode === "teacher" && styles.modeButtonActive]}
@@ -426,334 +787,52 @@ export function TeacherAssignmentScreen({ route, navigation }: { route: any; nav
       ) : (
         <>
         {/* Teacher View */}
-        <View>
-          {editing ? (
-            <View>
-              <Text style={styles.sectionTitle}>Edit Assignment</Text>
-              <TextInput
-                style={styles.input}
-                placeholder="Assignment title"
-                value={editTitle}
-                onChangeText={setEditTitle}
-                accessibilityLabel="Assignment title"
-              />
-              <DateField
-                value={editDueDate}
-                onChange={setEditDueDate}
-                placeholder="Due date (optional)"
-                accessibilityLabel="Due date"
-              />
-              <Text style={styles.sectionTitle}>Problems</Text>
-              <ProblemEditor problems={editProblems} onChange={setEditProblems} />
-              <Text style={[styles.sectionTitle, { marginTop: 24 }]}>Solutions</Text>
-              <SolutionEditor solutions={editSolutions} onChange={setEditSolutions} />
-              <View style={styles.editActions}>
-                <TouchableOpacity
-                  style={[styles.actionButton, styles.saveButton]}
-                  onPress={handleSave}
-                  disabled={saving}
-                  accessibilityRole="button"
-                  accessibilityLabel={saving ? "Saving" : "Save changes"}
-                >
-                  <Text style={styles.actionButtonText}>{saving ? "Saving..." : "Save"}</Text>
-                </TouchableOpacity>
-                <TouchableOpacity
-                  style={[styles.actionButton, styles.cancelButton]}
-                  onPress={() => {
-                    setEditing(false);
-                    setEditTitle(assignment.title);
-                    setEditDueDate(assignment.due_date ? assignment.due_date.split("T")[0] : "");
-                    setEditConfig(assignment.config ?? {});
-                    setEditProblems(assignment.problems ?? []);
-                    setEditSolutions(assignment.solutions ?? []);
-                  }}
-                  accessibilityRole="button"
-                  accessibilityLabel="Cancel edit"
-                >
-                  <Text style={styles.cancelButtonText}>Cancel</Text>
-                </TouchableOpacity>
-              </View>
+        {isTwoColumnTeacherLayout && !editing ? (
+          <View style={styles.teacherTwoColumnLayout}>
+            <View style={styles.teacherLeftColumn}>
+              {teacherOverviewSection}
             </View>
-          ) : (
-            <View>
-              <View style={styles.headerRow}>
-                <LeafAccent size={22} />
-                <Text style={styles.title}>{assignment.title}</Text>
-                <TouchableOpacity
-                  style={styles.editChip}
-                  onPress={() => setEditing(true)}
-                  accessibilityRole="button"
-                  accessibilityLabel="Edit assignment"
-                >
-                  <Text style={styles.editChipText}>Edit</Text>
-                </TouchableOpacity>
-              </View>
-              {assignment.due_date && (
-                <Text style={styles.due}>
-                  Due: {new Date(assignment.due_date).toLocaleDateString("en-US", {
-                    year: "numeric", month: "short", day: "numeric", timeZone: "UTC",
-                  })}
-                </Text>
-              )}
-              {(assignment.problems?.length ?? 0) > 0 && (
-                <View style={styles.problemsSummary}>
-                  <Text style={styles.sectionTitle}>Problems ({assignment.problems.length})</Text>
-                  {assignment.problems.map((p) => (
-                    <View key={p.num} style={styles.problemRow}>
-                      <Text style={styles.problemNum}>#{p.num}</Text>
-                      {p.statement_tex ? (
-                        <View style={{ flex: 1 }}>
-                          <InlineLatexRenderer latex={p.statement_tex} />
-                        </View>
-                      ) : (
-                        <Text style={styles.problemTex}>(no statement)</Text>
-                      )}
-                    </View>
-                  ))}
-                </View>
-              )}
-              {(assignment.solutions?.length ?? 0) > 0 && (
-                <View style={styles.problemsSummary}>
-                  <Text style={styles.sectionTitle}>Solutions ({assignment.solutions.length})</Text>
-                  {assignment.solutions.map((s) => (
-                    <View key={s.num} style={styles.problemRow}>
-                      <Text style={styles.problemNum}>#{s.num}</Text>
-                      {s.solution_tex ? (
-                        <View style={{ flex: 1 }}>
-                          <InlineLatexRenderer latex={s.solution_tex} />
-                        </View>
-                      ) : (
-                        <Text style={styles.problemTex}>(no solution)</Text>
-                      )}
-                    </View>
-                  ))}
-                </View>
-              )}
-              {!detectedSolutions && !(assignment.solutions?.length) && (
-                <View style={{ marginTop: 16 }}>
-                  <Text style={styles.sectionTitle}>Answer Key</Text>
-                  <Button
-                    onPress={handleAnswerKeyUpload}
-                    loading={uploadingAnswerKey}
-                    disabled={uploadingAnswerKey}
-                  >
-                    Upload Answer Key (PDF/TEX)
-                  </Button>
-                  {uploadingAnswerKey && (
-                    <Text style={styles.convertHint}>
-                      Converting answer key... This may take up to a minute.
-                    </Text>
-                  )}
-                </View>
-              )}
-              {detectedSolutions && (
-                <DetectedSolutionsPreview
-                  solutions={detectedSolutions}
-                  onReview={() => {
-                    setEditSolutions(detectedSolutions);
-                    setDetectedSolutions(null);
-                    setEditing(true);
-                  }}
-                  onSave={handleSaveSolutions}
-                  isSaving={saving}
-                />
-              )}
-              <View style={styles.configSummary}>
-                <Text style={styles.sectionTitle}>Config</Text>
-                {Object.entries(assignment.config ?? {}).length === 0 ? (
-                  <Text style={styles.noFile}>No assignment-specific overrides</Text>
-                ) : (
-                  Object.entries(assignment.config ?? {}).map(([key, value]) => (
-                    <View key={key} style={styles.configRow}>
-                      <Text style={styles.configKey}>{key}</Text>
-                      <Text style={styles.configValue}>{String(value)}</Text>
-                    </View>
-                  ))
-                )}
-              </View>
-              <TouchableOpacity
-                style={styles.deleteButton}
-                onPress={handleDeleteAssignment}
-                accessibilityRole="button"
-                accessibilityLabel="Delete assignment"
-              >
-                <Text style={styles.deleteButtonText}>Delete Assignment</Text>
-              </TouchableOpacity>
+            <View style={styles.teacherRightColumn}>
+              {teacherRightSection}
             </View>
-          )}
-
-          {/* Files Section */}
-          <Text style={[styles.sectionTitle, { marginTop: 24 }]}>Files</Text>
-
-          <View style={styles.fileCard}>
-            <Text style={styles.fileLabel}>Assignment File</Text>
-            {assignment.assignment_file_download_url ? (
-              <TouchableOpacity
-                style={styles.downloadButton}
-                onPress={() => handleOpenFile(assignment.assignment_file_download_url!)}
-              >
-                <Text style={styles.downloadButtonText}>View / Download</Text>
-              </TouchableOpacity>
-            ) : (
-              <Text style={styles.noFile}>Not uploaded</Text>
-            )}
           </View>
-
-          <View style={styles.fileCard}>
-            <Text style={styles.fileLabel}>Answer Key</Text>
-            {assignment.answer_key_download_url ? (
-              <TouchableOpacity
-                style={styles.downloadButton}
-                onPress={() => handleOpenFile(assignment.answer_key_download_url!)}
-              >
-                <Text style={styles.downloadButtonText}>View / Download</Text>
-              </TouchableOpacity>
-            ) : (
-              <Text style={styles.noFile}>Not uploaded</Text>
-            )}
+        ) : (
+          <View>
+            {editing ? teacherEditSection : teacherOverviewSection}
+            {teacherRightSection}
           </View>
-
-          {/* Re-upload Section */}
-          {!reuploadUrls ? (
-            <Button variant="secondary" onPress={handleReupload} disabled={reuploading} loading={reuploading} style={styles.reuploadButton}>
-              Re-upload Files
-            </Button>
-          ) : (
-            <View style={styles.reuploadSection}>
-              {reuploadUrls.assignment_file_upload_url && (
-                <>
-                  <Text style={styles.sectionTitle}>Replace Assignment File</Text>
-                  <FileUploader
-                    uploadUrl={reuploadUrls.assignment_file_upload_url}
-                    label="Select New Assignment File"
-                    onUploadComplete={() => {
-                      alert("Success", "Assignment file replaced");
-                      setReuploadUrls(null);
-                      setLoading(true);
-                      fetchAssignment();
-                    }}
-                  />
-                </>
-              )}
-              {reuploadUrls.answer_key_upload_url && (
-                <>
-                  <Text style={styles.sectionTitle}>Replace Answer Key</Text>
-                  <FileUploader
-                    uploadUrl={reuploadUrls.answer_key_upload_url}
-                    label="Select New Answer Key"
-                    onUploadComplete={() => {
-                      alert("Success", "Answer key replaced");
-                      setReuploadUrls(null);
-                      setLoading(true);
-                      fetchAssignment();
-                    }}
-                  />
-                </>
-              )}
-              <Button variant="secondary" onPress={() => setReuploadUrls(null)} style={styles.cancelReupload}>
-                Cancel Re-upload
-              </Button>
-            </View>
-          )}
-
-          {isPdf && (
-            <Card style={styles.convertSection}>
-              <Text style={styles.sectionTitle}>PDF Detected</Text>
-              {pdfPreviewUri && (
-                <Image source={{ uri: pdfPreviewUri }} style={styles.pdfPreview} resizeMode="contain" />
-              )}
-              <Text style={styles.convertHint}>
-                Convert the uploaded PDF to LaTeX for in-app math rendering.
-              </Text>
-              <Button onPress={handleConvertPdf} disabled={converting} loading={converting}>
-                Convert PDF to LaTeX
-              </Button>
-            </Card>
-          )}
-
-          <Section title="Student Submissions">
-            {submissionsLoading ? (
-              <ActivityIndicator color={palette.primary} />
-            ) : submissionsError ? (
-              <Text style={styles.errorText}>{submissionsError}</Text>
-            ) : submissions.length === 0 ? (
-              <Text style={styles.noContent}>No submissions yet</Text>
-            ) : (
-              submissions.map((submission: Submission) => (
-                <Card key={submission.id} style={styles.submissionCard}>
-                  <View style={styles.listItemContent}>
-                    <Text style={styles.itemTitle}>
-                      {submission.student_display_name ?? `Student ${submission.student_id.slice(0, 8)}`}
-                    </Text>
-                    <Text style={styles.itemSub}>
-                      Submitted {new Date(submission.submitted_at).toLocaleString("en-US", {
-                        year: "numeric",
-                        month: "short",
-                        day: "numeric",
-                        hour: "numeric",
-                        minute: "2-digit",
-                        timeZone: "UTC",
-                      })}
-                    </Text>
-                  </View>
-                  <View style={styles.submissionActions}>
-                    <Button
-                      size="sm"
-                      variant="secondary"
-                      onPress={() => navigation.navigate("StudentWorkReview", {
-                        assignmentId,
-                        studentId: submission.student_id,
-                        studentDisplayName: submission.student_display_name ?? `Student ${submission.student_id.slice(0, 8)}`
-                      })}
-                    >
-                      Review
-                    </Button>
-                    {submission.download_url ? (
-                      <Button size="sm" onPress={() => handleOpenFile(submission.download_url!)}>
-                        Open
-                      </Button>
-                    ) : (
-                      <Text style={styles.noFile}>Unavailable</Text>
-                    )}
-                  </View>
-                </Card>
-              ))
-            )}
-          </Section>
-
-          {assignmentContent && (
-            <View style={styles.contentPreview}>
-              <Text style={styles.sectionTitle}>Assignment Preview (LaTeX)</Text>
-              <LatexRenderer latex={assignmentContent} />
-            </View>
-          )}
-          {imagePreviewUrl && (
-            <View style={styles.contentPreview}>
-              <Text style={styles.sectionTitle}>Assignment Preview (Image)</Text>
-              <Image source={{ uri: imagePreviewUrl }} style={styles.assignmentImage} resizeMode="contain" />
-            </View>
-          )}
-          {binaryDownloadUrl && (
-            <Card style={styles.binaryNotice}>
-              <Text style={styles.binaryNoticeText}>This file type cannot be previewed in-app.</Text>
-              <Button size="sm" onPress={() => handleOpenFile(binaryDownloadUrl)}>Download File</Button>
-            </Card>
-          )}
-        </View>
+        )}
         </>
       )}
-        </View>
+          </View>
       </ScrollView>
+      </View>
     </ScreenContainer>
   );
 }
 
 const styles = StyleSheet.create({
+  screenRoot: { flex: 1, position: "relative" },
+  readabilityOverlay: {
+    ...StyleSheet.absoluteFillObject,
+    backgroundColor: palette.surface,
+    opacity: 0.56,
+  },
+  contentConstrained: { flex: 1, width: "100%", maxWidth: 960, alignSelf: "center" },
   scroll: { flexGrow: 1, paddingBottom: 24 },
+  teacherTwoColumnLayout: {
+    flexDirection: "row",
+    alignItems: "flex-start",
+    gap: spacing.lg,
+  },
+  teacherLeftColumn: { flex: 1, minWidth: 320 },
+  teacherRightColumn: { flex: 1, minWidth: 320 },
   container: { flex: 1, padding: 16, backgroundColor: "rgba(255,255,255,0.68)" },
   title: { ...typography.h1, flex: 1, color: palette.textPrimary },
   due: { ...typography.bodySmall, color: palette.textMuted, marginTop: 4, marginBottom: 16 },
   sectionTitle: { fontSize: 16, fontWeight: "600", marginBottom: 8, color: palette.textPrimary },
+  sectionTitleWithTop: { marginTop: spacing.xl },
+  sectionTitleNoTop: { marginTop: 0 },
   error: { textAlign: "center", color: palette.error, marginTop: 40 },
   errorText: { textAlign: "center", color: palette.error, marginTop: 8 },
 
@@ -780,6 +859,13 @@ const styles = StyleSheet.create({
   },
 
   headerRow: { flexDirection: "row", alignItems: "center", gap: 12 },
+  teacherOverviewCard: {
+    backgroundColor: "rgba(255,255,255,0.74)",
+    borderRadius: radius.card,
+    borderWidth: 1,
+    borderColor: palette.border,
+    padding: spacing.md,
+  },
   editChip: {
     backgroundColor: palette.tabInactive,
     paddingHorizontal: 12,
@@ -803,6 +889,33 @@ const styles = StyleSheet.create({
   actionButtonText: { color: palette.white, fontSize: 16, fontWeight: "600" },
   cancelButtonText: { color: palette.textSecondary, fontSize: 16, fontWeight: "600" },
   problemsSummary: { marginTop: 12, marginBottom: 12 },
+  collapsibleHeader: {
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "space-between",
+    paddingVertical: spacing.sm,
+    paddingHorizontal: spacing.sm,
+    borderRadius: radius.input,
+    backgroundColor: palette.surfaceElevated,
+    borderWidth: 1,
+    borderColor: palette.border,
+  },
+  collapsibleHeaderExpanded: {
+    borderColor: palette.primary,
+    backgroundColor: palette.primaryMuted,
+  },
+  collapsibleTitle: {
+    ...typography.body,
+    fontWeight: "700",
+    color: palette.textPrimary,
+  },
+  collapsibleIcon: {
+    ...typography.body,
+    fontWeight: "800",
+    color: palette.primary,
+    minWidth: 20,
+    textAlign: "center",
+  },
   problemRow: { flexDirection: "row", gap: 8, marginBottom: 6, alignItems: "flex-start" },
   problemNum: { ...typography.bodySmall, fontWeight: "700", color: palette.textSecondary, minWidth: 32 },
   problemTex: { ...typography.bodySmall, color: palette.textPrimary, flex: 1 },

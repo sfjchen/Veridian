@@ -1,12 +1,21 @@
+import re
 from dataclasses import dataclass
 import os
 from dotenv import load_dotenv
 
+VERCEL_ORIGIN_REGEX = re.compile(r"https://.*\.vercel\.app$")
+VERDIAN_TEACH_ORIGINS = [
+    "https://veridianteach.info",
+    "https://www.veridianteach.info",
+]
 
-def _parse_cors_allowed_origins(raw_value: str | None) -> list[str]:
+
+def _parse_cors_allowed_origins(raw_value: str | None) -> list:
     if raw_value:
-        origins = [item.strip() for item in raw_value.split(",") if item.strip()]
+        origins: list = [item.strip() for item in raw_value.split(",") if item.strip()]
         if origins:
+            origins.extend(VERDIAN_TEACH_ORIGINS)
+            origins.append(VERCEL_ORIGIN_REGEX)
             return origins
     return [
         "http://localhost:3000",
@@ -28,7 +37,7 @@ class Config:
     anthropic_api_key: str
     flask_secret_key: str
     supabase_jwt_secret: str
-    cors_allowed_origins: list[str]
+    cors_allowed_origins: list
 
     @classmethod
     def from_env(cls) -> "Config":

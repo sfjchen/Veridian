@@ -197,17 +197,34 @@ function OverviewPanel({
   }
   if (error) return <ErrorState message={error} onRetry={onRetry} />;
   if (!overview) return <EmptyState title="No data yet" description="Data will appear once students begin working on assignments." />;
+  const stressLevel = overview.total_mistakes > overview.student_count * 5
+    ? "critical"
+    : overview.total_mistakes > overview.student_count * 2
+      ? "watch"
+      : "healthy";
+  const canopyMood = stressLevel === "healthy"
+    ? { label: "Canopy thriving", note: "The grove is steady and growing with confidence.", tone: palette.success, tint: palette.successBg }
+    : stressLevel === "watch"
+      ? { label: "Canopy watch", note: "A few branches need attention and extra sunlight.", tone: palette.warning, tint: palette.warningBg }
+      : { label: "Canopy strained", note: "Heavy friction detected. Prune and support key learners.", tone: palette.error, tint: palette.errorBg };
 
   return (
     <View style={styles.sectionCard}>
       <View style={styles.canopyBand}>
+        <View style={styles.gardenMoodRow}>
+          <View style={[styles.gardenMoodChip, { backgroundColor: canopyMood.tint }]}>
+            <View style={[styles.gardenMoodDot, { backgroundColor: canopyMood.tone }]} />
+            <Text style={[styles.gardenMoodLabel, { color: canopyMood.tone }]}>{canopyMood.label}</Text>
+          </View>
+          <Text style={styles.gardenMoodText}>{canopyMood.note}</Text>
+        </View>
         <View style={styles.canopyGrid}>
           <CompactMetric
-            label="Total mistakes"
+            label="Fallen leaves"
             value={overview.total_mistakes}
           />
           <CompactMetric
-            label="Avg per student"
+            label="Avg per sapling"
             value={overview.avg_mistakes_per_student.toFixed(1)}
           />
         </View>
@@ -241,7 +258,7 @@ function OverviewPanel({
       )}
 
       <View style={styles.embeddedSection}>
-        <Text style={styles.embeddedSectionTitle}>Mistakes</Text>
+        <Text style={styles.embeddedSectionTitle}>Mistake Thicket</Text>
         <MistakesPanel
           heatmap={heatmap}
           loading={heatmapLoading}
@@ -254,7 +271,7 @@ function OverviewPanel({
       </View>
 
       <View style={styles.embeddedSection}>
-        <Text style={styles.embeddedSectionTitle}>Trends</Text>
+        <Text style={styles.embeddedSectionTitle}>Growth Rings</Text>
         <TrendsPanel
           trends={trends}
           loading={trendsLoading}
@@ -550,7 +567,7 @@ const styles = StyleSheet.create({
     alignItems: "center" as const,
     marginBottom: spacing.sm,
   },
-  sectionHeader: { ...typography.bodySmall, color: palette.textSecondary, fontWeight: "600" as const },
+  sectionHeader: { ...typography.bodySmall, color: palette.forestCanopy, fontWeight: "700" as const },
   refreshBtn: { marginLeft: "auto" as const, paddingHorizontal: spacing.sm, paddingVertical: spacing.xs, borderRadius: radius.input, backgroundColor: palette.forestCanopy, minWidth: 70, alignItems: "center" as const },
   refreshBtnDisabled: { opacity: 0.6 },
   refreshBtnText: { color: palette.white, fontWeight: "600" as const, ...typography.bodySmall },
@@ -560,7 +577,7 @@ const styles = StyleSheet.create({
     backgroundColor: palette.card,
     borderRadius: radius.card,
     borderWidth: 1,
-    borderColor: palette.border,
+    borderColor: palette.primaryMuted,
     overflow: "hidden" as const,
   },
   accordionHeader: {
@@ -569,36 +586,53 @@ const styles = StyleSheet.create({
     flexDirection: "row" as const,
     alignItems: "center" as const,
     justifyContent: "space-between" as const,
+    backgroundColor: palette.forestMist,
   },
   accordionTitle: { ...typography.bodySmall, fontWeight: "700" as const, color: palette.textPrimary },
   accordionSummary: { ...typography.caption, color: palette.textMuted, marginTop: 2 },
   accordionChevron: { color: palette.forestCanopy, fontSize: 14, fontWeight: "700" as const },
   sectionBody: { paddingHorizontal: spacing.sm, paddingBottom: spacing.sm },
-  sectionCard: {},
+  sectionCard: { gap: spacing.xs },
   canopyBand: {
     borderRadius: radius.organic,
     borderWidth: 1,
     borderColor: palette.primaryMuted,
     backgroundColor: palette.surfaceElevated,
-    padding: spacing.xs,
+    padding: spacing.sm,
     marginBottom: spacing.xxs,
   },
+  gardenMoodRow: { marginBottom: spacing.xs },
+  gardenMoodChip: {
+    alignSelf: "flex-start" as const,
+    borderRadius: radius.chip,
+    paddingHorizontal: spacing.xs,
+    paddingVertical: spacing.xxs,
+    flexDirection: "row" as const,
+    alignItems: "center" as const,
+    gap: spacing.xxs,
+    marginBottom: spacing.xxs,
+  },
+  gardenMoodDot: { width: 7, height: 7, borderRadius: 7 },
+  gardenMoodLabel: { ...typography.caption, fontWeight: "700" as const },
+  gardenMoodText: { ...typography.caption, color: palette.textSecondary },
   canopyGrid: {
     flexDirection: "row" as const,
-    gap: spacing.xxs,
+    gap: spacing.xs,
     alignItems: "stretch" as const,
   },
   compactMetricCard: {
     flex: 1,
     backgroundColor: palette.surface,
+    borderWidth: 1,
+    borderColor: palette.primaryMuted,
     borderRadius: radius.card,
     minHeight: 54,
     paddingHorizontal: spacing.xs,
     paddingVertical: spacing.xxs,
     justifyContent: "center" as const,
   },
-  compactMetricValue: { ...typography.bodySmall, color: palette.forestCanopy, fontWeight: "700" as const },
-  compactMetricLabel: { ...typography.caption, color: palette.textMuted, marginTop: 2 },
+  compactMetricValue: { ...typography.body, color: palette.forestCanopy, fontWeight: "700" as const },
+  compactMetricLabel: { ...typography.caption, color: palette.textMuted, marginTop: 2, fontWeight: "600" as const },
   centered: { marginTop: spacing.xxl },
   errorText: { ...typography.body, textAlign: "center" as const, color: palette.error, marginTop: spacing.lg },
   emptyText: { ...typography.body, textAlign: "center" as const, color: palette.textDisabled, marginTop: spacing.lg },
@@ -618,7 +652,7 @@ const styles = StyleSheet.create({
     marginTop: spacing.xs,
     paddingTop: spacing.xs,
     borderTopWidth: 1,
-    borderTopColor: palette.border,
+    borderTopColor: palette.primaryMuted,
   },
   embeddedSectionTitle: {
     ...typography.caption,
@@ -655,6 +689,8 @@ const styles = StyleSheet.create({
     minWidth: 200,
     minHeight: 126,
     backgroundColor: palette.surface,
+    borderWidth: 1,
+    borderColor: palette.primaryMuted,
     borderRadius: radius.card,
     padding: spacing.xs,
   },
@@ -663,7 +699,16 @@ const styles = StyleSheet.create({
   compactLabel: { ...typography.bodySmall, color: palette.textSecondary, flex: 1 },
   compactValue: { ...typography.bodySmall, color: palette.forestCanopy, fontWeight: "700" as const },
 
-  trendRow: { minHeight: 126, backgroundColor: palette.card, borderRadius: radius.input, padding: spacing.xs, marginBottom: spacing.xxs, justifyContent: "space-between" as const },
+  trendRow: {
+    minHeight: 126,
+    backgroundColor: palette.card,
+    borderRadius: radius.input,
+    borderWidth: 1,
+    borderColor: palette.primaryMuted,
+    padding: spacing.xs,
+    marginBottom: spacing.xxs,
+    justifyContent: "space-between" as const,
+  },
   trendGrid: { flexDirection: "row" as const, flexWrap: "wrap" as const, gap: spacing.xxs },
   trendCardWrap: { width: "100%" as const },
   trendCardWrapWeb: { width: "49%" as const },

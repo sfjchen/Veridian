@@ -94,7 +94,7 @@ function filterVisibleMistakes(
   maxDotsShown: number,
 ): Mistake[] {
   const minRank = SEVERITY_RANK[dotThreshold];
-  const filtered = mistakes.filter((m) => severityRank(m.severity) >= minRank);
+  const filtered = mistakes.filter((m) => m.dot != null && severityRank(m.severity) >= minRank);
   if (maxDotsShown <= 0 || filtered.length <= maxDotsShown) return filtered;
 
   const prioritized = filtered

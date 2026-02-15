@@ -1,7 +1,10 @@
+import logging
 from typing import Any, Dict, List
 
 from postgrest.exceptions import APIError
 from supabase_service import get_supabase_service_client, unwrap_supabase_data
+
+log = logging.getLogger(__name__)
 
 MEMBERSHIPS_TABLE = "classroom_memberships"
 CLASSROOMS_TABLE = "classrooms"
@@ -59,7 +62,7 @@ def join_classroom_by_code(student_id: str, class_code: str) -> Dict[str, Any]:
     )
     rows = unwrap_supabase_data(result) or []
     if not isinstance(rows, list) or not rows:
-        raise ValueError("Invalid class code")
+        raise ValueError(f"No classroom found with code: {normalized}")
     classroom = rows[0]
     try:
         supabase.table(MEMBERSHIPS_TABLE).insert({
@@ -68,7 +71,8 @@ def join_classroom_by_code(student_id: str, class_code: str) -> Dict[str, Any]:
         }).execute()
     except APIError as exc:
         if exc.code == "23505":
-            raise ValueError("Already joined this classroom") from exc
+            log.info("Duplicate join: student %s → classroom %s", student_id, classroom["id"])
+            raise ValueError("You have already joined this classroom") from exc
         raise
     return classroom
 

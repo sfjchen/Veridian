@@ -197,7 +197,7 @@ function dataUriToBlob(dataUri: string): Blob {
 
 export async function submitAnalysis(
   imageUri: string,
-  opts: { assignmentId?: string; problemNum?: number; isSample?: boolean; token?: string },
+  opts: { assignmentId?: string; problemNum?: number; isSample?: boolean; sampleSlug?: string; token?: string },
 ): Promise<AnalysisResult> {
   const formData = new FormData();
 
@@ -216,6 +216,7 @@ export async function submitAnalysis(
   if (opts.assignmentId) formData.append('assignment_id', opts.assignmentId);
   if (opts.problemNum != null) formData.append('problem_num', String(opts.problemNum));
   if (opts.isSample) formData.append('is_sample', 'true');
+  if (opts.sampleSlug) formData.append('sample_slug', opts.sampleSlug);
 
   const res = await safeFetch(`${BASE_URL}/analyze-solution`, {
     method: 'POST',

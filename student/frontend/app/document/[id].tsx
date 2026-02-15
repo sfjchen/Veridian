@@ -29,10 +29,9 @@ import { useAssignment } from '@/hooks/useAssignment';
 import { useAutoAnalysis } from '@/hooks/useAutoAnalysis';
 import { useAccessToken } from '@/hooks/useAccessToken';
 import { useDocuments, isDefaultDocument } from '@/hooks/useDocuments';
-import { getAuthHeaders, type AnalysisResult, type Mistake } from '@/lib/api';
+import { submitAnalysis, type AnalysisResult, type Mistake } from '@/lib/api';
 import type { CaptureResult } from '@/lib/capture-types';
 import { captureStrokesAsDataUri } from '@/lib/capture-web';
-import { buildAnalysisFormData } from '@/lib/image-upload';
 import { PDF_VIEWER_HTML } from '@/lib/pdf-viewer-html';
 import { SAMPLE_ALGEBRA_HTML } from '@/lib/sample-algebra-html';
 import {
@@ -68,12 +67,6 @@ type CanvasViewProps = {
   onAskAboutMistake?: (mistake: Mistake) => void;
   onCanvasLayout?: (width: number, height: number) => void;
 };
-
-function isNetworkError(err: Error): boolean {
-  if (err.name === 'TypeError' || err.name === 'NetworkError') return true;
-  const msg = err.message.toLowerCase();
-  return msg.includes('fetch') || msg.includes('network') || msg.includes('failed to') || msg.includes('connection');
-}
 
 function showAlert(title: string, message: string) {
   if (Platform.OS === 'web' && typeof window !== 'undefined' && window.alert) {
@@ -479,42 +472,17 @@ export default function DocumentScreen() {
     }
 
     const uri = result.uri;
-    const apiUrl = process.env.EXPO_PUBLIC_BACKEND_URL ?? '';
-    if (!apiUrl) {
-      showAlert('Submit failed', 'Set EXPO_PUBLIC_BACKEND_URL in .env and restart Expo.');
-      return;
-    }
-
-    const extra: Record<string, string> = isDefault
-      ? { is_sample: 'true', sample_slug: 'high-school-algebra-01' }
-      : {};
-    const formData = await buildAnalysisFormData(uri, extra);
     try {
-      const res = await fetch(`${apiUrl.replace(/\/$/, '')}/analyze-solution`, {
-        method: 'POST',
-        headers: getAuthHeaders(token),
-        body: formData,
+      const body = await submitAnalysis(uri, {
+        isSample: isDefault,
+        sampleSlug: isDefault ? 'high-school-algebra-01' : undefined,
+        token,
       });
-      if (!res.ok) {
-        const body = await res.json().catch(() => ({}));
-        showAlert('Analysis failed', body.error ?? `Unable to analyze work (${res.status}).`);
-        return;
-      }
-      const body = await res.json();
       const count = body.mistake_count ?? 0;
       showAlert('Analysis Complete', count === 0 ? 'No mistakes found!' : `Found ${count} mistake${count !== 1 ? 's' : ''}.`);
     } catch (e) {
       const err = e instanceof Error ? e : new Error(String(e));
-      if (isNetworkError(err)) {
-        showAlert(
-          'Submit failed',
-          Platform.OS === 'android'
-            ? 'Cannot reach server. On Android emulator use EXPO_PUBLIC_BACKEND_URL=http://10.0.2.2:8000 in .env'
-            : 'Check that the Flask server is running (python get_coords.py) and .env has EXPO_PUBLIC_BACKEND_URL. Restart Expo after changing .env.',
-        );
-      } else {
-        showAlert('Submit failed', 'Check that the Flask server is running.');
-      }
+      showAlert('Analysis failed', err.message);
     }
   }, [isProblemMode, analysisTrigger, triggerNow, captureScreenshot, isDefault, token]);
 

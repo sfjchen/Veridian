@@ -246,7 +246,7 @@ export default function ClassroomsScreen() {
       {classrooms.length === 0 ? (
         <View style={styles.empty}>
           <MaterialCommunityIcons name="school-outline" size={64} color={palette.borderStrong} />
-          <Text style={styles.emptyTitle}>You don't have any classes</Text>
+          <Text style={styles.emptyTitle}>You do not have any classes</Text>
           <Text style={styles.emptySubtitle}>Join a class with a code from your teacher.</Text>
           <Pressable
             style={({ pressed }) => [styles.joinCtaButton, pressed && { opacity: 0.8 }]}

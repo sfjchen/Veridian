@@ -57,7 +57,7 @@ export function TeacherClassroomScreen({ route, navigation }: { route: any; navi
         method: "PATCH",
         body: { config: configDraft },
       });
-      alert("Success", "Settings saved");
+      showToast("Settings saved");
     } catch (e: any) {
       alert("Error", e instanceof Error ? e.message : "Failed to save settings");
     } finally {
@@ -347,7 +347,7 @@ const styles = StyleSheet.create({
     fontSize: 24,
     color: palette.primary,
   },
-  empty: { textAlign: "center", color: "#9CA3AF", marginTop: 20 },
-  errorText: { textAlign: "center", color: "#EF4444", marginTop: 20 },
-  settingsHint: { fontSize: 13, color: "#6B7280", marginBottom: 16, lineHeight: 18 },
+  empty: { textAlign: "center", color: palette.textDisabled, marginTop: spacing.lg },
+  errorText: { textAlign: "center", color: palette.error, marginTop: spacing.lg },
+  settingsHint: { ...typography.bodySmall, color: palette.textMuted, marginBottom: spacing.md, lineHeight: 18 },
 });

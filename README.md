@@ -86,6 +86,19 @@ cd student/frontend && npx expo start
 
 **Both sides:** Run all four above. Backend required for full flows; frontend alone works for auth/login UI only.
 
+## Demo flow
+
+Use this sequence for a repeatable demo:
+
+1. **Teacher:** Sign in to the teacher app.
+2. **Teacher:** Create a classroom (note or copy the class code).
+3. **Teacher:** Create an assignment (add title; optionally due date and assignment file).
+4. **Teacher:** (Optional) Upload a corpus file for the classroom.
+5. **Student:** Sign in to the student app.
+6. **Student:** Join the class using the class code.
+7. **Student:** Open the assignment and submit a solution.
+8. **Teacher:** (Optional) View submissions for the assignment.
+
 ## Quick Checks
 
 | Test | Command |

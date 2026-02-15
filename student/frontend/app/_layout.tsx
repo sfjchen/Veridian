@@ -6,9 +6,11 @@ import { ActivityIndicator, StyleSheet, View } from 'react-native';
 import { StatusBar } from 'expo-status-bar';
 import 'react-native-reanimated';
 
+import { ErrorBoundary } from '@/components/ErrorBoundary';
 import { palette } from '@/constants/palette';
 import { useColorScheme } from '@/hooks/use-color-scheme';
 import { useAuth } from '@/hooks/useAuth';
+import { BackendHint } from '@/components/BackendHint';
 
 export const unstable_settings = {
   anchor: '(tabs)',
@@ -47,20 +49,23 @@ export default function RootLayout() {
   }
 
   return (
-    <ThemeProvider value={colorScheme === 'dark' ? DarkTheme : DefaultTheme}>
-      <Stack>
-        <Stack.Screen name="(tabs)" options={{ headerShown: false }} />
-        <Stack.Screen
-          name="assignments/[classroomId]"
-          options={{ headerShown: false }}
-        />
-        <Stack.Screen name="WorkspaceScreen" options={{ title: 'Workspace', headerShown: true }} />
-        <Stack.Screen name="note/[id]" options={{ headerShown: false }} />
-        <Stack.Screen name="sign-in" options={{ title: 'Sign in', headerShown: false }} />
-        <Stack.Screen name="sign-up" options={{ headerShown: false }} />
-      </Stack>
-      <StatusBar style="auto" />
-    </ThemeProvider>
+    <ErrorBoundary>
+      <ThemeProvider value={colorScheme === 'dark' ? DarkTheme : DefaultTheme}>
+        <BackendHint />
+        <Stack>
+          <Stack.Screen name="(tabs)" options={{ headerShown: false }} />
+          <Stack.Screen
+            name="assignments/[classroomId]"
+            options={{ headerShown: false }}
+          />
+          <Stack.Screen name="WorkspaceScreen" options={{ title: 'Workspace', headerShown: true }} />
+          <Stack.Screen name="note/[id]" options={{ headerShown: false }} />
+          <Stack.Screen name="sign-in" options={{ title: 'Sign in', headerShown: false }} />
+          <Stack.Screen name="sign-up" options={{ headerShown: false }} />
+        </Stack>
+        <StatusBar style="auto" />
+      </ThemeProvider>
+    </ErrorBoundary>
   );
 }
 

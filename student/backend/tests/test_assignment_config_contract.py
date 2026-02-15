@@ -72,6 +72,19 @@ class AssignmentConfigContractTests(unittest.TestCase):
         self.assertEqual(response.status_code, 400)
         self.assertEqual(response.get_json().get("error"), "Invalid assignment_id format.")
 
+    def test_get_assignment_returns_404_for_missing_assignment(self) -> None:
+        with (
+            patch("auth_middleware.get_supabase_auth_client", return_value=_auth_client()),
+            patch.object(self.get_coords, "get_assignment", return_value=None),
+        ):
+            response = self.client.get(
+                "/assignments/11111111-1111-1111-1111-111111111111",
+                headers={"Authorization": "Bearer token"},
+            )
+
+        self.assertEqual(response.status_code, 404)
+        self.assertEqual(response.get_json().get("error"), "Assignment not found.")
+
     def test_get_assignment_forbids_non_member(self) -> None:
         with (
             patch("auth_middleware.get_supabase_auth_client", return_value=_auth_client()),
@@ -158,6 +171,19 @@ class AssignmentConfigContractTests(unittest.TestCase):
         self.assertEqual(response.status_code, 403)
         self.assertEqual(response.get_json().get("error"), "Access denied")
 
+    def test_get_assignment_problems_returns_404_for_missing_assignment(self) -> None:
+        with (
+            patch("auth_middleware.get_supabase_auth_client", return_value=_auth_client()),
+            patch.object(self.get_coords, "get_assignment", return_value=None),
+        ):
+            response = self.client.get(
+                "/assignments/11111111-1111-1111-1111-111111111111/problems",
+                headers={"Authorization": "Bearer token"},
+            )
+
+        self.assertEqual(response.status_code, 404)
+        self.assertEqual(response.get_json().get("error"), "Assignment not found.")
+
     def test_get_assignment_problems_returns_for_member(self) -> None:
         expected_problems = [{"num": 1, "statement_tex": "x+1=2"}, {"num": 2, "statement_tex": "x+2=4"}]
         with (
@@ -181,6 +207,74 @@ class AssignmentConfigContractTests(unittest.TestCase):
 
         self.assertEqual(response.status_code, 200)
         self.assertEqual(response.get_json().get("problems"), expected_problems)
+
+    def test_results_for_assignment_rejects_invalid_id_format(self) -> None:
+        with patch("auth_middleware.get_supabase_auth_client", return_value=_auth_client()):
+            response = self.client.get(
+                "/results/not-a-uuid",
+                headers={"Authorization": "Bearer token"},
+            )
+
+        self.assertEqual(response.status_code, 400)
+        self.assertEqual(response.get_json().get("error"), "Invalid assignment_id format.")
+
+    def test_result_for_problem_rejects_invalid_id_format(self) -> None:
+        with patch("auth_middleware.get_supabase_auth_client", return_value=_auth_client()):
+            response = self.client.get(
+                "/results/not-a-uuid/1",
+                headers={"Authorization": "Bearer token"},
+            )
+
+        self.assertEqual(response.status_code, 400)
+        self.assertEqual(response.get_json().get("error"), "Invalid assignment_id format.")
+
+    def test_chat_send_rejects_invalid_assignment_id_format(self) -> None:
+        with patch("auth_middleware.get_supabase_auth_client", return_value=_auth_client()):
+            response = self.client.post(
+                "/chat",
+                headers={"Authorization": "Bearer token"},
+                json={"assignment_id": "not-a-uuid", "problem_num": 1, "message": "help"},
+            )
+
+        self.assertEqual(response.status_code, 400)
+        self.assertEqual(response.get_json().get("error"), "Invalid assignment_id format.")
+
+    def test_chat_history_rejects_invalid_assignment_id_format(self) -> None:
+        with patch("auth_middleware.get_supabase_auth_client", return_value=_auth_client()):
+            response = self.client.get(
+                "/chat/not-a-uuid/1",
+                headers={"Authorization": "Bearer token"},
+            )
+
+        self.assertEqual(response.status_code, 400)
+        self.assertEqual(response.get_json().get("error"), "Invalid assignment_id format.")
+
+    def test_chat_send_allows_sample_assignment_id(self) -> None:
+        with (
+            patch("auth_middleware.get_supabase_auth_client", return_value=_auth_client()),
+            patch.object(self.get_coords, "generate_chat_response", return_value="Use inverse operations."),
+        ):
+            response = self.client.post(
+                "/chat",
+                headers={"Authorization": "Bearer token"},
+                json={"assignment_id": "sample-algebra", "problem_num": 1, "message": "help"},
+            )
+
+        self.assertEqual(response.status_code, 200)
+        self.assertEqual(response.get_json().get("assignment_id"), "sample-algebra")
+
+    def test_chat_history_allows_sample_assignment_id(self) -> None:
+        with (
+            patch("auth_middleware.get_supabase_auth_client", return_value=_auth_client()),
+            patch.object(self.get_coords, "get_chat_history", return_value=[]),
+        ):
+            response = self.client.get(
+                "/chat/sample-algebra/1",
+                headers={"Authorization": "Bearer token"},
+            )
+
+        self.assertEqual(response.status_code, 200)
+        self.assertEqual(response.get_json().get("messages"), [])
 
 
 if __name__ == "__main__":

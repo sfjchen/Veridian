@@ -73,7 +73,7 @@ const FIELD_ORDER = [
 
 interface Props {
   config: Partial<AssignmentConfig>;
-  inheritedConfig?: AssignmentConfig;
+  inheritedConfig?: Partial<AssignmentConfig>;
   onChange: (config: Partial<AssignmentConfig>) => void;
   mode: "classroom" | "assignment";
 }

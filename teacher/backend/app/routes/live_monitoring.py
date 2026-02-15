@@ -10,6 +10,8 @@ from postgrest.exceptions import APIError
 from app.middleware.auth import require_auth, require_role
 from app.models.live_models import ErrorLogPayload, ProgressUpdatePayload, ValidationError
 from app.services.insight_engine import (
+    FailureSummaryInput,
+    InsightData,
     InsightSettings,
     build_student_failure_summary,
     build_teacher_insights,
@@ -226,7 +228,8 @@ def _do_insights(
         log.exception("Failed to query insights")
         return _err("Failed to fetch insight data", 500)
     roster = {sid: names.get(sid, "") for sid in sids}
-    return jsonify(build_teacher_insights(ctx.assignment_id, roster, errs, pmap, settings)), 200
+    data = InsightData(error_logs=errs, progress_map=pmap)
+    return jsonify(build_teacher_insights(ctx.assignment_id, roster, data, settings)), 200
 
 
 @live_monitoring_bp.route(
@@ -258,5 +261,6 @@ def _do_failure_summary(client: Any, aid: str, sid: str) -> Tuple[Response, int]
         log.exception("Failed to query failure summary")
         return _err("Failed to fetch failure summary data", 500)
     names = list_display_names(client, [sid])
+    who = FailureSummaryInput(aid, sid, names.get(sid, ""))
     latest = latest_progress_by_student(prog).get(sid)
-    return jsonify(build_student_failure_summary(aid, sid, names.get(sid, ""), errs, latest, settings)), 200
+    return jsonify(build_student_failure_summary(who, errs, latest, settings)), 200

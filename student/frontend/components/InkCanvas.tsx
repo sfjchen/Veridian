@@ -14,7 +14,9 @@ import ViewShot from 'react-native-view-shot';
 
 import { ShortcutHint } from '@/components/ShortcutHint';
 import { DOT_CURSOR } from '@/constants/cursor';
-import { palette, radius } from '@/constants/palette';
+import { palette, radius } from "@/constants/palette";
+import { spacing } from "@/constants/spacing";
+import { typography } from "@/constants/typography";
 
 export type Point = { x: number; y: number };
 
@@ -420,12 +422,12 @@ export function InkCanvas({
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    gap: 8,
+    gap: spacing.xs,
   },
   toolbar: {
-    flexDirection: 'row',
-    gap: 8,
-    alignItems: 'center',
+    flexDirection: "row",
+    gap: spacing.xs,
+    alignItems: "center",
   },
   toolIconButton: {
     backgroundColor: palette.card,
@@ -434,8 +436,8 @@ const styles = StyleSheet.create({
     borderRadius: radius.button,
     borderWidth: 1,
     borderColor: palette.borderStrong,
-    alignItems: 'center',
-    justifyContent: 'center',
+    alignItems: "center",
+    justifyContent: "center",
   },
   toolIconButtonActive: {
     backgroundColor: palette.primary,
@@ -446,19 +448,19 @@ const styles = StyleSheet.create({
   },
   toolbarSpacer: { flex: 1 },
   acceptButton: {
-    backgroundColor: '#16a34a',
+    backgroundColor: palette.primary,
     borderRadius: radius.button,
     paddingVertical: 10,
-    paddingHorizontal: 12,
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 4,
-    marginRight: 8,
+    paddingHorizontal: spacing.sm,
+    flexDirection: "row",
+    alignItems: "center",
+    gap: spacing.xxs,
+    marginRight: spacing.xs,
   },
   acceptButtonText: {
-    color: palette.white,
-    fontSize: 13,
-    fontWeight: '600',
+    ...typography.caption,
+    color: palette.textOnPrimary,
+    fontWeight: "600",
   },
   clearButton: {
     backgroundColor: palette.card,
@@ -466,12 +468,12 @@ const styles = StyleSheet.create({
     borderWidth: 1,
     borderColor: palette.borderStrong,
     paddingVertical: 10,
-    paddingHorizontal: 12,
+    paddingHorizontal: spacing.sm,
   },
   clearButtonText: {
+    ...typography.caption,
     color: palette.primary,
-    fontSize: 13,
-    fontWeight: '600',
+    fontWeight: "600",
   },
   canvasWrap: {
     flex: 1,

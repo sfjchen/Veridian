@@ -10,9 +10,9 @@ type ToastProps = {
 };
 
 function backgroundForTone(tone: ToastTone): string {
-  if (tone === 'success') return '#166534';
-  if (tone === 'error') return '#991b1b';
-  return '#1f2937';
+  if (tone === "success") return palette.success;
+  if (tone === "error") return palette.error;
+  return palette.textPrimary;
 }
 
 export function Toast({ message, tone = 'info' }: ToastProps) {
@@ -31,16 +31,16 @@ const styles = StyleSheet.create({
     paddingHorizontal: 14,
     paddingVertical: 10,
     borderWidth: 1,
-    borderColor: 'rgba(255,255,255,0.18)',
-    shadowColor: '#000',
+    borderColor: "rgba(255,255,255,0.18)",
+    shadowColor: "#000",
     shadowOpacity: 0.2,
     shadowRadius: 8,
     shadowOffset: { width: 0, height: 2 },
     elevation: 4,
   },
   text: {
-    color: palette.white,
+    color: palette.textOnPrimary,
     fontSize: 13,
-    fontWeight: '600',
+    fontWeight: "600",
   },
 });

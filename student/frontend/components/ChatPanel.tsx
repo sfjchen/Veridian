@@ -11,9 +11,10 @@ import {
   View,
 } from 'react-native';
 
-import { palette, radius } from '@/constants/palette';
-import { spacing, typography } from '@/constants/theme';
-import { useChat } from '@/hooks/useChat';
+import { palette, radius } from "@/constants/palette";
+import { spacing } from "@/constants/spacing";
+import { typography } from "@/constants/typography";
+import { useChat } from "@/hooks/useChat";
 import type { ChatMessage } from '@/lib/api';
 
 type ChatPanelProps = {
@@ -132,24 +133,20 @@ type ChatInputBarProps = {
 
 function ChatInputBar({ inputText, onChangeText, onSend, loading }: ChatInputBarProps) {
   const canSend = !!inputText.trim() && !loading;
-  const [focused, setFocused] = useState(false);
 
   return (
     <View style={styles.inputBar}>
       <TextInput
-        style={[styles.textInput, focused && styles.textInputFocused]}
+        style={styles.textInput}
         value={inputText}
         onChangeText={onChangeText}
         placeholder="Type a message..."
-        placeholderTextColor={palette.textMuted}
+        placeholderTextColor={palette.textDisabled}
         multiline
         maxLength={2000}
         editable={!loading}
         onSubmitEditing={onSend}
         blurOnSubmit={false}
-        onFocus={() => setFocused(true)}
-        onBlur={() => setFocused(false)}
-        accessibilityLabel="Chat message input"
       />
       <Pressable
         style={({ pressed }) => [
@@ -219,32 +216,31 @@ export function ChatPanel({ visible, onClose, assignmentId, problemNum, token }:
 
 const styles = StyleSheet.create({
   container: {
-    position: 'absolute',
+    position: "absolute",
     left: 0,
     right: 0,
     bottom: 0,
-    height: '60%',
+    height: "60%",
     backgroundColor: palette.card,
     borderTopLeftRadius: radius.modal,
     borderTopRightRadius: radius.modal,
-    shadowColor: '#000',
+    shadowColor: "#000",
     shadowOpacity: 0.15,
     shadowRadius: 12,
     shadowOffset: { width: 0, height: -4 },
     elevation: 8,
   },
   header: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'space-between',
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "space-between",
     paddingHorizontal: spacing.md,
     paddingVertical: spacing.sm,
     borderBottomWidth: 1,
     borderBottomColor: palette.border,
   },
   headerTitle: {
-    ...typography.body,
-    fontWeight: '700',
+    ...typography.button,
     color: palette.textPrimary,
   },
   closeBtn: {
@@ -252,55 +248,55 @@ const styles = StyleSheet.create({
     height: 32,
     borderRadius: 16,
     backgroundColor: palette.surface,
-    alignItems: 'center',
-    justifyContent: 'center',
+    alignItems: "center",
+    justifyContent: "center",
   },
   closeBtnText: {
     ...typography.bodySmall,
-    fontWeight: '700',
+    fontWeight: "700",
     color: palette.textSecondary,
   },
   quickActions: {
-    flexDirection: 'row',
-    flexWrap: 'wrap',
+    flexDirection: "row",
+    flexWrap: "wrap",
     gap: spacing.xs,
     paddingHorizontal: spacing.md,
-    paddingVertical: spacing.sm,
+    paddingVertical: 10,
     borderBottomWidth: 1,
     borderBottomColor: palette.border,
   },
   quickActionBtn: {
     paddingHorizontal: spacing.sm,
-    paddingVertical: spacing.xs,
+    paddingVertical: 6,
     borderRadius: radius.button,
     borderWidth: 1,
     borderColor: palette.borderStrong,
     backgroundColor: palette.surface,
   },
   quickActionText: {
-    ...typography.bodySmall,
+    ...typography.caption,
     color: palette.textSecondary,
-    fontWeight: '500',
+    fontWeight: "500",
   },
   messageList: {
     flex: 1,
   },
   messageListContent: {
     padding: spacing.md,
-    gap: spacing.sm,
+    gap: 10,
   },
   messageBubble: {
-    maxWidth: '80%',
+    maxWidth: "80%",
     paddingHorizontal: spacing.sm,
-    paddingVertical: spacing.sm,
+    paddingVertical: 10,
     borderRadius: radius.card,
   },
   studentBubble: {
-    alignSelf: 'flex-end',
+    alignSelf: "flex-end",
     backgroundColor: palette.primary,
   },
   assistantBubble: {
-    alignSelf: 'flex-start',
+    alignSelf: "flex-start",
     backgroundColor: palette.surface,
   },
   studentText: {
@@ -313,52 +309,50 @@ const styles = StyleSheet.create({
   },
   errorBar: {
     paddingHorizontal: spacing.md,
-    paddingVertical: spacing.xs,
+    paddingVertical: 6,
     backgroundColor: palette.errorBg,
   },
   errorText: {
-    ...typography.bodySmall,
+    ...typography.caption,
     color: palette.error,
   },
   inputBar: {
-    flexDirection: 'row',
-    alignItems: 'flex-end',
+    flexDirection: "row",
+    alignItems: "flex-end",
     paddingHorizontal: spacing.sm,
-    paddingVertical: spacing.sm,
+    paddingVertical: 10,
     borderTopWidth: 1,
     borderTopColor: palette.border,
     gap: spacing.xs,
   },
   textInput: {
     flex: 1,
-    minHeight: 44,
+    minHeight: 40,
     maxHeight: 100,
     backgroundColor: palette.surface,
     borderRadius: radius.input,
     borderWidth: 1,
     borderColor: palette.border,
     paddingHorizontal: spacing.sm,
-    paddingVertical: spacing.sm,
+    paddingVertical: 10,
     ...typography.bodySmall,
     color: palette.textPrimary,
-  },
-  textInputFocused: {
-    borderColor: palette.primary,
   },
   sendBtn: {
     backgroundColor: palette.primary,
     borderRadius: radius.button,
     paddingHorizontal: spacing.md,
-    paddingVertical: spacing.sm,
-    justifyContent: 'center',
-    alignItems: 'center',
-    minHeight: 44,
+    paddingVertical: 10,
+    justifyContent: "center",
+    alignItems: "center",
+    minHeight: 40,
   },
   sendBtnDisabled: {
     opacity: 0.4,
   },
   sendBtnText: {
-    ...typography.buttonSmall,
+    ...typography.bodySmall,
     color: palette.textOnPrimary,
+    fontWeight: "700",
   },
 });

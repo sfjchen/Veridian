@@ -1,7 +1,9 @@
-import React, { useCallback, useEffect, useState } from "react";
+import { useCallback, useEffect, useState } from "react";
 import { View, Text, TouchableOpacity, StyleSheet } from "react-native";
 import { BACKEND_URL, BACKEND_URL_MISSING } from "@/lib/backendBaseUrl";
 import { palette } from "@/constants/palette";
+import { spacing } from "@/constants/spacing";
+import { typography } from "@/constants/typography";
 
 export function BackendHint(): React.ReactNode {
   const [serverUnreachable, setServerUnreachable] = useState<boolean | null>(null);
@@ -58,23 +60,23 @@ const styles = StyleSheet.create({
     flexDirection: "row",
     alignItems: "center",
     justifyContent: "space-between",
-    backgroundColor: "#fef3c7",
-    paddingVertical: 8,
-    paddingHorizontal: 12,
+    backgroundColor: palette.warningBg,
+    paddingVertical: spacing.xs,
+    paddingHorizontal: spacing.sm,
     borderBottomWidth: 1,
     borderBottomColor: palette.border,
   },
   text: {
     flex: 1,
-    fontSize: 14,
+    ...typography.bodySmall,
     color: palette.textPrimary,
   },
   dismiss: {
-    paddingVertical: 4,
-    paddingHorizontal: 8,
+    paddingVertical: spacing.xxs,
+    paddingHorizontal: spacing.xs,
   },
   dismissText: {
-    fontSize: 14,
+    ...typography.bodySmall,
     fontWeight: "600",
     color: palette.primary,
   },

@@ -34,6 +34,24 @@ Full platform monorepo: teacher side (classrooms, assignments, corpus, submissio
 - **P1**: Submission review screen with AI analysis, bulk operations
 - **P2**: Due date warnings, loading states, error boundaries
 
+### Track A: Teacher UI/UX Overhaul
+
+Teacher UI/UX polish and PLAN.md P1/P2 items. Broken into five PRs; status below. Detail and scope in the plan file (e.g. `.cursor/plans/teacher_and_student_ui_ux_overhaul_*.plan.md`).
+
+| PR   | Title                          | Status   |
+|------|--------------------------------|----------|
+| **A1** | Token audit + ScreenContainer  | Done    |
+| **A2** | Loading and error UX (Skeleton, ErrorBoundary, due dates) | Pending  |
+| **A3** | Screen-by-screen UX polish     | Pending  |
+| **A4** | Submission review + bulk operations | Pending  |
+| **A5** | Navigation and global behavior | Pending  |
+
+- **A1**: Audit screens for hardcoded colors/fonts/spacing; ensure every top-level screen uses ScreenContainer.
+- **A2**: Skeleton/SkeletonCard for list loading; ErrorBoundary at root + fallback UI; due date / "due soon" / "overdue" on assignment cards.
+- **A3**: Auth, Dashboard, Classroom, Corpus, Assignments, Insights, Student experience — focus states, empty/error states, copy, accessibility.
+- **A4**: Submission review screen (Card, Badge, Skeleton, ErrorState); bulk actions with confirmation and toast.
+- **A5**: InvalidRoleScreen tokens + Button; loading uses palette.primary; toasts via ToastContext.
+
 ---
 
 ## Student Side (student/backend/, student/frontend/)

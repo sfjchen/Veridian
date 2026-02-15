@@ -16,6 +16,10 @@ import { LatexRenderer } from "../../components/LatexRenderer";
 import { FileUploader } from "../../components/FileUploader";
 import { AssignmentDetail, Submission } from "../../types";
 import { alert } from "../../lib/alert";
+import { ScreenContainer } from "../../components/ui/ScreenContainer";
+import { palette, radius } from "../../constants/palette";
+import { spacing } from "../../constants/spacing";
+import { typography } from "../../constants/typography";
 
 const MAX_ASSIGNMENT_FILE_LENGTH = 100_000;
 
@@ -126,25 +130,38 @@ export function AssignmentScreen({ route }: { route: any }) {
   };
 
   if (loading && !assignment) {
-    return <ActivityIndicator size="large" style={{ marginTop: 40 }} />;
+    return (
+      <ScreenContainer maxWidth="dashboard">
+        <ActivityIndicator size="large" style={styles.loader} color={palette.primary} />
+      </ScreenContainer>
+    );
   }
   if (loadError && !assignment) {
     return (
-      <View style={styles.errorContainer}>
-        <Text style={styles.error}>{loadError}</Text>
-        <TouchableOpacity style={styles.retryButton} onPress={() => fetchAssignment()}>
-          <Text style={styles.retryButtonText}>Retry</Text>
-        </TouchableOpacity>
-      </View>
+      <ScreenContainer maxWidth="dashboard">
+        <View style={styles.errorContainer}>
+          <Text style={styles.error}>{loadError}</Text>
+          <TouchableOpacity style={styles.retryButton} onPress={() => fetchAssignment()}>
+            <Text style={styles.retryButtonText}>Retry</Text>
+          </TouchableOpacity>
+        </View>
+      </ScreenContainer>
     );
   }
-  if (!assignment) return <Text style={styles.error}>Assignment not found</Text>;
+  if (!assignment) {
+    return (
+      <ScreenContainer maxWidth="dashboard">
+        <Text style={styles.error}>Assignment not found</Text>
+      </ScreenContainer>
+    );
+  }
   const hasCompletedSubmission = submissions.some((submission) => Boolean(submission.download_url));
   const hasIncompleteSubmission = submissions.some((submission) => !submission.download_url);
 
   return (
-    <ScrollView style={styles.container}>
-      <Text style={styles.title}>{assignment.title}</Text>
+    <ScreenContainer maxWidth="dashboard">
+      <ScrollView style={styles.scroll} contentContainerStyle={styles.scrollContent}>
+        <Text style={styles.title}>{assignment.title}</Text>
       {assignment.due_date && (
         <Text style={styles.due}>
           Due: {new Date(assignment.due_date).toLocaleDateString("en-US", {
@@ -259,82 +276,96 @@ export function AssignmentScreen({ route }: { route: any }) {
 }
 
 const styles = StyleSheet.create({
-  container: { flex: 1, padding: 16, backgroundColor: "#fff" },
-  title: { fontSize: 24, fontWeight: "bold" },
-  due: { fontSize: 14, color: "#6B7280", marginTop: 4, marginBottom: 16 },
-  sectionTitle: { fontSize: 16, fontWeight: "600", marginBottom: 8 },
-  assignmentContainer: { flex: 1, marginBottom: 16 },
+  loader: { marginTop: spacing.xxl },
+  scroll: { flex: 1 },
+  scrollContent: { paddingBottom: spacing.xxl },
+  title: { ...typography.h1 },
+  due: { ...typography.bodySmall, color: palette.textMuted, marginTop: spacing.xxs, marginBottom: spacing.md },
+  sectionTitle: { ...typography.body, fontWeight: "600" as const, marginBottom: spacing.xs },
+  assignmentContainer: { flex: 1, marginBottom: spacing.md },
   assignmentImage: {
     width: "100%",
     minHeight: 220,
     height: 320,
-    borderRadius: 8,
-    backgroundColor: "#F3F4F6",
+    borderRadius: radius.input,
+    backgroundColor: palette.surface,
   },
   submitButton: {
-    backgroundColor: "#4F46E5", borderRadius: 8, padding: 16,
-    alignItems: "center", marginTop: 16,
+    backgroundColor: palette.primary,
+    borderRadius: radius.button,
+    padding: spacing.md,
+    alignItems: "center" as const,
+    marginTop: spacing.md,
   },
-  submitButtonText: { color: "#fff", fontSize: 16, fontWeight: "600" },
-  errorContainer: { flex: 1, padding: 24, alignItems: "center", justifyContent: "center" },
-  error: { textAlign: "center", color: "#EF4444", marginTop: 40 },
+  submitButtonText: { ...typography.button, color: palette.white },
+  errorContainer: { flex: 1, padding: spacing.lg, alignItems: "center" as const, justifyContent: "center" as const },
+  error: { ...typography.body, textAlign: "center" as const, color: palette.error, marginTop: spacing.xxl },
   retryButton: {
-    marginTop: 16, backgroundColor: "#4F46E5", borderRadius: 8,
-    paddingVertical: 12, paddingHorizontal: 24,
+    marginTop: spacing.md,
+    backgroundColor: palette.primary,
+    borderRadius: radius.button,
+    paddingVertical: spacing.sm,
+    paddingHorizontal: spacing.lg,
   },
-  retryButtonText: { color: "#fff", fontSize: 16, fontWeight: "600" },
-  errorText: { color: "#EF4444", marginTop: 8 },
+  retryButtonText: { ...typography.button, color: palette.white },
+  errorText: { ...typography.bodySmall, color: palette.error, marginTop: spacing.xs },
   pdfNotice: {
-    backgroundColor: "#FEF3C7", borderRadius: 8, padding: 16, marginBottom: 16,
+    backgroundColor: palette.warningBg,
+    borderRadius: radius.input,
+    padding: spacing.md,
+    marginBottom: spacing.md,
   },
-  pdfNoticeText: { fontSize: 14, color: "#92400E", marginBottom: 8 },
+  pdfNoticeText: { ...typography.bodySmall, color: palette.warning, marginBottom: spacing.xs },
   pdfPreview: {
     width: "100%",
     minHeight: 220,
     height: 300,
-    borderRadius: 8,
-    backgroundColor: "#F3F4F6",
-    marginBottom: 8,
+    borderRadius: radius.input,
+    backgroundColor: palette.surface,
+    marginBottom: spacing.xs,
   },
   binaryNotice: {
-    backgroundColor: "#EFF6FF",
-    borderRadius: 8,
-    padding: 16,
-    marginBottom: 16,
+    backgroundColor: palette.primaryMutedTint,
+    borderRadius: radius.input,
+    padding: spacing.md,
+    marginBottom: spacing.md,
   },
-  binaryNoticeText: { fontSize: 14, color: "#1E3A8A", marginBottom: 8 },
+  binaryNoticeText: { ...typography.bodySmall, color: palette.textSecondary, marginBottom: spacing.xs },
   downloadLink: {
-    backgroundColor: "#4F46E5", borderRadius: 6, paddingVertical: 10,
-    paddingHorizontal: 16, alignSelf: "flex-start",
+    backgroundColor: palette.primary,
+    borderRadius: radius.input,
+    paddingVertical: spacing.sm,
+    paddingHorizontal: spacing.md,
+    alignSelf: "flex-start" as const,
   },
-  downloadLinkText: { color: "#fff", fontSize: 14, fontWeight: "600" },
+  downloadLinkText: { ...typography.bodySmall, color: palette.white, fontWeight: "600" as const },
   alreadySubmitted: {
-    backgroundColor: "#ECFDF5",
-    borderRadius: 8,
-    padding: 14,
-    marginTop: 16,
+    backgroundColor: palette.successBg,
+    borderRadius: radius.input,
+    padding: spacing.sm,
+    marginTop: spacing.md,
   },
-  alreadySubmittedText: { color: "#065F46", fontSize: 14, fontWeight: "500" },
-  historySection: { marginTop: 24, marginBottom: 32 },
-  emptyText: { color: "#9CA3AF", marginTop: 8 },
+  alreadySubmittedText: { ...typography.bodySmall, color: palette.success, fontWeight: "500" as const },
+  historySection: { marginTop: spacing.lg, marginBottom: spacing.xl },
+  emptyText: { ...typography.bodySmall, color: palette.textDisabled, marginTop: spacing.xs },
   submissionCard: {
-    backgroundColor: "#F9FAFB",
-    borderRadius: 8,
-    padding: 12,
-    marginTop: 8,
-    flexDirection: "row",
-    alignItems: "center",
-    justifyContent: "space-between",
+    backgroundColor: palette.surface,
+    borderRadius: radius.input,
+    padding: spacing.sm,
+    marginTop: spacing.xs,
+    flexDirection: "row" as const,
+    alignItems: "center" as const,
+    justifyContent: "space-between" as const,
   },
   submissionMeta: { flex: 1 },
-  submissionDate: { fontSize: 14, color: "#374151" },
+  submissionDate: { ...typography.bodySmall, color: palette.textSecondary },
   historyDownloadButton: {
-    backgroundColor: "#4F46E5",
-    borderRadius: 6,
-    paddingVertical: 8,
-    paddingHorizontal: 12,
-    marginLeft: 12,
+    backgroundColor: palette.primary,
+    borderRadius: radius.input,
+    paddingVertical: spacing.xs,
+    paddingHorizontal: spacing.sm,
+    marginLeft: spacing.sm,
   },
-  historyDownloadText: { color: "#fff", fontSize: 13, fontWeight: "600" },
-  unavailableText: { fontSize: 13, color: "#9CA3AF", marginLeft: 12 },
+  historyDownloadText: { ...typography.bodySmall, color: palette.white, fontWeight: "600" as const },
+  unavailableText: { ...typography.bodySmall, color: palette.textDisabled, marginLeft: spacing.sm },
 });

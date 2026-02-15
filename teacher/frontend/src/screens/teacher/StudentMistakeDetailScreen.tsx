@@ -10,6 +10,10 @@ import { api } from "../../lib/api";
 import { StudentMistakeProfile, SeverityDistribution } from "../../types";
 import { SEVERITY_ORDER, SEVERITY_COLORS } from "../../constants/severity";
 import { TAG_TO_SEVERITY } from "../../constants/tags";
+import { ScreenContainer } from "../../components/ui/ScreenContainer";
+import { palette, radius } from "../../constants/palette";
+import { spacing } from "../../constants/spacing";
+import { typography } from "../../constants/typography";
 
 export function StudentMistakeDetailScreen({ route }: { route: any }) {
   const { classroomId, studentId, displayName } = route.params as {
@@ -40,18 +44,40 @@ export function StudentMistakeDetailScreen({ route }: { route: any }) {
     })();
   }, [classroomId, studentId]);
 
-  if (loading) return <ActivityIndicator style={styles.centered} size="large" />;
-  if (error) return <Text style={styles.errorText}>{error}</Text>;
-  if (!profile) return <Text style={styles.emptyText}>No data available</Text>;
+  if (loading) {
+    return (
+      <ScreenContainer maxWidth="dashboard">
+        <View style={styles.centered}>
+          <ActivityIndicator size="large" color={palette.primary} />
+        </View>
+      </ScreenContainer>
+    );
+  }
+  if (error) {
+    return (
+      <ScreenContainer maxWidth="dashboard">
+        <Text style={styles.errorText}>{error}</Text>
+      </ScreenContainer>
+    );
+  }
+  if (!profile) {
+    return (
+      <ScreenContainer maxWidth="dashboard">
+        <Text style={styles.emptyText}>No data available</Text>
+      </ScreenContainer>
+    );
+  }
 
   return (
-    <ScrollView style={styles.container}>
-      <Text style={styles.title}>{displayName}</Text>
-      <StatsRow profile={profile} />
-      <SeverityBreakdown dist={profile.severity_distribution} />
-      <TopTags tags={profile.top_tags} />
-      <TemporalChart entries={profile.temporal} />
-    </ScrollView>
+    <ScreenContainer maxWidth="dashboard">
+      <ScrollView style={styles.scroll} contentContainerStyle={styles.scrollContent}>
+        <Text style={styles.title}>{displayName}</Text>
+        <StatsRow profile={profile} />
+        <SeverityBreakdown dist={profile.severity_distribution} />
+        <TopTags tags={profile.top_tags} />
+        <TemporalChart entries={profile.temporal} />
+      </ScrollView>
+    </ScreenContainer>
   );
 }
 
@@ -123,7 +149,7 @@ function TopTags({ tags }: { tags: StudentMistakeProfile["top_tags"] }) {
             <View style={styles.tagInfo}>
               <Text style={styles.tagName}>{t.tag}</Text>
               <View style={styles.severityBadge}>
-                <View style={[styles.badgeDot, { backgroundColor: SEVERITY_COLORS[t.severity] ?? "#9CA3AF" }]} />
+                <View style={[styles.badgeDot, { backgroundColor: SEVERITY_COLORS[t.severity] ?? palette.textDisabled }]} />
                 <Text style={styles.tagSeverity}>{t.severity}</Text>
               </View>
             </View>
@@ -178,7 +204,7 @@ function TemporalChart({ entries }: { entries: StudentMistakeProfile["temporal"]
                   const sev = TAG_TO_SEVERITY[tag] ?? "";
                   return (
                     <View key={tag} style={styles.temporalTagChip}>
-                      <View style={[styles.temporalTagDot, { backgroundColor: SEVERITY_COLORS[sev] ?? "#9CA3AF" }]} />
+                      <View style={[styles.temporalTagDot, { backgroundColor: SEVERITY_COLORS[sev] ?? palette.textDisabled }]} />
                       <Text style={styles.temporalTagText}>{tag} ({count})</Text>
                     </View>
                   );
@@ -193,46 +219,52 @@ function TemporalChart({ entries }: { entries: StudentMistakeProfile["temporal"]
 }
 
 const styles = StyleSheet.create({
-  container: { flex: 1, padding: 16, backgroundColor: "#f9fafb" },
-  centered: { flex: 1, justifyContent: "center", alignItems: "center" },
-  title: { fontSize: 22, fontWeight: "bold", color: "#111827", marginBottom: 16 },
-  errorText: { textAlign: "center", color: "#EF4444", marginTop: 40, fontSize: 15 },
-  emptyText: { textAlign: "center", color: "#9CA3AF", marginTop: 12 },
+  scroll: { flex: 1 },
+  scrollContent: { paddingVertical: spacing.md, paddingBottom: spacing.xxl },
+  centered: { flex: 1, justifyContent: "center", alignItems: "center", paddingTop: spacing.xxl },
+  title: { ...typography.h1, color: palette.textPrimary, marginBottom: spacing.md },
+  errorText: { ...typography.body, textAlign: "center" as const, color: palette.error, marginTop: spacing.xxl },
+  emptyText: { ...typography.bodySmall, textAlign: "center" as const, color: palette.textDisabled, marginTop: spacing.sm },
 
-  statsRow: { flexDirection: "row", gap: 10, marginBottom: 20 },
-  statCard: { flex: 1, backgroundColor: "#fff", borderRadius: 10, padding: 14, alignItems: "center" },
-  statValue: { fontSize: 26, fontWeight: "bold", color: "#4F46E5" },
-  statLabel: { fontSize: 12, color: "#6B7280", marginTop: 4, fontWeight: "600" },
+  statsRow: { flexDirection: "row" as const, gap: spacing.sm, marginBottom: spacing.lg },
+  statCard: { flex: 1, backgroundColor: palette.card, borderRadius: radius.card, padding: spacing.sm, alignItems: "center" as const },
+  statValue: { fontSize: 26, fontWeight: "700" as const, color: palette.primary },
+  statLabel: { ...typography.caption, color: palette.textMuted, marginTop: spacing.xxs, fontWeight: "600" as const },
 
-  severitySection: { marginBottom: 16 },
-  sectionTitle: { fontSize: 17, fontWeight: "700", color: "#111827", marginBottom: 10, marginTop: 8 },
-  severityBar: { flexDirection: "row", height: 12, borderRadius: 6, overflow: "hidden", backgroundColor: "#E5E7EB" },
+  severitySection: { marginBottom: spacing.md },
+  sectionTitle: { ...typography.h2, color: palette.textPrimary, marginBottom: spacing.sm, marginTop: spacing.xs },
+  severityBar: { flexDirection: "row" as const, height: 12, borderRadius: radius.input, overflow: "hidden" as const, backgroundColor: palette.border },
   severitySegment: { height: 12 },
-  severityLegend: { flexDirection: "row", flexWrap: "wrap", gap: 12, marginTop: 8 },
-  legendItem: { flexDirection: "row", alignItems: "center", gap: 4 },
+  severityLegend: { flexDirection: "row" as const, flexWrap: "wrap" as const, gap: spacing.sm, marginTop: spacing.xs },
+  legendItem: { flexDirection: "row" as const, alignItems: "center" as const, gap: spacing.xxs },
   legendDot: { width: 10, height: 10, borderRadius: 5 },
-  legendText: { fontSize: 11, color: "#6B7280" },
+  legendText: { ...typography.caption, fontSize: 11, color: palette.textMuted },
 
   tagRow: {
-    flexDirection: "row", justifyContent: "space-between", alignItems: "center",
-    backgroundColor: "#fff", borderRadius: 8, padding: 12, marginBottom: 6,
+    flexDirection: "row" as const,
+    justifyContent: "space-between" as const,
+    alignItems: "center" as const,
+    backgroundColor: palette.card,
+    borderRadius: radius.input,
+    padding: spacing.sm,
+    marginBottom: spacing.xs,
   },
   tagInfo: { flex: 1 },
-  tagName: { fontSize: 14, fontWeight: "600", color: "#374151" },
-  severityBadge: { flexDirection: "row", alignItems: "center", gap: 4, marginTop: 3 },
+  tagName: { ...typography.bodySmall, fontWeight: "600" as const, color: palette.textSecondary },
+  severityBadge: { flexDirection: "row" as const, alignItems: "center" as const, gap: spacing.xxs, marginTop: spacing.xxs },
   badgeDot: { width: 8, height: 8, borderRadius: 4 },
-  tagSeverity: { fontSize: 12, color: "#6B7280" },
-  tagCount: { fontSize: 18, fontWeight: "bold", color: "#4F46E5", marginLeft: 12 },
+  tagSeverity: { ...typography.caption, color: palette.textMuted },
+  tagCount: { fontSize: 18, fontWeight: "700" as const, color: palette.primary, marginLeft: spacing.sm },
 
-  temporalRow: { backgroundColor: "#fff", borderRadius: 8, padding: 12, marginBottom: 8 },
-  temporalHeader: { flexDirection: "row", justifyContent: "space-between", marginBottom: 6 },
-  temporalTitle: { fontSize: 14, fontWeight: "600", color: "#374151", flex: 1 },
-  temporalDate: { fontSize: 12, color: "#9CA3AF", marginLeft: 8 },
-  temporalBarBg: { height: 8, backgroundColor: "#E5E7EB", borderRadius: 4, marginBottom: 6 },
-  temporalBarFill: { height: 8, backgroundColor: "#4F46E5", borderRadius: 4 },
-  temporalCount: { fontSize: 13, color: "#4F46E5", fontWeight: "600" },
-  temporalTagsRow: { flexDirection: "row", flexWrap: "wrap", gap: 6, marginTop: 6 },
-  temporalTagChip: { flexDirection: "row", alignItems: "center", gap: 3, backgroundColor: "#F3F4F6", borderRadius: 4, paddingHorizontal: 6, paddingVertical: 2 },
+  temporalRow: { backgroundColor: palette.card, borderRadius: radius.input, padding: spacing.sm, marginBottom: spacing.xs },
+  temporalHeader: { flexDirection: "row" as const, justifyContent: "space-between" as const, marginBottom: spacing.xs },
+  temporalTitle: { ...typography.bodySmall, fontWeight: "600" as const, color: palette.textSecondary, flex: 1 },
+  temporalDate: { ...typography.caption, color: palette.textDisabled, marginLeft: spacing.xs },
+  temporalBarBg: { height: 8, backgroundColor: palette.border, borderRadius: spacing.xxs, marginBottom: spacing.xs },
+  temporalBarFill: { height: 8, backgroundColor: palette.primary, borderRadius: spacing.xxs },
+  temporalCount: { ...typography.bodySmall, color: palette.primary, fontWeight: "600" as const },
+  temporalTagsRow: { flexDirection: "row" as const, flexWrap: "wrap" as const, gap: spacing.xs, marginTop: spacing.xs },
+  temporalTagChip: { flexDirection: "row" as const, alignItems: "center" as const, gap: 3, backgroundColor: palette.surface, borderRadius: spacing.xxs, paddingHorizontal: spacing.xs, paddingVertical: 2 },
   temporalTagDot: { width: 6, height: 6, borderRadius: 3 },
-  temporalTagText: { fontSize: 11, color: "#6B7280" },
+  temporalTagText: { ...typography.caption, fontSize: 11, color: palette.textMuted },
 });

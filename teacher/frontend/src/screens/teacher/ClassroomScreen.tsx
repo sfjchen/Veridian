@@ -344,7 +344,7 @@ const styles = StyleSheet.create({
   },
   emptyIconText: {
     ...typography.h1,
-    fontSize: 24,
+    fontSize: typography.h1.fontSize,
     color: palette.primary,
   },
   empty: { textAlign: "center", color: palette.textDisabled, marginTop: spacing.lg },

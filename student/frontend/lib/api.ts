@@ -33,6 +33,8 @@ export type Assignment = {
   id: string;
   title: string;
   problems: Problem[];
+  auto_analyze?: boolean;
+  analysis_debounce_seconds?: number;
   reveal_mode?: 'single-tap' | 'progressive';
   resolved_config?: Partial<ResolvedConfig>;
 };

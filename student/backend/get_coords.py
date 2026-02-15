@@ -33,7 +33,7 @@ from assignment_service import (
     get_resolved_config,
 )
 from auth_middleware import require_auth, require_auth_or_sample, require_auth_or_sample_chat
-from classroom_service import list_assignments_for_classroom, list_classrooms_for_student
+from classroom_service import join_classroom_by_code, list_assignments_for_classroom, list_classrooms_for_student
 from chat import generate_chat_response
 from chat_service import SAMPLE_ALGEBRA_ASSIGNMENT_ID, get_chat_history
 from dotenv import load_dotenv
@@ -1489,6 +1489,25 @@ def analyze_solution() -> Any:
 def list_classrooms() -> Any:
     classrooms = list_classrooms_for_student(g.user_id)
     return jsonify(classrooms)
+
+
+@app.post("/classrooms/join")
+@require_auth
+def join_classroom() -> Any:
+    payload = request.get_json(silent=True) or {}
+    class_code = str(payload.get("class_code", "")).strip().upper()
+    if not class_code:
+        return jsonify({"error": "class_code is required."}), 400
+    try:
+        classroom = join_classroom_by_code(g.user_id, class_code)
+    except ValueError as exc:
+        msg = str(exc)
+        if "Invalid class code" in msg:
+            return jsonify({"error": msg}), 404
+        if "Already joined" in msg:
+            return jsonify({"error": msg}), 409
+        return jsonify({"error": msg}), 400
+    return jsonify({"classroom": classroom}), 201
 
 
 @app.get("/classrooms/<classroom_id>/assignments")

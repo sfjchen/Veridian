@@ -149,6 +149,17 @@ export async function fetchChatHistory(
   return body.messages ?? [];
 }
 
+export async function joinClassroom(classCode: string, token?: string): Promise<Classroom> {
+  const res = await fetch(`${BASE_URL}/classrooms/join`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json', ...getAuthHeaders(token) },
+    body: JSON.stringify({ class_code: classCode }),
+  });
+  const body = await res.json();
+  if (!res.ok) throw new Error(body.error ?? `Failed to join classroom (${res.status})`);
+  return body.classroom;
+}
+
 function dataUriToBlob(dataUri: string): Blob {
   const [header, base64] = dataUri.split(',');
   const mime = header.match(/:(.*?);/)?.[1] ?? 'image/png';

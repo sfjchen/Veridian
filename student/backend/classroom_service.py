@@ -1,5 +1,6 @@
 from typing import Any, Dict, List
 
+from postgrest.exceptions import APIError
 from supabase_service import get_supabase_service_client, unwrap_supabase_data
 
 MEMBERSHIPS_TABLE = "classroom_memberships"
@@ -42,6 +43,31 @@ def _is_classroom_member(supabase: Any, classroom_id: str, student_id: str) -> b
     )
     rows = unwrap_supabase_data(response) or []
     return isinstance(rows, list) and len(rows) > 0
+
+
+def join_classroom_by_code(student_id: str, class_code: str) -> Dict[str, Any]:
+    supabase = get_supabase_service_client()
+    result = (
+        supabase.table(CLASSROOMS_TABLE)
+        .select("id, name, class_code")
+        .eq("class_code", class_code)
+        .limit(1)
+        .execute()
+    )
+    rows = unwrap_supabase_data(result) or []
+    if not isinstance(rows, list) or not rows:
+        raise ValueError("Invalid class code")
+    classroom = rows[0]
+    try:
+        supabase.table(MEMBERSHIPS_TABLE).insert({
+            "student_id": student_id,
+            "classroom_id": classroom["id"],
+        }).execute()
+    except APIError as exc:
+        if exc.code == "23505":
+            raise ValueError("Already joined this classroom") from exc
+        raise
+    return classroom
 
 
 def list_assignments_for_classroom(

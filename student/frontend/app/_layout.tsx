@@ -23,6 +23,7 @@ export default function RootLayout() {
         <Stack.Screen name="WorkspaceScreen" options={{ title: 'Workspace', headerShown: true }} />
         <Stack.Screen name="modal" options={{ presentation: 'modal', title: 'Modal' }} />
         <Stack.Screen name="sign-in" options={{ title: 'Sign in', headerShown: false }} />
+        <Stack.Screen name="sign-up" options={{ headerShown: false }} />
       </Stack>
       <StatusBar style="auto" />
     </ThemeProvider>

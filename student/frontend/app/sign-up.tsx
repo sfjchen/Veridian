@@ -14,14 +14,16 @@ import {
 import { palette, radius } from '@/constants/palette';
 import { supabase } from '@/lib/supabase';
 
-export default function SignInScreen() {
+export default function SignUpScreen() {
   const router = useRouter();
+  const [displayName, setDisplayName] = useState('');
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [error, setError] = useState<string | null>(null);
   const [loading, setLoading] = useState(false);
+  const [confirmationSent, setConfirmationSent] = useState(false);
 
-  const handleSignIn = async () => {
+  const handleSignUp = async () => {
     if (!supabase) {
       setError('Supabase not configured. Set EXPO_PUBLIC_SUPABASE_URL and EXPO_PUBLIC_SUPABASE_ANON_KEY in .env');
       return;
@@ -29,22 +31,62 @@ export default function SignInScreen() {
     setError(null);
     setLoading(true);
     try {
-      const { error: err } = await supabase.auth.signInWithPassword({ email: email.trim(), password });
+      const { data, error: err } = await supabase.auth.signUp({
+        email: email.trim(),
+        password,
+        options: { data: { role: 'student', display_name: displayName.trim() } },
+      });
       if (err) throw err;
+      if (!data.session) {
+        setConfirmationSent(true);
+        return;
+      }
       router.replace('/(tabs)');
     } catch (e) {
-      setError(e instanceof Error ? e.message : 'Sign in failed');
+      setError(e instanceof Error ? e.message : 'Sign up failed');
     } finally {
       setLoading(false);
     }
   };
 
+  if (confirmationSent) {
+    return (
+      <SafeAreaView style={styles.screen}>
+        <View style={styles.content}>
+          <MaterialCommunityIcons name="email-check-outline" size={64} color={palette.primary} />
+          <Text style={styles.title}>Check your email</Text>
+          <Text style={styles.subtitle}>
+            We sent a confirmation link to {email.trim()}. Open it to activate your account.
+          </Text>
+          <Pressable
+            style={({ pressed }) => [styles.backLink, pressed && { opacity: 0.7 }]}
+            onPress={() => router.replace('/sign-in')}
+            accessibilityRole="button">
+            <Text style={styles.backLinkText}>Back to sign in</Text>
+          </Pressable>
+        </View>
+      </SafeAreaView>
+    );
+  }
+
+  const canSubmit = !loading && displayName.trim() && email.trim() && password.length >= 6;
+
   return (
     <SafeAreaView style={styles.screen}>
       <View style={styles.content}>
-        <MaterialCommunityIcons name="account-circle-outline" size={64} color={palette.primary} />
-        <Text style={styles.title}>Sign in</Text>
-        <Text style={styles.subtitle}>Use your student account to see classes and assignments.</Text>
+        <MaterialCommunityIcons name="account-plus-outline" size={64} color={palette.primary} />
+        <Text style={styles.title}>Create account</Text>
+        <Text style={styles.subtitle}>Sign up with your school email to join classes.</Text>
+        <TextInput
+          style={styles.input}
+          placeholder="Display name"
+          placeholderTextColor={palette.textMuted}
+          value={displayName}
+          onChangeText={setDisplayName}
+          autoCapitalize="words"
+          autoCorrect={false}
+          editable={!loading}
+        />
         <TextInput
           style={styles.input}
           placeholder="Email"
@@ -58,7 +100,7 @@ export default function SignInScreen() {
         />
         <TextInput
           style={styles.input}
-          placeholder="Password"
+          placeholder="Password (min 6 characters)"
           placeholderTextColor={palette.textMuted}
           value={password}
           onChangeText={setPassword}
@@ -69,23 +111,23 @@ export default function SignInScreen() {
         <Pressable
           style={({ pressed }) => [
             styles.button,
-            (loading || !email.trim() || !password) && styles.buttonDisabled,
-            pressed && !loading && { opacity: 0.8 },
+            !canSubmit && styles.buttonDisabled,
+            pressed && canSubmit && { opacity: 0.8 },
           ]}
-          onPress={handleSignIn}
-          disabled={loading || !email.trim() || !password}
+          onPress={handleSignUp}
+          disabled={!canSubmit}
           accessibilityRole="button">
           {loading ? (
             <ActivityIndicator size="small" color={palette.white} />
           ) : (
-            <Text style={styles.buttonText}>Sign in</Text>
+            <Text style={styles.buttonText}>Sign up</Text>
           )}
         </Pressable>
         <Pressable
           style={({ pressed }) => [styles.backLink, pressed && { opacity: 0.7 }]}
-          onPress={() => router.push('/sign-up')}
+          onPress={() => router.replace('/sign-in')}
           accessibilityRole="button">
-          <Text style={styles.backLinkText}>Don't have an account? Sign up</Text>
+          <Text style={styles.backLinkText}>Already have an account? Sign in</Text>
         </Pressable>
       </View>
     </SafeAreaView>

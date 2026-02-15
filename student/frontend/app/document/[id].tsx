@@ -27,8 +27,9 @@ import { SampleAlgebraContent } from '@/components/SampleAlgebraContent';
 import { palette, radius } from '@/constants/palette';
 import { useAssignment } from '@/hooks/useAssignment';
 import { useAutoAnalysis } from '@/hooks/useAutoAnalysis';
+import { useAccessToken } from '@/hooks/useAccessToken';
 import { useDocuments, isDefaultDocument } from '@/hooks/useDocuments';
-import type { AnalysisResult, Mistake } from '@/lib/api';
+import { getAuthHeaders, type AnalysisResult, type Mistake } from '@/lib/api';
 import type { CaptureResult } from '@/lib/capture-types';
 import { captureStrokesAsDataUri } from '@/lib/capture-web';
 import { buildAnalysisFormData } from '@/lib/image-upload';
@@ -157,6 +158,7 @@ export default function DocumentScreen() {
   const { id, assignmentId: assignmentIdParam, classroomName } = params;
   const assignmentId = assignmentIdParam ?? null;
   const router = useRouter();
+  const accessToken = useAccessToken();
   const {
     getDocument,
     loading: docsLoading,
@@ -249,14 +251,9 @@ export default function DocumentScreen() {
 
   const notifyError = useCallback(
     (message: string) => {
-      if (config.notification_style === 'toast') {
-        pushToast(message, 'error');
-      }
-      if (config.notification_style === 'badge') {
-        setBadgeState({ label: message, tone: 'error' });
-      }
+      showAlert('Analysis failed', message);
     },
-    [config.notification_style, pushToast],
+    [],
   );
 
   useEffect(() => {
@@ -394,6 +391,7 @@ export default function DocumentScreen() {
     assignmentId: assignmentId ?? undefined,
     problemNum: currentProblem?.num,
     isSample: isDefault,
+    token: accessToken ?? undefined,
     debounceMs: config.analysis_debounce_seconds * 1000,
     enabled: isProblemMode && !!canvasDims,
     mode: analysisTrigger,
@@ -492,7 +490,11 @@ export default function DocumentScreen() {
       : {};
     const formData = await buildAnalysisFormData(uri, extra);
     try {
-      const res = await fetch(`${apiUrl.replace(/\/$/, '')}/analyze-solution`, { method: 'POST', body: formData });
+      const res = await fetch(`${apiUrl.replace(/\/$/, '')}/analyze-solution`, {
+        method: 'POST',
+        headers: getAuthHeaders(accessToken ?? undefined),
+        body: formData,
+      });
       const body = await res.json();
       if (res.ok) {
         const count = body.mistake_count ?? 0;
@@ -513,7 +515,7 @@ export default function DocumentScreen() {
         showAlert('Submit failed', 'Check that the Flask server is running.');
       }
     }
-  }, [isProblemMode, analysisTrigger, triggerNow, captureScreenshot, isDefault]);
+  }, [isProblemMode, analysisTrigger, triggerNow, captureScreenshot, isDefault, accessToken]);
 
   const handleAskAboutMistake = useCallback(
     (_mistake: Mistake) => {

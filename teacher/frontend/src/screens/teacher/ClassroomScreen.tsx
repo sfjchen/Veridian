@@ -153,7 +153,7 @@ export function TeacherClassroomScreen({ route, navigation }: { route: any; navi
         <View style={styles.content}>
           <TouchableOpacity
             style={styles.addButton}
-            onPress={() => navigation.navigate("CreateAssignment", { classroomId: classroom.id })}
+            onPress={() => navigation.navigate("CreateAssignment", { classroomId: classroom.id, classroomConfig: classroom.config })}
             accessibilityRole="button"
             accessibilityLabel="New assignment"
           >
@@ -166,7 +166,7 @@ export function TeacherClassroomScreen({ route, navigation }: { route: any; navi
               <SkeletonCard />
             </View>
           ) : assignmentsError ? (
-            <Text style={styles.errorText}>{assignmentsError}</Text>
+            <ErrorState message={assignmentsError} onRetry={refreshAssignments} />
           ) : (
             <FlatList
               data={assignments}
@@ -203,7 +203,7 @@ export function TeacherClassroomScreen({ route, navigation }: { route: any; navi
                   <Text style={styles.emptySubtitle}>Add an assignment so students can see and submit work.</Text>
                   <TouchableOpacity
                     style={styles.emptyButton}
-                    onPress={() => navigation.navigate("CreateAssignment", { classroomId: classroom.id })}
+                    onPress={() => navigation.navigate("CreateAssignment", { classroomId: classroom.id, classroomConfig: classroom.config })}
                     accessibilityRole="button"
                     accessibilityLabel="Create first assignment"
                   >
@@ -233,7 +233,7 @@ export function TeacherClassroomScreen({ route, navigation }: { route: any; navi
               <SkeletonCard />
             </View>
           ) : corpusError ? (
-            <Text style={styles.errorText}>{corpusError}</Text>
+            <ErrorState message={corpusError} onRetry={refreshCorpus} />
           ) : (
             <FlatList
               data={files}
@@ -282,7 +282,7 @@ export function TeacherClassroomScreen({ route, navigation }: { route: any; navi
               <SkeletonCard />
             </View>
           ) : studentsError ? (
-            <Text style={styles.errorText}>{studentsError}</Text>
+            <ErrorState message={studentsError} onRetry={refreshStudents} />
           ) : (
             <FlatList
               data={students}

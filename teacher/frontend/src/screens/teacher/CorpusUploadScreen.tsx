@@ -110,6 +110,7 @@ export function CorpusUploadScreen({ route, navigation }: { route: any; navigati
               {file ? file.name : "Select File"}
             </Text>
           </Card>
+          {!file && <Text style={styles.fileHint}>Pick a PDF or text file to add to the classroom corpus.</Text>}
           <Input
             placeholder="Display name"
             value={displayName}
@@ -127,6 +128,7 @@ export function CorpusUploadScreen({ route, navigation }: { route: any; navigati
 
 const styles = StyleSheet.create({
   content: { paddingVertical: spacing.lg },
-  fileCard: { marginBottom: spacing.md },
+  fileCard: { marginBottom: spacing.xs },
   filePickerText: { ...typography.body, color: palette.textMuted },
+  fileHint: { ...typography.caption, color: palette.textMuted, marginBottom: spacing.md },
 });

@@ -84,7 +84,7 @@ export function InsightsContent({ classroomId, navigation }: { classroomId: stri
     <View style={styles.container}>
       <SubTabBar subTab={subTab} setSubTab={setSubTab} onRefresh={handleRefresh}
         refreshing={refreshing} disabled={isLoading} />
-      {subTab === "overview" && <OverviewPanel overview={overview} loading={overviewLoading} error={overviewError} />}
+      {subTab === "overview" && <OverviewPanel overview={overview} loading={overviewLoading} error={overviewError} onRetry={refreshOverview} />}
       {subTab === "faq" && <FaqPanel faq={faq} totalMessages={faqTotalMessages} loading={faqLoading} error={faqError} />}
       {subTab === "mistakes" && (
         <MistakesPanel heatmap={heatmap} loading={heatmapLoading} error={heatmapError}
@@ -109,7 +109,7 @@ function SubTabBar({ subTab, setSubTab, onRefresh, refreshing, disabled }: {
       <TouchableOpacity style={[styles.refreshBtn, disabled && styles.refreshBtnDisabled]}
         onPress={onRefresh} disabled={disabled}>
         {refreshing
-          ? <ActivityIndicator size="small" color="#fff" />
+          ? <ActivityIndicator size="small" color={palette.white} />
           : <Text style={styles.refreshBtnText}>Refresh</Text>}
       </TouchableOpacity>
     </View>
@@ -118,12 +118,25 @@ function SubTabBar({ subTab, setSubTab, onRefresh, refreshing, disabled }: {
 
 // --- Overview Panel ---
 
-function OverviewPanel({ overview, loading, error }: {
-  overview: ClassroomOverview | null; loading: boolean; error: string | null;
+function OverviewPanel({ overview, loading, error, onRetry }: {
+  overview: ClassroomOverview | null; loading: boolean; error: string | null; onRetry?: () => void;
 }) {
-  if (loading) return <ActivityIndicator style={styles.centered} />;
-  if (error) return <Text style={styles.errorText}>{error}</Text>;
-  if (!overview) return <Text style={styles.emptyText}>No student submissions yet. Data will appear once students begin working on assignments.</Text>;
+  if (loading) {
+    return (
+      <View style={styles.skeletonPanel}>
+        <View style={styles.statsGrid}>
+          {[1, 2, 3, 4, 5].map((i) => (
+            <View key={i} style={styles.statCard}>
+              <Skeleton width={48} height={28} style={{ marginBottom: spacing.xs }} />
+              <Skeleton width={64} height={14} />
+            </View>
+          ))}
+        </View>
+      </View>
+    );
+  }
+  if (error) return <ErrorState message={error} onRetry={onRetry} />;
+  if (!overview) return <EmptyState title="No data yet" description="Data will appear once students begin working on assignments." />;
   return (
     <ScrollView style={styles.panel}>
       <View style={styles.statsGrid}>

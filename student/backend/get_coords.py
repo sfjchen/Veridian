@@ -6,6 +6,7 @@ import re
 import sys
 import threading
 import time
+import uuid
 from collections import defaultdict
 from contextlib import contextmanager
 from io import BytesIO
@@ -415,6 +416,14 @@ def _parse_problem_num(raw: str) -> Optional[int]:
     except ValueError:
         return None
     return value if value >= 1 else None
+
+
+def _is_valid_uuid(raw: str) -> bool:
+    try:
+        uuid.UUID(raw)
+        return True
+    except ValueError:
+        return False
 
 
 def _get_field(value: Any, field: str, default: Any = None) -> Any:
@@ -1485,6 +1494,8 @@ def list_classroom_assignments(classroom_id: str) -> Any:
 @app.get("/assignments/<assignment_id>")
 @require_auth
 def get_assignment_endpoint(assignment_id: str) -> Any:
+    if not _is_valid_uuid(assignment_id):
+        return jsonify({"error": "Invalid assignment_id format."}), 400
     assignment = get_assignment(assignment_id)
     if assignment is None:
         return jsonify({"error": "Assignment not found."}), 404
@@ -1501,6 +1512,8 @@ def get_assignment_endpoint(assignment_id: str) -> Any:
 
 @app.get("/assignments/<assignment_id>/problems")
 def get_assignment_problems(assignment_id: str) -> Any:
+    if not _is_valid_uuid(assignment_id):
+        return jsonify({"error": "Invalid assignment_id format."}), 400
     try:
         problems = get_problems(assignment_id)
     except ValueError as exc:

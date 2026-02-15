@@ -59,8 +59,18 @@ class AssignmentConfigContractTests(unittest.TestCase):
                 sys.modules[name] = module
 
     def test_get_assignment_requires_auth(self) -> None:
-        response = self.client.get("/assignments/assignment-1")
+        response = self.client.get("/assignments/11111111-1111-1111-1111-111111111111")
         self.assertEqual(response.status_code, 401)
+
+    def test_get_assignment_rejects_invalid_id_format(self) -> None:
+        with patch("auth_middleware.get_supabase_auth_client", return_value=_auth_client()):
+            response = self.client.get(
+                "/assignments/assignment-1",
+                headers={"Authorization": "Bearer token"},
+            )
+
+        self.assertEqual(response.status_code, 400)
+        self.assertEqual(response.get_json().get("error"), "Invalid assignment_id format.")
 
     def test_get_assignment_forbids_non_member(self) -> None:
         with (
@@ -68,12 +78,16 @@ class AssignmentConfigContractTests(unittest.TestCase):
             patch.object(
                 self.get_coords,
                 "get_assignment",
-                return_value={"id": "assignment-1", "classroom_id": "classroom-1", "title": "A1"},
+                return_value={
+                    "id": "11111111-1111-1111-1111-111111111111",
+                    "classroom_id": "classroom-1",
+                    "title": "A1",
+                },
             ),
             patch.object(self.get_coords, "can_student_access_assignment", return_value=False),
         ):
             response = self.client.get(
-                "/assignments/assignment-1",
+                "/assignments/11111111-1111-1111-1111-111111111111",
                 headers={"Authorization": "Bearer token"},
             )
 
@@ -98,7 +112,7 @@ class AssignmentConfigContractTests(unittest.TestCase):
                 self.get_coords,
                 "get_assignment",
                 return_value={
-                    "id": "assignment-1",
+                    "id": "11111111-1111-1111-1111-111111111111",
                     "classroom_id": "classroom-1",
                     "title": "A1",
                     "problems": [],
@@ -108,7 +122,7 @@ class AssignmentConfigContractTests(unittest.TestCase):
             patch.object(self.get_coords, "get_resolved_config", return_value=resolved_config),
         ):
             response = self.client.get(
-                "/assignments/assignment-1",
+                "/assignments/11111111-1111-1111-1111-111111111111",
                 headers={"Authorization": "Bearer token"},
             )
 

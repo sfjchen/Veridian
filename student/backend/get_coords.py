@@ -1359,6 +1359,7 @@ def _run_analysis(image_bytes: bytes, params: AnalysisParams) -> Dict[str, Any]:
     t0 = time.perf_counter()
     student_tex = _image_bytes_to_latex(image_bytes)
     ocr_ms = int((time.perf_counter() - t0) * 1000)
+    log.info("OCR completed (%dms, %d chars)", ocr_ms, len(student_tex))
 
     t1 = time.perf_counter()
     analyzer = MistakeAnalyzer(
@@ -1506,9 +1507,11 @@ def analyze_solution() -> Any:
     except ValueError as exc:
         err = str(exc)
         if "Anthropic API error" in err or "API error" in err:
+            log.error("Analysis API error: %s", err)
             return jsonify({"error": err}), 502
         return jsonify({"error": err}), 400
     except Exception as exc:
+        log.exception("Analysis failed")
         return jsonify({"error": f"Analysis failed: {exc}"}), 502
 
     timing = dict(result.pop("_timing", {}))

@@ -129,6 +129,8 @@ export function StudentExperienceScreen({ route, navigation }: { route: any; nav
   const captureScreenshot = useCallback(async (): Promise<CaptureResult> => {
     if (Platform.OS === 'web') {
       if (!canvasDims) return { error: 'unavailable' };
+      const hasStrokes = currentStrokes.some(s => s.points.length > 0);
+      if (!hasStrokes) return { error: 'unavailable' };
       try {
         const uri = captureStrokesAsDataUri(currentStrokes, canvasDims.w, canvasDims.h);
         return { uri };

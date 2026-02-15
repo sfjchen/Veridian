@@ -13,6 +13,8 @@ export type AnalysisResponse = {
 
 // Red-dot overlay: dot = center of bbox, normalized [0,1]. Backend bottom-left origin;
 // frontend top-left: left = dot.x * width - R, top = (1 - dot.y) * height - R.
+// 8px radius → 16px visible dot. Combined with hitSlop=12 the total touch target
+// is 40px, close to the 44px accessibility minimum while staying unobtrusive.
 const DOT_RADIUS = 8;
 
 type TapState = { id: string; taps: number };

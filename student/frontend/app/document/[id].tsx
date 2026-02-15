@@ -134,8 +134,7 @@ function CanvasView({
 
 export default function DocumentScreen() {
   const params = useLocalSearchParams<{ id: string; assignmentId?: string; classroomName?: string }>();
-  const { id, assignmentId: assignmentIdParam, classroomName } = params;
-  const assignmentId = assignmentIdParam ?? null;
+  const { id, assignmentId, classroomName } = params;
   const router = useRouter();
   const {
     getDocument,
@@ -149,7 +148,7 @@ export default function DocumentScreen() {
   const doc = id ? getDocument(id) : undefined;
 
   const assignmentOnly = !!assignmentId;
-  const { assignment, problems: assignmentProblems, loading: assignmentLoading, error: assignmentError } = useAssignment(assignmentId);
+  const { assignment, problems: assignmentProblems, loading: assignmentLoading, error: assignmentError } = useAssignment(assignmentId ?? null);
 
   const isDefault = doc ? isDefaultDocument(doc) : false;
   const problems =
@@ -354,7 +353,7 @@ export default function DocumentScreen() {
     triggerNow,
     markDirty,
   } = useAutoAnalysis({
-    assignmentId: assignmentId ?? undefined,
+    assignmentId,
     problemNum: currentProblem?.num,
     isSample: isDefault,
     debounceMs,

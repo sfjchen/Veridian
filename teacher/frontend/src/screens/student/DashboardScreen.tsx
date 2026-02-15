@@ -1,10 +1,15 @@
 import React from "react";
 import {
-  View, Text, FlatList, TouchableOpacity, StyleSheet, ActivityIndicator,
+  Text,
+  FlatList,
+  TouchableOpacity,
+  StyleSheet,
+  ActivityIndicator,
 } from "react-native";
 import { useClassrooms } from "../../hooks/useClassrooms";
 import { useAuth } from "../../stores/auth";
 import { ClassCodeInput } from "../../components/ClassCodeInput";
+import { ScreenContainer } from "../../components/ui";
 import { Classroom } from "../../types";
 import { ScreenContainer } from "../../components/ui/ScreenContainer";
 import { palette } from "../../constants/palette";
@@ -21,7 +26,11 @@ export function StudentDashboardScreen({ navigation }: { navigation: any }) {
     <ScreenContainer maxWidth="dashboard">
       <View style={styles.header}>
         <Text style={styles.title}>My Classes</Text>
-        <TouchableOpacity onPress={signOut}>
+        <TouchableOpacity
+          onPress={signOut}
+          accessibilityRole="button"
+          accessibilityLabel="Sign out"
+        >
           <Text style={styles.logoutText}>Sign Out</Text>
         </TouchableOpacity>
       </View>
@@ -40,11 +49,18 @@ export function StudentDashboardScreen({ navigation }: { navigation: any }) {
             <TouchableOpacity
               style={[styles.card, elevation.shadowSm]}
               onPress={() => navigation.navigate("StudentClassroom", { classroom: item })}
+              accessibilityRole="button"
+              accessibilityLabel={`Open class ${item.name}`}
             >
               <Text style={styles.cardTitle}>{item.name}</Text>
             </TouchableOpacity>
           )}
-          ListEmptyComponent={<Text style={styles.empty}>No classes yet. Join one above!</Text>}
+          ListEmptyComponent={
+            <View style={styles.emptyWrap}>
+              <Text style={styles.emptyTitle}>No classes yet</Text>
+              <Text style={styles.emptySubtitle}>Enter a class code above to join.</Text>
+            </View>
+          }
         />
       )}
     </ScreenContainer>

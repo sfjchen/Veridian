@@ -1,6 +1,13 @@
 import React from "react";
-import { View, Text, FlatList, TouchableOpacity, StyleSheet, ActivityIndicator } from "react-native";
+import {
+  Text,
+  FlatList,
+  TouchableOpacity,
+  StyleSheet,
+  ActivityIndicator,
+} from "react-native";
 import { useAssignments } from "../../hooks/useAssignments";
+import { ScreenContainer } from "../../components/ui";
 import { Classroom } from "../../types";
 import { ScreenContainer } from "../../components/ui/ScreenContainer";
 import { palette } from "../../constants/palette";
@@ -28,18 +35,28 @@ export function StudentClassroomScreen({ route, navigation }: { route: any; navi
             <TouchableOpacity
               style={[styles.card, elevation.shadowSm]}
               onPress={() => navigation.navigate("Assignment", { assignmentId: item.id })}
+              accessibilityRole="button"
+              accessibilityLabel={`${item.title}`}
             >
               <Text style={styles.cardTitle}>{item.title}</Text>
               <Text style={styles.cardSub}>
                 {item.due_date
                   ? `Due: ${new Date(item.due_date).toLocaleDateString("en-US", {
-                      year: "numeric", month: "short", day: "numeric", timeZone: "UTC",
+                      year: "numeric",
+                      month: "short",
+                      day: "numeric",
+                      timeZone: "UTC",
                     })}`
                   : "No due date"}
               </Text>
             </TouchableOpacity>
           )}
-          ListEmptyComponent={<Text style={styles.empty}>No assignments yet</Text>}
+          ListEmptyComponent={
+            <View style={styles.emptyWrap}>
+              <Text style={styles.emptyTitle}>No assignments yet</Text>
+              <Text style={styles.emptySubtitle}>Your teacher will add assignments here.</Text>
+            </View>
+          }
         />
       )}
     </ScreenContainer>

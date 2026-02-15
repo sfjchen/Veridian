@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useCallback, useRef } from "react";
+import React, { useState, useEffect, useRef } from "react";
 import {
   View,
   Text,
@@ -14,6 +14,7 @@ import { createPdfPreviewDataUri, looksLikeImage, looksLikePdf, looksLikeText } 
 import { useSubmissions } from "../../hooks/useSubmissions";
 import { LatexRenderer } from "../../components/LatexRenderer";
 import { FileUploader } from "../../components/FileUploader";
+import { ScreenContainer } from "../../components/ui";
 import { AssignmentDetail, Submission } from "../../types";
 import { alert } from "../../lib/alert";
 import { ScreenContainer } from "../../components/ui/ScreenContainer";
@@ -41,7 +42,6 @@ export function AssignmentScreen({ route }: { route: any }) {
   const { assignmentId } = route.params;
   const [assignment, setAssignment] = useState<AssignmentDetail | null>(null);
   const [loading, setLoading] = useState(true);
-  const [loadError, setLoadError] = useState<string | null>(null);
   const [assignmentContent, setAssignmentContent] = useState<string | null>(null);
   const [isPdf, setIsPdf] = useState(false);
   const [pdfPreviewUri, setPdfPreviewUri] = useState<string | null>(null);
@@ -105,19 +105,14 @@ export function AssignmentScreen({ route }: { route: any }) {
         } catch {
           console.warn("Could not load assignment file");
         }
+      } catch (e: any) {
+        if (!cancelled) alert("Error", e.message);
+      } finally {
+        if (!cancelled) setLoading(false);
       }
-    } catch (e: any) {
-      if (mountedRef.current) {
-        setLoadError(e instanceof Error ? e.message : "Failed to load assignment");
-      }
-    } finally {
-      if (mountedRef.current) setLoading(false);
-    }
+    })();
+    return () => { cancelled = true; };
   }, [assignmentId]);
-
-  useEffect(() => {
-    fetchAssignment();
-  }, [fetchAssignment]);
 
   const handleSubmit = async () => {
     setSubmitting(true);
@@ -279,6 +274,7 @@ export function AssignmentScreen({ route }: { route: any }) {
         )}
       </View>
     </ScrollView>
+    </ScreenContainer>
   );
 }
 

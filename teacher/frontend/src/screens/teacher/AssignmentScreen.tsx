@@ -7,13 +7,13 @@ import {
   Image,
   ScrollView,
   ActivityIndicator,
+  RefreshControl,
 } from "react-native";
 import * as Linking from "expo-linking";
 import { supabase } from "../../lib/supabase";
 import { api } from "../../lib/api";
 import { API_URL } from "../../lib/apiBaseUrl";
 import { createPdfPreviewDataUri, looksLikeImage, looksLikePdf, looksLikeText } from "../../lib/pdfPreview";
-import { useToast } from "../../contexts/ToastContext";
 import { useSubmissions } from "../../hooks/useSubmissions";
 import { LatexRenderer } from "../../components/LatexRenderer";
 import { FileUploader } from "../../components/FileUploader";
@@ -31,7 +31,8 @@ import {
 } from "../../components/ui";
 import { palette, radius } from "../../constants/palette";
 import { spacing } from "../../constants/spacing";
-import { typography } from "../../constants/typography";
+import { AssignmentDetail, Submission } from "../../types";
+import { alert } from "../../lib/alert";
 
 const MAX_CONTENT_LENGTH = 100_000;
 const DATE_PATTERN = /^\d{4}-\d{2}-\d{2}$/;
@@ -50,11 +51,9 @@ type ViewMode = "teacher" | "student";
 
 export function TeacherAssignmentScreen({ route, navigation }: { route: any; navigation: any }) {
   const { assignmentId } = route.params;
-  const { showToast } = useToast();
   const mountedRef = useRef(true);
   const [assignment, setAssignment] = useState<AssignmentDetail | null>(null);
   const [loading, setLoading] = useState(true);
-  const [loadError, setLoadError] = useState<string | null>(null);
   const [assignmentContent, setAssignmentContent] = useState<string | null>(null);
   const [isPdf, setIsPdf] = useState(false);
   const [pdfPreviewUri, setPdfPreviewUri] = useState<string | null>(null);
@@ -80,6 +79,7 @@ export function TeacherAssignmentScreen({ route, navigation }: { route: any; nav
     answer_key_upload_url?: string;
   } | null>(null);
   const [reuploading, setReuploading] = useState(false);
+  const [refreshing, setRefreshing] = useState(false);
   const {
     submissions,
     loading: submissionsLoading,
@@ -88,24 +88,9 @@ export function TeacherAssignmentScreen({ route, navigation }: { route: any; nav
   } = useSubmissions(assignmentId);
 
   const fetchAssignment = useCallback(async () => {
-    setLoadError(null);
-    setLoading(true);
     try {
       const data = await api<AssignmentDetail>(`/assignments/${assignmentId}`);
       if (!mountedRef.current) return;
-      if (!data) {
-        setAssignment(null);
-        setEditTitle("");
-        setEditDueDate("");
-        setAssignmentContent(null);
-        setIsPdf(false);
-        setPdfPreviewUri(null);
-        setImagePreviewUrl(null);
-        setBinaryDownloadUrl(null);
-        setReuploadUrls(null);
-        if (mountedRef.current) setLoading(false);
-        return;
-      }
       setAssignment(data);
       setEditTitle(data.title);
       setEditDueDate(data.due_date ? data.due_date.split("T")[0] : "");
@@ -160,13 +145,17 @@ export function TeacherAssignmentScreen({ route, navigation }: { route: any; nav
         }
       }
     } catch (e: any) {
-      if (mountedRef.current) {
-        setLoadError(e instanceof Error ? e.message : "Failed to load assignment");
-      }
+      if (mountedRef.current) alert("Error", e.message);
     } finally {
       if (mountedRef.current) setLoading(false);
     }
   }, [assignmentId]);
+
+  const onRefresh = useCallback(async () => {
+    setRefreshing(true);
+    await Promise.all([fetchAssignment(), refreshSubmissions()]);
+    if (mountedRef.current) setRefreshing(false);
+  }, [fetchAssignment, refreshSubmissions]);
 
   const handleConvertPdf = async () => {
     if (!assignment?.assignment_file_download_url) return;
@@ -177,8 +166,7 @@ export function TeacherAssignmentScreen({ route, navigation }: { route: any; nav
       if (!pdfResp.ok) throw new Error("Failed to download PDF");
       const blob = await pdfResp.blob();
 
-      const { data: sessionData } = await supabase.auth.getSession();
-      const session = sessionData?.session ?? null;
+      const { data: { session } } = await supabase.auth.getSession();
       const formData = new FormData();
       formData.append("file", blob as any, "assignment.pdf");
 
@@ -265,29 +253,16 @@ export function TeacherAssignmentScreen({ route, navigation }: { route: any; nav
     Linking.openURL(url);
   };
 
-  if (loading && !assignment) {
-    return (
-      <ScreenContainer>
-        <View style={styles.loadingWrap}>
-          <ActivityIndicator size="large" color={palette.primary} />
-        </View>
-      </ScreenContainer>
-    );
-  }
-  if (loadError && !assignment) {
-    return (
-      <ScreenContainer>
-        <ErrorState message={loadError} onRetry={fetchAssignment} />
-      </ScreenContainer>
-    );
-  }
-  if (!assignment) {
-    return (
-      <ScreenContainer>
-        <ErrorState message="Assignment not found" />
-      </ScreenContainer>
-    );
-  }
+  if (loading && !refreshing) return (
+    <ScreenContainer>
+      <ActivityIndicator size="large" style={{ marginTop: spacing.xxl }} color={palette.primary} />
+    </ScreenContainer>
+  );
+  if (!assignment) return (
+    <ScreenContainer>
+      <Text style={styles.error}>Assignment not found</Text>
+    </ScreenContainer>
+  );
 
   return (
     <ScreenContainer maxWidth="dashboard">
@@ -532,122 +507,127 @@ export function TeacherAssignmentScreen({ route, navigation }: { route: any; nav
                 )}
               </Section>
 
-            <Section title="Files">
-              <Card style={styles.fileCard}>
-                <Text style={styles.fileLabel}>Assignment File</Text>
-                {assignment.assignment_file_download_url ? (
-                  <Button size="sm" onPress={() => handleOpenFile(assignment.assignment_file_download_url!)}>
-                    View / Download
-                  </Button>
-                ) : (
-                  <Text style={styles.noFile}>Not uploaded</Text>
-                )}
-              </Card>
-              <Card style={styles.fileCard}>
-                <Text style={styles.fileLabel}>Answer Key</Text>
-                {assignment.answer_key_download_url ? (
-                  <Button size="sm" onPress={() => handleOpenFile(assignment.answer_key_download_url!)}>
-                    View / Download
-                  </Button>
-                ) : (
-                  <Text style={styles.noFile}>Not uploaded</Text>
-                )}
-              </Card>
-            </Section>
-
-            {!reuploadUrls ? (
-              <Button variant="secondary" onPress={handleReupload} disabled={reuploading} loading={reuploading} style={styles.reuploadButton}>
-                Re-upload Files
-              </Button>
-            ) : (
-              <View style={styles.reuploadSection}>
-                {reuploadUrls.assignment_file_upload_url && (
-                  <>
-                    <Text style={styles.sectionTitle}>Replace Assignment File</Text>
-                    <FileUploader
-                      uploadUrl={reuploadUrls.assignment_file_upload_url}
-                      label="Select New Assignment File"
-                      onUploadComplete={() => {
-                        showToast("Assignment file replaced");
-                        setReuploadUrls(null);
-                        setLoading(true);
-                        fetchAssignment();
-                      }}
-                    />
-                  </>
-                )}
-                {reuploadUrls.answer_key_upload_url && (
-                  <>
-                    <Text style={styles.sectionTitle}>Replace Answer Key</Text>
-                    <FileUploader
-                      uploadUrl={reuploadUrls.answer_key_upload_url}
-                      label="Select New Answer Key"
-                      onUploadComplete={() => {
-                        showToast("Answer key replaced");
-                        setReuploadUrls(null);
-                        setLoading(true);
-                        fetchAssignment();
-                      }}
-                    />
-                  </>
-                )}
-                <Button variant="secondary" onPress={() => setReuploadUrls(null)} style={styles.cancelReupload}>
-                  Cancel Re-upload
-                </Button>
-              </View>
-            )}
-
-            {isPdf && (
-              <Card style={styles.convertSection}>
-                <Text style={styles.sectionTitle}>PDF Detected</Text>
-                {pdfPreviewUri && (
-                  <Image source={{ uri: pdfPreviewUri }} style={styles.pdfPreview} resizeMode="contain" />
-                )}
-                <Text style={styles.convertHint}>
-                  Convert the uploaded PDF to LaTeX for in-app math rendering.
-                </Text>
-                <Button onPress={handleConvertPdf} disabled={converting} loading={converting}>
-                  Convert PDF to LaTeX
-                </Button>
-              </Card>
-            )}
-
-            <Section title="Student Submissions">
-              {submissionsLoading ? (
-                <ActivityIndicator color={palette.primary} />
-              ) : submissionsError ? (
-                <Text style={styles.errorText}>{submissionsError}</Text>
-              ) : submissions.length === 0 ? (
-                <Text style={styles.noContent}>No submissions yet</Text>
-              ) : (
-                submissions.map((submission: Submission) => (
-                  <Card key={submission.id} style={styles.submissionCard}>
-                    <View style={styles.listItemContent}>
-                      <Text style={styles.itemTitle}>
-                        {submission.student_display_name ?? `Student ${submission.student_id.slice(0, 8)}`}
-                      </Text>
-                      <Text style={styles.itemSub}>
-                        Submitted {new Date(submission.submitted_at).toLocaleString("en-US", {
-                          year: "numeric",
-                          month: "short",
-                          day: "numeric",
-                          hour: "numeric",
-                          minute: "2-digit",
-                          timeZone: "UTC",
-                        })}
-                      </Text>
-                    </View>
-                    {submission.download_url ? (
-                      <Button size="sm" onPress={() => handleOpenFile(submission.download_url!)}>
-                        Open
-                      </Button>
-                    ) : (
-                      <Text style={styles.noFile}>Unavailable</Text>
-                    )}
-                  </Card>
-                ))
+          {/* Re-upload Section */}
+          {!reuploadUrls ? (
+            <TouchableOpacity
+              style={styles.reuploadButton}
+              onPress={handleReupload}
+              disabled={reuploading}
+            >
+              <Text style={styles.reuploadButtonText}>
+                {reuploading ? "Preparing..." : "Re-upload Files"}
+              </Text>
+            </TouchableOpacity>
+          ) : (
+            <View style={styles.reuploadSection}>
+              {reuploadUrls.assignment_file_upload_url && (
+                <>
+                  <Text style={styles.sectionTitle}>Replace Assignment File</Text>
+                  <FileUploader
+                    uploadUrl={reuploadUrls.assignment_file_upload_url}
+                    label="Select New Assignment File"
+                    onUploadComplete={() => {
+                      alert("Success", "Assignment file replaced");
+                      setReuploadUrls(null);
+                      setLoading(true);
+                      fetchAssignment();
+                    }}
+                  />
+                </>
               )}
-            </Section>
+              {reuploadUrls.answer_key_upload_url && (
+                <>
+                  <Text style={styles.sectionTitle}>Replace Answer Key</Text>
+                  <FileUploader
+                    uploadUrl={reuploadUrls.answer_key_upload_url}
+                    label="Select New Answer Key"
+                    onUploadComplete={() => {
+                      alert("Success", "Answer key replaced");
+                      setReuploadUrls(null);
+                      setLoading(true);
+                      fetchAssignment();
+                    }}
+                  />
+                </>
+              )}
+              <TouchableOpacity
+                style={[styles.actionButton, styles.cancelButton, { marginTop: 8 }]}
+                onPress={() => setReuploadUrls(null)}
+              >
+                <Text style={styles.cancelButtonText}>Cancel Re-upload</Text>
+              </TouchableOpacity>
+            </View>
+          )}
+
+          {/* PDF Conversion */}
+          {isPdf && (
+            <View style={styles.convertSection}>
+              <Text style={styles.sectionTitle}>PDF Detected</Text>
+              {pdfPreviewUri && (
+                <Image source={{ uri: pdfPreviewUri }} style={styles.pdfPreview} resizeMode="contain" />
+              )}
+              <Text style={styles.convertHint}>
+                Convert the uploaded PDF to LaTeX for in-app math rendering.
+              </Text>
+              <TouchableOpacity
+                style={styles.convertButton}
+                onPress={handleConvertPdf}
+                disabled={converting}
+              >
+                {converting ? (
+                  <ActivityIndicator color="#fff" />
+                ) : (
+                  <Text style={styles.convertButtonText}>Convert PDF to LaTeX</Text>
+                )}
+              </TouchableOpacity>
+            </View>
+          )}
+
+          <Text style={[styles.sectionTitle, { marginTop: 24 }]}>Student Submissions</Text>
+          {submissionsLoading && !refreshing ? (
+            <ActivityIndicator color={palette.primary} />
+          ) : submissionsError ? (
+            <Text style={styles.errorText}>{submissionsError}</Text>
+          ) : submissions.length === 0 ? (
+            <View style={styles.emptySubmissions}>
+              <Text style={styles.emptySubmissionsTitle}>No submissions yet</Text>
+              <Text style={styles.emptySubmissionsSubtitle}>
+                Students’ work will appear here after they submit.
+              </Text>
+            </View>
+          ) : (
+            submissions.map((submission: Submission) => (
+              <View key={submission.id} style={styles.submissionCard}>
+                <View style={styles.listItemContent}>
+                  <Text style={styles.itemTitle}>
+                    {submission.student_display_name ?? `Student ${submission.student_id.slice(0, 8)}`}
+                  </Text>
+                  <Text style={styles.itemSub}>
+                    Submitted {new Date(submission.submitted_at).toLocaleString("en-US", {
+                      year: "numeric",
+                      month: "short",
+                      day: "numeric",
+                      hour: "numeric",
+                      minute: "2-digit",
+                      timeZone: "UTC",
+                    })}
+                  </Text>
+                </View>
+                {submission.download_url ? (
+                  <TouchableOpacity
+                    style={styles.downloadButton}
+                    onPress={() => handleOpenFile(submission.download_url!)}
+                    accessibilityRole="button"
+                    accessibilityLabel={`Open submission by ${submission.student_display_name ?? "student"}`}
+                  >
+                    <Text style={styles.downloadButtonText}>Open</Text>
+                  </TouchableOpacity>
+                ) : (
+                  <Text style={styles.noFile}>Unavailable</Text>
+                )}
+              </View>
+            ))
+          )}
 
               {assignmentContent && (
                 <View style={styles.contentPreview}>
@@ -670,95 +650,143 @@ export function TeacherAssignmentScreen({ route, navigation }: { route: any; nav
             </View>
           )}
         </View>
-      </ScrollView>
+      )}
+    </ScrollView>
     </ScreenContainer>
   );
 }
 
 const styles = StyleSheet.create({
-  loadingWrap: { flex: 1, justifyContent: "center", paddingTop: spacing.xxl },
-  scroll: { paddingVertical: spacing.md, paddingBottom: spacing.xxxl },
+  title: { ...typography.h1, flex: 1, color: palette.textPrimary },
+  due: { ...typography.bodySmall, color: palette.textMuted, marginTop: spacing.xxs, marginBottom: spacing.md },
+  sectionTitle: { fontSize: 16, fontWeight: "600", marginBottom: spacing.xs, color: palette.textPrimary },
+  error: { textAlign: "center", color: palette.error, marginTop: spacing.xxl },
+  errorText: { textAlign: "center", color: palette.error, marginTop: spacing.xs },
+
   modeToggle: { flexDirection: "row", marginBottom: spacing.md, gap: spacing.xs },
   modeButton: {
     flex: 1,
-    paddingVertical: spacing.sm,
-    borderRadius: radius.input,
+    padding: 10,
+    borderRadius: radius.button,
     backgroundColor: palette.tabInactive,
     alignItems: "center",
   },
   modeButtonActive: { backgroundColor: palette.primary },
-  modeText: { ...typography.bodySmall, fontWeight: "600", color: palette.textSecondary },
-  modeTextActive: { ...typography.bodySmall, fontWeight: "600", color: palette.textOnPrimary },
+  modeText: { fontWeight: "600", color: palette.textSecondary },
+  modeTextActive: { color: palette.white },
 
   previewBanner: {
     backgroundColor: palette.warningBg,
-    borderRadius: radius.input,
-    padding: spacing.xs,
-    marginBottom: spacing.md,
-    alignItems: "center",
+    color: palette.warningText,
+    textAlign: "center",
+    padding: 8,
+    borderRadius: radius.button,
+    fontWeight: "600",
+    marginBottom: 16,
   },
   previewBannerText: { ...typography.bodySmall, fontWeight: "600", color: palette.warning },
 
-  title: { ...typography.h1, color: palette.textPrimary, flex: 1 },
-  due: { ...typography.bodySmall, color: palette.textMuted, marginTop: spacing.xxs, marginBottom: spacing.md },
-  sectionTitle: { ...typography.body, fontWeight: "600", color: palette.textPrimary, marginBottom: spacing.xs },
-  headerRow: { flexDirection: "row", alignItems: "center", marginBottom: spacing.xs },
+  headerRow: { flexDirection: "row", alignItems: "center", gap: spacing.sm },
   editChip: {
-    backgroundColor: palette.border,
-    paddingHorizontal: spacing.sm,
-    paddingVertical: spacing.xxs,
+    backgroundColor: palette.tabInactive,
+    paddingHorizontal: 12,
+    paddingVertical: 6,
     borderRadius: radius.chip,
   },
-  editChipText: { ...typography.caption, fontWeight: "600", color: palette.textSecondary },
+  editChipText: { fontSize: 13, fontWeight: "600", color: palette.textSecondary },
 
-  editActions: { marginBottom: spacing.md },
+  input: {
+    borderWidth: 1,
+    borderColor: palette.inputBorder,
+    borderRadius: radius.input,
+    padding: 14,
+    marginBottom: spacing.sm,
+    fontSize: 16,
+  },
+  editActions: { flexDirection: "row", gap: spacing.sm, marginBottom: spacing.md },
+  actionButton: { flex: 1, padding: 12, borderRadius: radius.button, alignItems: "center" },
+  saveButton: { backgroundColor: palette.primary },
+  cancelButton: { backgroundColor: palette.tabInactive },
+  actionButtonText: { color: palette.white, fontSize: 16, fontWeight: "600" },
+  cancelButtonText: { color: palette.textSecondary, fontSize: 16, fontWeight: "600" },
 
   fileCard: {
+    backgroundColor: palette.surface,
+    borderRadius: radius.button,
+    padding: 14,
+    marginBottom: 8,
     flexDirection: "row",
     justifyContent: "space-between",
     alignItems: "center",
-    marginBottom: spacing.xs,
   },
-  fileLabel: { ...typography.body, fontWeight: "500", color: palette.textPrimary },
-  noFile: { ...typography.caption, color: palette.textMuted },
-  reuploadButton: { marginTop: spacing.md },
-  reuploadSection: { marginTop: spacing.md },
-  cancelReupload: { marginTop: spacing.xs },
+  fileLabel: { fontSize: 15, fontWeight: "500", color: palette.textPrimary },
+  noFile: { ...typography.caption, color: palette.textDisabled },
+  downloadButton: {
+    backgroundColor: palette.primary,
+    paddingHorizontal: 14,
+    paddingVertical: 8,
+    borderRadius: 6,
+  },
+  downloadButtonText: { color: palette.white, fontSize: 13, fontWeight: "600" },
 
-  convertSection: { marginTop: spacing.lg, backgroundColor: palette.successBg },
-  convertHint: { ...typography.bodySmall, color: palette.textSecondary, marginBottom: spacing.sm },
+  reuploadButton: {
+    backgroundColor: palette.warning,
+    borderRadius: radius.button,
+    padding: 14,
+    alignItems: "center",
+    marginTop: 16,
+  },
+  reuploadButtonText: { color: palette.white, fontSize: 16, fontWeight: "600" },
+  reuploadSection: { marginTop: 16 },
 
+  convertSection: { marginTop: 24, backgroundColor: palette.successBg, borderRadius: radius.button, padding: 16 },
+  convertHint: { fontSize: 14, color: palette.textSecondary, marginBottom: 12 },
+  convertButton: {
+    backgroundColor: palette.successButton,
+    borderRadius: radius.button,
+    padding: 14,
+    alignItems: "center",
+  },
+  convertButtonText: { color: palette.white, fontSize: 16, fontWeight: "600" },
   pdfPreview: {
     width: "100%",
     minHeight: 220,
     height: 300,
-    borderRadius: radius.input,
-    backgroundColor: palette.border,
-    marginBottom: spacing.sm,
+    borderRadius: radius.button,
+    backgroundColor: palette.surface,
+    marginBottom: 12,
   },
   assignmentImage: {
     width: "100%",
     minHeight: 220,
     height: 320,
-    borderRadius: radius.input,
-    backgroundColor: palette.border,
+    borderRadius: radius.button,
+    backgroundColor: palette.surface,
   },
-  binaryNotice: { marginTop: spacing.md, backgroundColor: palette.surface },
-  binaryNoticeText: { ...typography.bodySmall, color: palette.textSecondary, marginBottom: spacing.xs },
+  binaryNotice: {
+    marginTop: 16,
+    backgroundColor: palette.infoBg,
+    borderRadius: radius.button,
+    padding: 16,
+  },
+  binaryNoticeText: { fontSize: 14, color: palette.info, marginBottom: 8 },
 
   submissionCard: {
+    backgroundColor: palette.surface,
+    borderRadius: radius.button,
+    padding: 14,
+    marginBottom: 8,
     flexDirection: "row",
     alignItems: "center",
     justifyContent: "space-between",
-    marginBottom: spacing.sm,
   },
   listItemContent: { flex: 1 },
-  itemTitle: { ...typography.body, fontWeight: "500", color: palette.textPrimary },
-  itemSub: { ...typography.caption, color: palette.textMuted, marginTop: spacing.xxs },
+  itemTitle: { fontSize: 16, fontWeight: "500", color: palette.textPrimary },
+  itemSub: { ...typography.caption, color: palette.textMuted, marginTop: 4 },
 
-  contentPreview: { marginTop: spacing.lg, minHeight: 300 },
-  noContent: { ...typography.body, color: palette.textMuted, textAlign: "center", marginTop: spacing.md },
-  errorText: { ...typography.body, color: palette.error, textAlign: "center", marginTop: spacing.xs },
+  emptySubmissions: { paddingVertical: 24, paddingHorizontal: 16 },
+  emptySubmissionsTitle: { fontSize: 16, fontWeight: "600", color: palette.textSecondary, marginBottom: 8 },
+  emptySubmissionsSubtitle: { fontSize: 14, color: palette.textMuted },
 
   configFallbackHint: {
     ...typography.caption,
@@ -784,9 +812,9 @@ const styles = StyleSheet.create({
   configValue: { ...typography.bodySmall, fontWeight: "500" as const, color: palette.textSecondary },
 
   disabledButton: {
-    backgroundColor: palette.border,
+    backgroundColor: palette.borderStrong,
     borderRadius: radius.button,
-    padding: spacing.md,
+    padding: 16,
     alignItems: "center",
     marginTop: spacing.lg,
   },

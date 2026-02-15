@@ -4,6 +4,7 @@ import { ActivityIndicator, Alert, Platform, Pressable, SafeAreaView, StyleSheet
 import { DrawingCanvas, type DrawingCanvasRef } from '@/components/DrawingCanvas';
 import { MistakeOverlay } from '@/components/MistakeOverlay';
 import { submitAnalysis, type Mistake } from '@/lib/api';
+import { BACKEND_URL } from '@/lib/backendBaseUrl';
 import { ProblemHeader } from '@/components/ProblemHeader';
 import { ToolBar, type Tool } from '@/components/ToolBar';
 

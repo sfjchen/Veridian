@@ -60,6 +60,8 @@ function QuickActions({ onAction, disabled }: { onAction: (a: string) => void; d
           style={({ pressed }) => [styles.quickActionBtn, pressed && { opacity: 0.7 }]}
           onPress={() => onAction(action)}
           disabled={disabled}
+          accessibilityRole="button"
+          accessibilityLabel={action}
         >
           <Text style={styles.quickActionText}>{action}</Text>
         </Pressable>
@@ -145,6 +147,7 @@ function ChatInputBar({ inputText, onChangeText, onSend, loading }: ChatInputBar
         editable={!loading}
         onSubmitEditing={onSend}
         blurOnSubmit={false}
+        accessibilityLabel="Message"
       />
       <Pressable
         style={({ pressed }) => [

@@ -197,6 +197,14 @@ export default function ClassroomsScreen() {
         <View style={styles.header}>
           <Text style={styles.title}>Classes</Text>
           <View style={styles.headerActions}>
+            <Button
+              variant="secondary"
+              size="sm"
+              onPress={() => setJoinModalVisible(true)}
+              style={styles.joinButton}
+            >
+              Join Class
+            </Button>
             <Pressable
               style={({ pressed }) => [styles.workspaceButton, pressed && { opacity: 0.7 }]}
               onPress={() => router.push("/WorkspaceScreen")}
@@ -210,8 +218,14 @@ export default function ClassroomsScreen() {
           </View>
         </View>
         <ErrorState
-          message="Something went wrong loading your classes. Check your connection and try again."
+          message={error}
           onRetry={refresh}
+        />
+        <JoinClassModal
+          visible={joinModalVisible}
+          onClose={() => setJoinModalVisible(false)}
+          onJoined={handleJoined}
+          token={accessToken}
         />
       </ScreenContainer>
     );

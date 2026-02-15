@@ -1,7 +1,9 @@
 import os
+import ssl
 from functools import wraps
 from typing import Any, Callable, Optional
 
+import certifi
 import jwt
 from jwt import PyJWKClient
 from flask import g, jsonify, request
@@ -14,7 +16,8 @@ def _get_jwks_client() -> PyJWKClient:
     if _jwks_client is None:
         base_url = os.getenv("SUPABASE_URL", "").rstrip("/")
         jwks_url = base_url + "/auth/v1/.well-known/jwks.json"
-        _jwks_client = PyJWKClient(jwks_url)
+        ctx = ssl.create_default_context(cafile=certifi.where())
+        _jwks_client = PyJWKClient(jwks_url, ssl_context=ctx)
     return _jwks_client
 
 

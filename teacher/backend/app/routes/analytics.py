@@ -101,7 +101,12 @@ def get_classroom_faq(classroom_id: str) -> Tuple[Response, int]:
     except Exception:
         log.exception("Failed to compute FAQ for %s", classroom_id)
         return _err("Failed to compute FAQ data", 500)
-    return jsonify({"classroom_id": classroom_id, "student_count": student_count, "topics": faq}), 200
+    return jsonify({
+        "classroom_id": classroom_id,
+        "student_count": student_count,
+        "total_messages": len(messages),
+        "topics": faq,
+    }), 200
 
 
 @analytics_bp.route("/analytics/teacher/faq", methods=["GET"])

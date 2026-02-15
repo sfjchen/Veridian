@@ -265,10 +265,24 @@ def _build_temporal(client: Any, by_assignment: dict[str, list[dict[str, Any]]])
     return temporal
 
 
+def _fetch_student_results(client: Any, student_id: str, classroom_id: str) -> list[dict[str, Any]]:
+    """Get problem_results for a single student in a classroom."""
+    assignment_ids = _get_classroom_assignment_ids(client, classroom_id)
+    if not assignment_ids:
+        return []
+    resp = (
+        client.table("problem_results")
+        .select("student_id,assignment_id,problem_num,mistakes,mistake_count,created_at")
+        .eq("student_id", student_id)
+        .in_("assignment_id", assignment_ids)
+        .execute()
+    )
+    return resp.data or []
+
+
 def build_student_profile(client: Any, student_id: str, classroom_id: str) -> dict[str, Any]:
     """Build a single student's mistake profile with temporal breakdown."""
-    results = fetch_classroom_results(client, classroom_id)
-    student_results = [r for r in results if r.get("student_id") == student_id]
+    student_results = _fetch_student_results(client, student_id, classroom_id)
     tag_counts, by_assignment = _group_by_assignment(student_results)
     top_tags = [
         {"tag": t, "count": c, "severity": TAG_TO_SEVERITY.get(t, "")}

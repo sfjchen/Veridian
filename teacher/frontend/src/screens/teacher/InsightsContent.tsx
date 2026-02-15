@@ -7,6 +7,7 @@ import {
   ActivityIndicator,
   StyleSheet,
 } from "react-native";
+import { useFocusEffect } from "@react-navigation/native";
 import { useClassroomFaq } from "../../hooks/useClassroomFaq";
 import { useMistakeHeatmap } from "../../hooks/useMistakeHeatmap";
 import { useClassroomOverview } from "../../hooks/useClassroomOverview";
@@ -49,19 +50,24 @@ function sortTagsBySeverity(tags: string[]): string[] {
 export function InsightsContent({ classroomId, navigation }: { classroomId: string; navigation: any }) {
   const [subTab, setSubTab] = useState<SubTab>("overview");
   const [refreshing, setRefreshing] = useState(false);
-  const { faq, loading: faqLoading, error: faqError, refresh: refreshFaq } = useClassroomFaq(classroomId);
+  const { faq, totalMessages: faqTotalMessages, loading: faqLoading, error: faqError, refresh: refreshFaq } = useClassroomFaq(classroomId);
   const { heatmap, loading: heatmapLoading, error: heatmapError, refresh: refreshHeatmap } = useMistakeHeatmap(classroomId);
   const { overview, loading: overviewLoading, error: overviewError, refresh: refreshOverview } = useClassroomOverview(classroomId);
   const { trends, loading: trendsLoading, error: trendsError, refresh: refreshTrends } = useClassroomTrends(classroomId);
 
-  const refreshMap: Record<SubTab, () => Promise<void>> = {
-    overview: refreshOverview, faq: refreshFaq, mistakes: refreshHeatmap, trends: refreshTrends,
-  };
+  const refreshAll = useCallback(async () => {
+    await Promise.all([refreshOverview(), refreshFaq(), refreshHeatmap(), refreshTrends()]);
+  }, [refreshOverview, refreshFaq, refreshHeatmap, refreshTrends]);
+
+  useFocusEffect(useCallback(() => { refreshAll(); }, [refreshAll]));
 
   const handleRefresh = useCallback(async () => {
+    const refreshMap: Record<SubTab, () => Promise<void>> = {
+      overview: refreshOverview, faq: refreshFaq, mistakes: refreshHeatmap, trends: refreshTrends,
+    };
     setRefreshing(true);
     try { await refreshMap[subTab](); } finally { setRefreshing(false); }
-  }, [subTab, refreshMap]);
+  }, [subTab, refreshOverview, refreshFaq, refreshHeatmap, refreshTrends]);
 
   const isLoading = subTab === "overview" ? overviewLoading
     : subTab === "faq" ? faqLoading
@@ -73,7 +79,7 @@ export function InsightsContent({ classroomId, navigation }: { classroomId: stri
       <SubTabBar subTab={subTab} setSubTab={setSubTab} onRefresh={handleRefresh}
         refreshing={refreshing} disabled={isLoading} />
       {subTab === "overview" && <OverviewPanel overview={overview} loading={overviewLoading} error={overviewError} />}
-      {subTab === "faq" && <FaqPanel faq={faq} loading={faqLoading} error={faqError} />}
+      {subTab === "faq" && <FaqPanel faq={faq} totalMessages={faqTotalMessages} loading={faqLoading} error={faqError} />}
       {subTab === "mistakes" && (
         <MistakesPanel heatmap={heatmap} loading={heatmapLoading} error={heatmapError}
           navigation={navigation} classroomId={classroomId} />
@@ -168,10 +174,11 @@ function SeverityBar({ dist }: { dist: SeverityDistribution }) {
         {SEVERITY_ORDER.map((sev) => {
           const count = dist[sev as keyof SeverityDistribution];
           if (count === 0) return null;
+          const pct = Math.round((count / total) * 100);
           return (
             <View key={sev} style={styles.legendItem}>
               <View style={[styles.legendDot, { backgroundColor: SEVERITY_COLORS[sev] }]} />
-              <Text style={styles.legendText}>{sev} ({count})</Text>
+              <Text style={styles.legendText}>{sev} {pct}% ({count})</Text>
             </View>
           );
         })}
@@ -182,12 +189,13 @@ function SeverityBar({ dist }: { dist: SeverityDistribution }) {
 
 // --- FAQ Panel ---
 
-function FaqPanel({ faq, loading, error }: {
-  faq: FaqTopic[]; loading: boolean; error: string | null;
+function FaqPanel({ faq, totalMessages, loading, error }: {
+  faq: FaqTopic[]; totalMessages: number; loading: boolean; error: string | null;
 }) {
   const [expanded, setExpanded] = useState<string | null>(null);
   if (loading) return <ActivityIndicator style={styles.centered} />;
   if (error) return <Text style={styles.errorText}>{error}</Text>;
+  if (faq.length === 0 && totalMessages > 0) return <Text style={styles.emptyText}>Students have sent {totalMessages} message{totalMessages !== 1 ? "s" : ""}, but no recognizable math topics were detected.</Text>;
   if (faq.length === 0) return <Text style={styles.emptyText}>No student chat messages yet. Topics will appear as students ask questions.</Text>;
   const maxPct = Math.max(...faq.map((t) => t.student_percentage), 1);
   return (
@@ -342,13 +350,23 @@ function TrendsPanel({ trends, loading, error }: {
   return (
     <ScrollView style={styles.panel}>
       <Text style={styles.trendSectionLabel}>Newest first</Text>
-      {trends.map((t) => {
+      {trends.map((t, i) => {
         const total = t.severity_distribution.conceptual + t.severity_distribution.procedural
           + t.severity_distribution.mechanical + t.severity_distribution.notational;
+        const prev = trends[i + 1];
+        const curRate = t.student_count > 0 ? t.total_mistakes / t.student_count : 0;
+        const prevRate = prev && prev.student_count > 0 ? prev.total_mistakes / prev.student_count : null;
+        const trendArrow = prevRate === null ? null
+          : curRate < prevRate ? { symbol: "\u2193", color: "#10B981" }
+          : curRate > prevRate ? { symbol: "\u2191", color: "#EF4444" }
+          : null;
         return (
           <View key={t.assignment_id} style={styles.trendRow}>
             <View style={styles.trendHeader}>
               <Text style={styles.trendTitle} numberOfLines={1}>{t.assignment_title || "Untitled"}</Text>
+              {trendArrow && (
+                <Text style={[styles.trendArrow, { color: trendArrow.color }]}>{trendArrow.symbol}</Text>
+              )}
               <Text style={styles.trendDate}>
                 {t.date ? new Date(t.date).toLocaleDateString("en-US", { month: "short", day: "numeric", timeZone: "UTC" }) : ""}
               </Text>
@@ -470,6 +488,7 @@ const styles = StyleSheet.create({
   trendRow: { backgroundColor: "#fff", borderRadius: 8, padding: 12, marginBottom: 8 },
   trendHeader: { flexDirection: "row", justifyContent: "space-between", marginBottom: 6 },
   trendTitle: { fontSize: 14, fontWeight: "600", color: "#374151", flex: 1 },
+  trendArrow: { fontSize: 16, fontWeight: "bold", marginLeft: 4 },
   trendDate: { fontSize: 12, color: "#9CA3AF", marginLeft: 8 },
   trendBarBg: { height: 8, backgroundColor: "#E5E7EB", borderRadius: 4, marginBottom: 6 },
   trendBarFill: { height: 8, backgroundColor: "#4F46E5", borderRadius: 4 },

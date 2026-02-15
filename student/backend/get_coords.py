@@ -1521,7 +1521,8 @@ def analyze_solution() -> Any:
     timing["coords_ms"] = int((time.perf_counter() - t_coords) * 1000)
     mistakes = _postprocess_mistakes(mistakes, image_bytes, hint_level)
 
-    _profile_log_timing(timing)
+    if _profile_enabled():
+        _profile_log_timing(timing)
 
     payload = _build_analysis_payload(result, mistake_count, mistakes)
     if problem_num is not None:

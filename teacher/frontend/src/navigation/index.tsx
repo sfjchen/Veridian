@@ -11,6 +11,7 @@ import { CorpusUploadScreen } from "../screens/teacher/CorpusUploadScreen";
 import { CreateAssignmentScreen } from "../screens/teacher/CreateAssignmentScreen";
 import { TeacherAssignmentScreen } from "../screens/teacher/AssignmentScreen";
 import { StudentExperienceScreen } from "../screens/teacher/StudentExperienceScreen";
+import { StudentMistakeDetailScreen } from "../screens/teacher/StudentMistakeDetailScreen";
 import { StudentDashboardScreen } from "../screens/student/DashboardScreen";
 import { StudentClassroomScreen } from "../screens/student/ClassroomScreen";
 import { AssignmentScreen } from "../screens/student/AssignmentScreen";
@@ -37,6 +38,7 @@ function TeacherNavigator() {
       <TeacherStack.Screen name="CreateAssignment" component={CreateAssignmentScreen} options={{ title: "New Assignment" }} />
       <TeacherStack.Screen name="TeacherAssignment" component={TeacherAssignmentScreen} options={{ title: "Assignment" }} />
       <TeacherStack.Screen name="StudentExperience" component={StudentExperienceScreen} options={{ title: "Student Experience", headerShown: false }} />
+      <TeacherStack.Screen name="StudentMistakeDetail" component={StudentMistakeDetailScreen} options={{ title: "Student Mistakes" }} />
     </TeacherStack.Navigator>
   );
 }

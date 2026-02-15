@@ -16,6 +16,7 @@ export interface AssignmentConfig {
   notification_style: "silent" | "toast" | "badge";
   chat_enabled: boolean;
   hint_level: "guided" | "minimal" | "detailed";
+  student_mistake_visibility: boolean;
 }
 
 export interface Classroom {
@@ -70,4 +71,40 @@ export interface ClassroomStudent {
   student_id: string;
   display_name: string | null;
   joined_at: string;
+}
+
+export interface FaqTopic {
+  topic: string;
+  message_count: number;
+  unique_students: number;
+  student_percentage: number;
+  sample_questions: string[];
+}
+
+export interface MistakeHeatmapStudent {
+  student_id: string;
+  display_name: string;
+  tag_counts: Record<string, number>;
+  total: number;
+}
+
+export interface MistakeHeatmapResponse {
+  tags: string[];
+  students: MistakeHeatmapStudent[];
+  tag_totals: Record<string, number>;
+}
+
+export interface StudentMistakeProfile {
+  student_id: string;
+  display_name: string;
+  total_mistakes: number;
+  problems_attempted: number;
+  top_tags: { tag: string; count: number; severity: string }[];
+  temporal: {
+    assignment_id: string;
+    assignment_title: string;
+    date: string;
+    mistake_count: number;
+    tags: Record<string, number>;
+  }[];
 }

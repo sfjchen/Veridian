@@ -20,6 +20,7 @@ from chat_service import (
     get_chat_history,
     save_message,
 )
+from mistake_profile import build_chat_mistake_context
 
 log = logging.getLogger(__name__)
 
@@ -79,8 +80,9 @@ def _build_messages(history: List[Dict[str, Any]], context: Dict[str, Any], mess
     return messages
 
 
-def _call_claude(messages: List[Dict[str, str]]) -> str:
+def _call_claude(messages: List[Dict[str, str]], extra_context: str = "") -> str:
     client = _get_anthropic_client()
+    system = f"{SYSTEM_PROMPT}\n\n{extra_context}" if extra_context else SYSTEM_PROMPT
     response = client.messages.create(
         model=CHAT_MODEL,
         max_tokens=CHAT_MAX_TOKENS,
@@ -89,7 +91,7 @@ def _call_claude(messages: List[Dict[str, str]]) -> str:
             max_tokens=CHAT_MAX_TOKENS,
             budget_tokens=BUDGET_TOKENS,
         ),
-        system=SYSTEM_PROMPT,
+        system=system,
         messages=messages,
     )
     text_blocks = [block.text for block in response.content if getattr(block, "type", "") == "text"]
@@ -142,6 +144,14 @@ def _save_message_with_retry(request: ChatMessageInsert) -> None:
             time.sleep(CHAT_PERSIST_BACKOFF_SECONDS[attempt])
 
 
+def _fetch_mistake_context(student_id: str, assignment_id: str) -> str:
+    try:
+        return build_chat_mistake_context(student_id, assignment_id)
+    except Exception:
+        log.exception("Failed to build mistake profile context")
+        return ""
+
+
 def generate_chat_response(student_id: str, assignment_id: str, problem_num: int, message: str) -> str:
     _validate_problem(assignment_id, problem_num)
     history = get_chat_history(student_id, assignment_id, problem_num)
@@ -149,6 +159,7 @@ def generate_chat_response(student_id: str, assignment_id: str, problem_num: int
     chat_context = _chat_context(student_id, assignment_id, problem_num)
     _save_message_with_retry(_chat_persist_request(chat_context, "student", message))
     messages = _build_messages(history, context, message)
-    response_text = _call_claude(messages)
+    mistake_context = _fetch_mistake_context(student_id, assignment_id)
+    response_text = _call_claude(messages, extra_context=mistake_context)
     _save_message_with_retry(_chat_persist_request(chat_context, "assistant", response_text))
     return response_text

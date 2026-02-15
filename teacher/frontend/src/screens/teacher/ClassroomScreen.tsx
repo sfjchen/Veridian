@@ -9,8 +9,9 @@ import { ConfigEditor } from "../../components/ConfigEditor";
 import { api } from "../../lib/api";
 import { alert } from "../../lib/alert";
 import { AssignmentConfig, Classroom, CorpusFile } from "../../types";
+import { InsightsContent } from "./InsightsContent";
 
-type Tab = "assignments" | "corpus" | "students" | "settings";
+type Tab = "assignments" | "corpus" | "students" | "insights" | "settings";
 
 export function TeacherClassroomScreen({ route, navigation }: { route: any; navigation: any }) {
   const classroom: Classroom = route.params.classroom;
@@ -61,7 +62,7 @@ export function TeacherClassroomScreen({ route, navigation }: { route: any; navi
       <Text style={styles.code}>Class Code: {classroom.class_code}</Text>
 
       <View style={styles.tabs}>
-        {(["assignments", "corpus", "students", "settings"] as Tab[]).map((tab) => (
+        {(["assignments", "corpus", "students", "insights", "settings"] as Tab[]).map((tab) => (
           <TouchableOpacity
             key={tab}
             style={[styles.tab, activeTab === tab && styles.tabActive]}
@@ -174,6 +175,12 @@ export function TeacherClassroomScreen({ route, navigation }: { route: any; navi
               ListEmptyComponent={<Text style={styles.empty}>No students have joined yet</Text>}
             />
           )}
+        </View>
+      )}
+
+      {activeTab === "insights" && (
+        <View style={styles.content}>
+          <InsightsContent classroomId={classroom.id} navigation={navigation} />
         </View>
       )}
 

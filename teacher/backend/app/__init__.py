@@ -34,6 +34,9 @@ def create_app() -> Flask:
     from .routes.api_docs import api_docs_bp
     app.register_blueprint(api_docs_bp)
 
+    from .routes.analytics import analytics_bp
+    app.register_blueprint(analytics_bp)
+
     @app.errorhandler(404)
     def not_found(e: Exception) -> tuple[Response, int]:
         return jsonify(error="Not found"), 404

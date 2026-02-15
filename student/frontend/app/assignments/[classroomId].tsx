@@ -1,12 +1,6 @@
 import { MaterialCommunityIcons } from "@expo/vector-icons";
 import { useLocalSearchParams, useRouter } from "expo-router";
-import {
-  FlatList,
-  Pressable,
-  StyleSheet,
-  Text,
-  View,
-} from "react-native";
+import { FlatList, Pressable, StyleSheet, Text, useWindowDimensions, View } from "react-native";
 
 import {
   EmptyState,
@@ -40,10 +34,12 @@ function formatDueDate(dueDate: string | null): string {
 function AssignmentCard({
   assignment,
   index,
+  isTwoColumn,
   onPress,
 }: {
   assignment: AssignmentListItem;
   index: number;
+  isTwoColumn: boolean;
   onPress: () => void;
 }) {
   const dueStr = formatDueDate(assignment.due_date);
@@ -52,6 +48,7 @@ function AssignmentCard({
     <Pressable
       style={({ pressed }) => [
         styles.card,
+        isTwoColumn && styles.cardTwoColumn,
         elevation.shadowMd,
         pressed && { opacity: 0.9 },
       ]}
@@ -89,7 +86,10 @@ export default function AssignmentsScreen() {
     classroomName?: string;
   }>();
   const router = useRouter();
+  const { width, height } = useWindowDimensions();
   const { assignments, loading, error, refresh } = useAssignments(classroomId ?? null);
+  const isTallViewport = height >= width;
+  const assignmentColumns = isTallViewport ? 2 : 4;
 
   const backAction = (
     <Pressable
@@ -173,22 +173,28 @@ export default function AssignmentsScreen() {
       ) : (
         <FlatList
           data={assignments}
+          key={`assignments-${assignmentColumns}`}
           keyExtractor={(item) => item.id}
+          numColumns={assignmentColumns}
+          columnWrapperStyle={assignmentColumns > 1 ? styles.assignmentColumnWrap : undefined}
           renderItem={({ item, index }) => (
-            <AssignmentCard
-              assignment={item}
-              index={index}
-              onPress={() =>
-                router.push({
-                  pathname: "/document/[id]",
-                  params: {
-                    id: item.id,
-                    assignmentId: item.id,
-                    classroomName: classroomName ?? undefined,
-                  },
-                })
-              }
-            />
+            <View style={[styles.assignmentCell, assignmentColumns > 1 && styles.assignmentCellGrid]}>
+              <AssignmentCard
+                assignment={item}
+                index={index}
+                isTwoColumn={assignmentColumns === 2}
+                onPress={() =>
+                  router.push({
+                    pathname: "/document/[id]",
+                    params: {
+                      id: item.id,
+                      assignmentId: item.id,
+                      classroomName: classroomName ?? undefined,
+                    },
+                  })
+                }
+              />
+            </View>
           )}
           contentContainerStyle={styles.listContent}
         />
@@ -231,13 +237,24 @@ const styles = StyleSheet.create({
   listContent: {
     padding: spacing.md,
     paddingBottom: spacing.xl,
+  },
+  assignmentColumnWrap: {
     gap: spacing.sm,
+  },
+  assignmentCell: {
+    marginBottom: spacing.sm,
+  },
+  assignmentCellGrid: {
+    flex: 1,
   },
   card: {
     height: 100,
     backgroundColor: palette.card,
     borderRadius: radius.organic,
     overflow: "hidden",
+  },
+  cardTwoColumn: {
+    height: 144,
   },
   cardGradient: {
     flexDirection: "row",

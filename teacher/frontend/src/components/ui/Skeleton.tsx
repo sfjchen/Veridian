@@ -1,8 +1,6 @@
 import React, { useEffect, useRef, useState } from "react";
-import { Animated, DimensionValue, StyleSheet, View, ViewStyle } from "react-native";
-import { palette, radius } from "../../constants/palette";
-import { motion } from "../../constants/motion";
-import { spacing } from "../../constants/spacing";
+import { Animated, DimensionValue, View, ViewStyle } from "react-native";
+import { useAppTheme } from "../../constants/theme";
 
 interface SkeletonProps {
   width?: number | string;
@@ -11,6 +9,7 @@ interface SkeletonProps {
 }
 
 export function Skeleton({ width, height = 20, style }: SkeletonProps) {
+  const { radius, motion, semantic } = useAppTheme();
   const opacity = useRef(new Animated.Value(0.3)).current;
   const [mounted, setMounted] = useState(false);
 
@@ -28,14 +27,13 @@ export function Skeleton({ width, height = 20, style }: SkeletonProps) {
     );
     loop.start();
     return () => loop.stop();
-  }, [mounted, opacity]);
+  }, [mounted, opacity, motion.slow]);
 
   const widthVal = (width ?? "100%") as DimensionValue;
   return (
     <Animated.View
       style={[
-        styles.skeleton,
-        { width: widthVal, height, opacity },
+        { width: widthVal, height, opacity, backgroundColor: semantic.border.default, borderRadius: radius.input },
         style,
       ]}
     />
@@ -43,23 +41,11 @@ export function Skeleton({ width, height = 20, style }: SkeletonProps) {
 }
 
 export function SkeletonCard() {
+  const { radius, spacing, semantic } = useAppTheme();
   return (
-    <View style={styles.card}>
+    <View style={{ backgroundColor: semantic.bg.card, borderRadius: radius.card, padding: spacing.md, marginBottom: spacing.sm }}>
       <Skeleton height={20} style={{ marginBottom: spacing.xs }} />
       <Skeleton height={14} width="60%" />
     </View>
   );
 }
-
-const styles = StyleSheet.create({
-  skeleton: {
-    backgroundColor: palette.border,
-    borderRadius: radius.input,
-  },
-  card: {
-    backgroundColor: palette.card,
-    borderRadius: radius.card,
-    padding: spacing.md,
-    marginBottom: spacing.sm,
-  },
-});

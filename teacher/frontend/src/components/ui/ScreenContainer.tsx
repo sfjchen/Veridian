@@ -1,8 +1,7 @@
 import React, { ReactNode } from "react";
 import { Platform, StyleSheet, View } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
-import { palette } from "../../constants/palette";
-import { spacing } from "../../constants/spacing";
+import { useAppTheme } from "../../constants/theme";
 
 type MaxWidth = "form" | "dashboard" | "full";
 
@@ -23,8 +22,9 @@ export function ScreenContainer({
   maxWidth = "full",
   edges = ["top", "left", "right"],
 }: ScreenContainerProps) {
+  const { spacing, semantic } = useAppTheme();
   const content = (
-    <View style={[styles.inner, maxWidth !== "full" && styles.centered]}>
+    <View style={[styles.inner, { paddingHorizontal: spacing.md }, maxWidth !== "full" && styles.centered]}>
       <View style={[styles.content, maxWidth !== "full" && { maxWidth: MAX_WIDTH[maxWidth] }]}>
         {children}
       </View>
@@ -32,19 +32,19 @@ export function ScreenContainer({
   );
 
   if (Platform.OS === "web") {
-    return <View style={styles.webRoot}>{content}</View>;
+    return <View style={[styles.webRoot, { backgroundColor: semantic.bg.app }]}>{content}</View>;
   }
   return (
-    <SafeAreaView style={styles.safe} edges={edges}>
+    <SafeAreaView style={[styles.safe, { backgroundColor: semantic.bg.app }]} edges={edges}>
       {content}
     </SafeAreaView>
   );
 }
 
 const styles = StyleSheet.create({
-  safe: { flex: 1, backgroundColor: "transparent" },
-  webRoot: { flex: 1, backgroundColor: "transparent" },
-  inner: { flex: 1, paddingHorizontal: spacing.md },
+  safe: { flex: 1 },
+  webRoot: { flex: 1 },
+  inner: { flex: 1 },
   centered: { alignItems: "center" as const },
   content: { flex: 1, width: "100%" },
 });

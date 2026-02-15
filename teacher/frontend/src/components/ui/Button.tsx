@@ -1,38 +1,19 @@
 import React, { ReactNode } from "react";
 import {
   ActivityIndicator,
+  Platform,
   Pressable,
   StyleSheet,
   Text,
   ViewStyle,
   TextStyle,
 } from "react-native";
-import { palette, radius } from "../../constants/palette";
-import { spacing } from "../../constants/spacing";
-import { typography } from "../../constants/typography";
+import { useAppTheme } from "../../constants/theme";
 
 type Variant = "primary" | "secondary" | "ghost" | "danger";
 type Size = "sm" | "md" | "lg";
 
 const MIN_TOUCH = 44;
-
-const variantStyles: Record<Variant, ViewStyle> = {
-  primary: { backgroundColor: palette.primary },
-  secondary: {
-    backgroundColor: "transparent",
-    borderWidth: 2,
-    borderColor: palette.primary,
-  },
-  ghost: { backgroundColor: "transparent" },
-  danger: { backgroundColor: palette.error },
-};
-
-const textVariantStyles: Record<Variant, TextStyle> = {
-  primary: { color: palette.textOnPrimary },
-  secondary: { color: palette.primary },
-  ghost: { color: palette.primary },
-  danger: { color: palette.textOnPrimary },
-};
 
 interface ButtonProps {
   onPress: () => void;
@@ -57,20 +38,60 @@ export function Button({
   fullWidth,
   accessibilityLabel,
 }: ButtonProps) {
+  const theme = useAppTheme();
+  const { radius, spacing, typography, motion, semantic } = theme;
   const isDisabled = disabled || loading;
+  const variantStyles: Record<Variant, ViewStyle> = {
+    primary: { backgroundColor: semantic.action.primary },
+    secondary: {
+      backgroundColor: "transparent",
+      borderWidth: 2,
+      borderColor: semantic.action.primary,
+    },
+    ghost: { backgroundColor: "transparent" },
+    danger: { backgroundColor: semantic.state.error },
+  };
+
+  const textVariantStyles: Record<Variant, TextStyle> = {
+    primary: { color: semantic.text.onPrimary },
+    secondary: { color: semantic.action.primary },
+    ghost: { color: semantic.action.primary },
+    danger: { color: semantic.text.onPrimary },
+  };
+  const webTransition =
+    Platform.OS === "web"
+      ? ({
+          transitionDuration: `${motion.fast}ms`,
+          transitionProperty: "transform, opacity",
+          transitionTimingFunction: "ease-out",
+        } as unknown as ViewStyle)
+      : undefined;
+
   return (
     <Pressable
       onPress={onPress}
       disabled={isDisabled}
       style={({ pressed, focused }) => [
-        styles.base,
+        {
+          alignItems: "center",
+          justifyContent: "center",
+          minHeight: MIN_TOUCH,
+          borderRadius: radius.button,
+          paddingVertical: spacing.sm,
+          paddingHorizontal: spacing.lg,
+        },
         variantStyles[variant],
-        size === "sm" && styles.sizeSm,
-        size === "lg" && styles.sizeLg,
-        isDisabled && styles.disabled,
+        size === "sm" && { paddingVertical: spacing.xs, paddingHorizontal: spacing.md, minHeight: MIN_TOUCH },
+        size === "lg" && { paddingVertical: spacing.md, paddingHorizontal: spacing.xl, minHeight: 52 },
+        isDisabled && baseStyles.disabled,
         fullWidth && styles.fullWidth,
-        !isDisabled && pressed && styles.pressed,
-        !isDisabled && focused && styles.focusRing,
+        webTransition,
+        !isDisabled && pressed && baseStyles.pressed,
+        !isDisabled && focused && {
+          outlineWidth: 2,
+          outlineColor: semantic.action.primary,
+          outlineStyle: "solid",
+        },
         style,
       ]}
       accessibilityRole="button"
@@ -79,14 +100,14 @@ export function Button({
       {loading ? (
         <ActivityIndicator
           size="small"
-          color={variant === "primary" || variant === "danger" ? palette.textOnPrimary : palette.primary}
+          color={variant === "primary" || variant === "danger" ? semantic.text.onPrimary : semantic.action.primary}
         />
       ) : (
         <Text
           style={[
             size === "sm" ? typography.buttonSmall : typography.button,
             textVariantStyles[variant],
-            isDisabled && styles.textDisabled,
+            isDisabled && { color: semantic.text.disabled },
           ]}
         >
           {children}
@@ -97,23 +118,10 @@ export function Button({
 }
 
 const styles = StyleSheet.create({
-  base: {
-    borderRadius: radius.button,
-    paddingVertical: spacing.sm,
-    paddingHorizontal: spacing.lg,
-    alignItems: "center",
-    justifyContent: "center",
-    minHeight: MIN_TOUCH,
-  },
-  sizeSm: { paddingVertical: spacing.xs, paddingHorizontal: spacing.md, minHeight: MIN_TOUCH },
-  sizeLg: { paddingVertical: spacing.md, paddingHorizontal: spacing.xl, minHeight: 52 },
   fullWidth: { width: "100%" },
+});
+
+const baseStyles = StyleSheet.create({
   disabled: { opacity: 0.6 },
   pressed: { opacity: 0.9, transform: [{ scale: 0.98 }] },
-  focusRing: {
-    outlineWidth: 2,
-    outlineColor: palette.primary,
-    outlineStyle: "solid",
-  },
-  textDisabled: { color: palette.textDisabled },
 });

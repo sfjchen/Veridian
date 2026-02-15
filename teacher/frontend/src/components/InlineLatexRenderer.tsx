@@ -6,6 +6,8 @@ interface Props {
   latex: string;
 }
 
+const HEIGHT_MSG_PREFIX = "__inline_latex_height__:";
+
 function normalizeLatexInput(raw: string): string {
   const tex = raw.trim();
   if (tex.length < 2) return tex;
@@ -46,7 +48,7 @@ function isLikelyLatex(input: string): boolean {
   return /\^|_|\\{|\\}/.test(tex);
 }
 
-function buildHtml(content: string): string {
+function buildHtml(content: string, renderKey: string): string {
   const normalizedInput = normalizeCommonLatexArtifacts(content);
   const normalized = normalizeLatexInput(normalizedInput);
   const useDelimiterRender = hasMathDelimiters(content);
@@ -61,6 +63,7 @@ function buildHtml(content: string): string {
   const useDelimiterPayload = JSON.stringify(useDelimiterRender);
   const hasEnvironmentPayload = JSON.stringify(hasEnvironment);
   const likelyLatexPayload = JSON.stringify(likelyLatex);
+  const renderKeyPayload = JSON.stringify(renderKey);
   return `<!DOCTYPE html>
 <html>
 <head>
@@ -82,6 +85,7 @@ function buildHtml(content: string): string {
   const useDelimiterRender = ${useDelimiterPayload};
   const hasEnvironment = ${hasEnvironmentPayload};
   const likelyLatex = ${likelyLatexPayload};
+  const renderKey = ${renderKeyPayload};
 
   try {
     if (useDelimiterRender && typeof renderMathInElement === 'function') {
@@ -102,18 +106,45 @@ function buildHtml(content: string): string {
   } catch (e) {
     target.textContent = original;
   }
+
+  const height = Math.max(32, document.documentElement.scrollHeight, document.body.scrollHeight);
+  const message = '${HEIGHT_MSG_PREFIX}' + renderKey + ':' + String(height);
+  if (window.ReactNativeWebView && window.ReactNativeWebView.postMessage) {
+    window.ReactNativeWebView.postMessage(message);
+  }
+  if (window.parent && window.parent !== window && window.parent.postMessage) {
+    window.parent.postMessage(message, '*');
+  }
 </script>
 </body>
 </html>`;
 }
 
 function WebInlineLatex({ latex }: Props) {
-  const html = buildHtml(latex);
+  const [height, setHeight] = React.useState(56);
+  const renderKey = React.useRef(`inline-${Math.random().toString(36).slice(2)}`).current;
+  const html = React.useMemo(() => buildHtml(latex, renderKey), [latex, renderKey]);
+
+  React.useEffect(() => {
+    const handleMessage = (event: MessageEvent) => {
+      if (typeof event.data !== "string") return;
+      const prefix = `${HEIGHT_MSG_PREFIX}${renderKey}:`;
+      if (!event.data.startsWith(prefix)) return;
+      const nextHeight = Number(event.data.slice(prefix.length));
+      if (Number.isFinite(nextHeight) && nextHeight >= 32 && nextHeight <= 1200) {
+        setHeight(nextHeight);
+      }
+    };
+    window.addEventListener("message", handleMessage);
+    return () => window.removeEventListener("message", handleMessage);
+  }, [renderKey]);
+
   return (
-    <View style={styles.container}>
+    <View style={[styles.container, { minHeight: height }]}>
       <iframe
         srcDoc={html}
-        style={{ width: "100%", height: 48, border: "none" } as any}
+        style={{ width: "100%", height, border: "none" } as any}
+        sandbox="allow-scripts allow-same-origin"
         title="LaTeX Preview"
       />
     </View>
@@ -123,16 +154,30 @@ function WebInlineLatex({ latex }: Props) {
 function NativeInlineLatex({ latex }: Props) {
   // eslint-disable-next-line @typescript-eslint/no-require-imports
   const { WebView } = require("react-native-webview");
-  const html = buildHtml(latex);
+  const [height, setHeight] = React.useState(56);
+  const renderKey = React.useRef(`inline-${Math.random().toString(36).slice(2)}`).current;
+  const html = React.useMemo(() => buildHtml(latex, renderKey), [latex, renderKey]);
+
+  const onMessage = React.useCallback((event: any) => {
+    const raw = event?.nativeEvent?.data;
+    if (typeof raw !== "string") return;
+    const prefix = `${HEIGHT_MSG_PREFIX}${renderKey}:`;
+    if (!raw.startsWith(prefix)) return;
+    const nextHeight = Number(raw.slice(prefix.length));
+    if (Number.isFinite(nextHeight) && nextHeight >= 32 && nextHeight <= 1200) {
+      setHeight(nextHeight);
+    }
+  }, [renderKey]);
 
   return (
-    <View style={styles.container}>
+    <View style={[styles.container, { minHeight: height }]}>
       <WebView
         source={{ html }}
-        style={styles.webview}
+        style={[styles.webview, { height }]}
         scrollEnabled={false}
         originWhitelist={["*"]}
         javaScriptEnabled={true}
+        onMessage={onMessage}
       />
     </View>
   );
@@ -145,7 +190,7 @@ export function InlineLatexRenderer(props: Props) {
 
 const styles = StyleSheet.create({
   container: {
-    height: 48,
+    minHeight: 56,
     borderRadius: radius.input,
     backgroundColor: palette.surface,
     overflow: "hidden",

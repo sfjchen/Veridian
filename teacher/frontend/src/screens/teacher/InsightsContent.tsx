@@ -6,6 +6,7 @@ import {
   ScrollView,
   ActivityIndicator,
   StyleSheet,
+  Platform,
 } from "react-native";
 import { useFocusEffect } from "@react-navigation/native";
 import { useClassroomFaq } from "../../hooks/useClassroomFaq";
@@ -26,21 +27,6 @@ import { palette, radius } from "../../constants/palette";
 import { spacing } from "../../constants/spacing";
 import { typography } from "../../constants/typography";
 
-type SubTab = "overview" | "faq" | "mistakes" | "trends";
-const SUB_TABS: { key: SubTab; label: string }[] = [
-  { key: "overview", label: "Overview" },
-  { key: "faq", label: "FAQ" },
-  { key: "mistakes", label: "Mistakes" },
-  { key: "trends", label: "Trends" },
-];
-
-function cellColor(count: number, maxCount: number): string {
-  if (count === 0 || maxCount === 0) return palette.surface;
-  const t = Math.min(count / maxCount, 1);
-  const channel = Math.round(68 + 182 * (1 - t));
-  return `rgb(239,${channel},${channel})`;
-}
-
 type Severity = (typeof SEVERITY_ORDER)[number];
 
 function sortTagsBySeverity(tags: string[]): string[] {
@@ -52,80 +38,153 @@ function sortTagsBySeverity(tags: string[]): string[] {
 }
 
 export function InsightsContent({ classroomId, navigation }: { classroomId: string; navigation: any }) {
-  const [subTab, setSubTab] = useState<SubTab>("overview");
   const [refreshing, setRefreshing] = useState(false);
+  const [faqExpanded, setFaqExpanded] = useState(false);
+  const [showAllFaq, setShowAllFaq] = useState(false);
+  const [showAllMistakes, setShowAllMistakes] = useState(false);
+  const [showAllTrends, setShowAllTrends] = useState(false);
   const { faq, totalMessages: faqTotalMessages, loading: faqLoading, error: faqError, refresh: refreshFaq } = useClassroomFaq(classroomId);
   const { heatmap, loading: heatmapLoading, error: heatmapError, refresh: refreshHeatmap } = useMistakeHeatmap(classroomId);
   const { overview, loading: overviewLoading, error: overviewError, refresh: refreshOverview } = useClassroomOverview(classroomId);
   const { trends, loading: trendsLoading, error: trendsError, refresh: refreshTrends } = useClassroomTrends(classroomId);
 
-  const refreshActive = useCallback(async () => {
-    const refreshMap: Record<SubTab, () => Promise<void>> = {
-      overview: refreshOverview, faq: refreshFaq, mistakes: refreshHeatmap, trends: refreshTrends,
-    };
-    await refreshMap[subTab]();
-  }, [subTab, refreshOverview, refreshFaq, refreshHeatmap, refreshTrends]);
+  const refreshAll = useCallback(async () => {
+    await Promise.all([refreshOverview(), refreshFaq(), refreshHeatmap(), refreshTrends()]);
+  }, [refreshOverview, refreshFaq, refreshHeatmap, refreshTrends]);
 
-  useFocusEffect(useCallback(() => { refreshActive(); }, [refreshActive]));
+  useFocusEffect(useCallback(() => { refreshAll(); }, [refreshAll]));
 
   const handleRefresh = useCallback(async () => {
-    const refreshMap: Record<SubTab, () => Promise<void>> = {
-      overview: refreshOverview, faq: refreshFaq, mistakes: refreshHeatmap, trends: refreshTrends,
-    };
     setRefreshing(true);
-    try { await refreshMap[subTab](); } finally { setRefreshing(false); }
-  }, [subTab, refreshOverview, refreshFaq, refreshHeatmap, refreshTrends]);
+    try { await refreshAll(); } finally { setRefreshing(false); }
+  }, [refreshAll]);
 
-  const isLoading = subTab === "overview" ? overviewLoading
-    : subTab === "faq" ? faqLoading
-    : subTab === "mistakes" ? heatmapLoading
-    : trendsLoading;
+  const isLoading = overviewLoading || faqLoading || heatmapLoading || trendsLoading;
+
+  const topFaq = faq[0];
+  const sectionSummary = {
+    overview: overview ? `${overview.active_students}/${overview.student_count} active learners` : "No data yet",
+    faq: topFaq
+      ? `${topFaq.topic} • ${topFaq.student_percentage}% students • ${topFaq.message_count} msgs`
+      : "No active student topics yet",
+  };
 
   return (
     <View style={styles.container}>
-      <SubTabBar subTab={subTab} setSubTab={setSubTab} onRefresh={handleRefresh}
-        refreshing={refreshing} disabled={isLoading} />
-      {subTab === "overview" && <OverviewPanel overview={overview} loading={overviewLoading} error={overviewError} onRetry={refreshOverview} />}
-      {subTab === "faq" && <FaqPanel faq={faq} totalMessages={faqTotalMessages} loading={faqLoading} error={faqError} />}
-      {subTab === "mistakes" && (
-        <MistakesPanel heatmap={heatmap} loading={heatmapLoading} error={heatmapError}
-          navigation={navigation} classroomId={classroomId} />
-      )}
-      {subTab === "trends" && <TrendsPanel trends={trends} loading={trendsLoading} error={trendsError} />}
+      <View style={styles.headerRow}>
+        <Text style={styles.sectionHeader}>Canopy Insights</Text>
+        <TouchableOpacity style={[styles.refreshBtn, (isLoading || refreshing) && styles.refreshBtnDisabled]}
+          onPress={handleRefresh} disabled={isLoading || refreshing}>
+          {refreshing
+            ? <ActivityIndicator size="small" color={palette.white} />
+            : <Text style={styles.refreshBtnText}>Refresh</Text>}
+        </TouchableOpacity>
+      </View>
+      <ScrollView style={styles.panel} contentContainerStyle={styles.panelContent}>
+        <SectionCard
+          title="Overview"
+          summary={sectionSummary.overview}
+          expanded
+        >
+          <OverviewPanel
+            overview={overview}
+            loading={overviewLoading}
+            error={overviewError}
+            onRetry={refreshOverview}
+            heatmap={heatmap}
+            heatmapLoading={heatmapLoading}
+            heatmapError={heatmapError}
+            trends={trends}
+            trendsLoading={trendsLoading}
+            trendsError={trendsError}
+            navigation={navigation}
+            classroomId={classroomId}
+            showAllMistakes={showAllMistakes}
+            onToggleShowAllMistakes={() => setShowAllMistakes((prev) => !prev)}
+            showAllTrends={showAllTrends}
+            onToggleShowAllTrends={() => setShowAllTrends((prev) => !prev)}
+          />
+        </SectionCard>
+
+        <SectionCard
+          title="FAQ"
+          summary={sectionSummary.faq}
+          expanded={faqExpanded}
+          onToggle={() => setFaqExpanded((prev) => !prev)}
+        >
+          <FaqPanel
+            faq={faq}
+            totalMessages={faqTotalMessages}
+            loading={faqLoading}
+            error={faqError}
+            showAll={showAllFaq}
+            onToggleShowAll={() => setShowAllFaq((prev) => !prev)}
+          />
+        </SectionCard>
+      </ScrollView>
     </View>
   );
 }
 
-function SubTabBar({ subTab, setSubTab, onRefresh, refreshing, disabled }: {
-  subTab: SubTab; setSubTab: (t: SubTab) => void; onRefresh: () => void;
-  refreshing: boolean; disabled: boolean;
+function SectionCard({
+  title,
+  summary,
+  expanded,
+  onToggle,
+  children,
+}: {
+  title: string;
+  summary: string;
+  expanded: boolean;
+  onToggle?: () => void;
+  children: React.ReactNode;
 }) {
   return (
-    <View style={styles.subTabs}>
-      {SUB_TABS.map(({ key, label }) => (
-        <TouchableOpacity key={key} style={[styles.subTab, subTab === key && styles.subTabActive]} onPress={() => setSubTab(key)}>
-          <Text style={[styles.subTabText, subTab === key && styles.subTabTextActive]}>{label}</Text>
-        </TouchableOpacity>
-      ))}
-      <TouchableOpacity style={[styles.refreshBtn, disabled && styles.refreshBtnDisabled]}
-        onPress={onRefresh} disabled={disabled}>
-        {refreshing
-          ? <ActivityIndicator size="small" color={palette.white} />
-          : <Text style={styles.refreshBtnText}>Refresh</Text>}
+    <View style={styles.sectionShell}>
+      <TouchableOpacity style={styles.accordionHeader} onPress={onToggle} disabled={!onToggle}>
+        <View>
+          <Text style={styles.accordionTitle}>{title}</Text>
+          <Text style={styles.accordionSummary}>{summary}</Text>
+        </View>
+        {onToggle ? <Text style={styles.accordionChevron}>{expanded ? "\u25BE" : "\u25B8"}</Text> : null}
       </TouchableOpacity>
+      {expanded ? <View style={styles.sectionBody}>{children}</View> : null}
     </View>
   );
 }
 
 // --- Overview Panel ---
 
-function OverviewPanel({ overview, loading, error, onRetry }: {
+function OverviewPanel({
+  overview,
+  loading,
+  error,
+  onRetry,
+  heatmap,
+  heatmapLoading,
+  heatmapError,
+  trends,
+  trendsLoading,
+  trendsError,
+  navigation,
+  classroomId,
+  showAllMistakes,
+  onToggleShowAllMistakes,
+  showAllTrends,
+  onToggleShowAllTrends,
+}: {
   overview: ClassroomOverview | null; loading: boolean; error: string | null; onRetry?: () => void;
+  heatmap: MistakeHeatmapResponse | null; heatmapLoading: boolean; heatmapError: string | null;
+  trends: AssignmentTrend[]; trendsLoading: boolean; trendsError: string | null;
+  navigation: any; classroomId: string;
+  showAllMistakes: boolean; onToggleShowAllMistakes: () => void;
+  showAllTrends: boolean; onToggleShowAllTrends: () => void;
 }) {
+  const [showDetails, setShowDetails] = useState(false);
   if (loading) {
     return (
       <View style={styles.skeletonPanel}>
-        <View style={styles.statsGrid}>
+        <View style={styles.statsGridCompact}>
           {[1, 2, 3, 4, 5].map((i) => (
             <View key={i} style={styles.statCard}>
               <Skeleton width={48} height={28} style={{ marginBottom: spacing.xs }} />
@@ -138,15 +197,53 @@ function OverviewPanel({ overview, loading, error, onRetry }: {
   }
   if (error) return <ErrorState message={error} onRetry={onRetry} />;
   if (!overview) return <EmptyState title="No data yet" description="Data will appear once students begin working on assignments." />;
+  const stressLevel = overview.total_mistakes > overview.student_count * 5
+    ? "critical"
+    : overview.total_mistakes > overview.student_count * 2
+      ? "watch"
+      : "healthy";
+  const canopyMood = stressLevel === "healthy"
+    ? { label: "Canopy thriving", note: "The grove is steady and growing with confidence.", tone: palette.success, tint: palette.successBg }
+    : stressLevel === "watch"
+      ? { label: "Canopy watch", note: "A few branches need attention and extra sunlight.", tone: palette.warning, tint: palette.warningBg }
+      : { label: "Canopy strained", note: "Heavy friction detected. Prune and support key learners.", tone: palette.error, tint: palette.errorBg };
+
   return (
-    <ScrollView style={styles.panel}>
-      <View style={styles.statsGrid}>
-        <StatCard label="Students" value={overview.active_students} sub={`of ${overview.student_count} enrolled`} />
-        <StatCard label="Problems" value={overview.total_problems} />
-        <StatCard label="Mistakes" value={overview.total_mistakes} />
-        <StatCard label="Per Student" value={overview.avg_mistakes_per_student} />
-        <StatCard label="Per Problem" value={overview.avg_mistakes_per_problem} />
+    <View style={styles.sectionCard}>
+      <View style={styles.canopyBand}>
+        <View style={styles.gardenMoodRow}>
+          <View style={[styles.gardenMoodChip, { backgroundColor: canopyMood.tint }]}>
+            <View style={[styles.gardenMoodDot, { backgroundColor: canopyMood.tone }]} />
+            <Text style={[styles.gardenMoodLabel, { color: canopyMood.tone }]}>{canopyMood.label}</Text>
+          </View>
+          <Text style={styles.gardenMoodText}>{canopyMood.note}</Text>
+        </View>
+        <View style={styles.canopyGrid}>
+          <CompactMetric
+            label="Fallen leaves"
+            value={overview.total_mistakes}
+          />
+          <CompactMetric
+            label="Avg per sapling"
+            value={overview.avg_mistakes_per_student.toFixed(1)}
+          />
+        </View>
       </View>
+
+      <TouchableOpacity onPress={() => setShowDetails((prev) => !prev)}>
+        <Text style={styles.showMoreText}>{showDetails ? "Hide details" : "Show details"}</Text>
+      </TouchableOpacity>
+      {showDetails && (
+        <>
+          <View style={styles.statsGridCompact}>
+            <StatCard label="Students" value={overview.active_students} sub={`of ${overview.student_count} enrolled`} />
+            <StatCard label="Problems" value={overview.total_problems} />
+            <StatCard label="Mistakes" value={overview.total_mistakes} />
+            <StatCard label="Per Student" value={overview.avg_mistakes_per_student} />
+          </View>
+          <SeverityBar dist={overview.severity_distribution} />
+        </>
+      )}
       {overview.most_common_tag && (
         <View style={styles.highlightCard}>
           <Text style={styles.highlightLabel}>Most Common Mistake</Text>
@@ -159,8 +256,40 @@ function OverviewPanel({ overview, loading, error, onRetry }: {
           </View>
         </View>
       )}
-      <SeverityBar dist={overview.severity_distribution} />
-    </ScrollView>
+
+      <View style={styles.embeddedSection}>
+        <Text style={styles.embeddedSectionTitle}>Mistake Thicket</Text>
+        <MistakesPanel
+          heatmap={heatmap}
+          loading={heatmapLoading}
+          error={heatmapError}
+          navigation={navigation}
+          classroomId={classroomId}
+          showAll={showAllMistakes}
+          onToggleShowAll={onToggleShowAllMistakes}
+        />
+      </View>
+
+      <View style={styles.embeddedSection}>
+        <Text style={styles.embeddedSectionTitle}>Growth Rings</Text>
+        <TrendsPanel
+          trends={trends}
+          loading={trendsLoading}
+          error={trendsError}
+          showAll={showAllTrends}
+          onToggleShowAll={onToggleShowAllTrends}
+        />
+      </View>
+    </View>
+  );
+}
+
+function CompactMetric({ label, value }: { label: string; value: string | number }) {
+  return (
+    <View style={styles.compactMetricCard}>
+      <Text style={styles.compactMetricValue}>{value}</Text>
+      <Text style={styles.compactMetricLabel}>{label}</Text>
+    </View>
   );
 }
 
@@ -209,18 +338,20 @@ function SeverityBar({ dist }: { dist: SeverityDistribution }) {
 
 // --- FAQ Panel ---
 
-function FaqPanel({ faq, totalMessages, loading, error }: {
+function FaqPanel({ faq, totalMessages, loading, error, showAll, onToggleShowAll }: {
   faq: FaqTopic[]; totalMessages: number; loading: boolean; error: string | null;
+  showAll: boolean; onToggleShowAll: () => void;
 }) {
   const [expanded, setExpanded] = useState<string | null>(null);
   if (loading) return <ActivityIndicator style={styles.centered} />;
   if (error) return <Text style={styles.errorText}>{error}</Text>;
   if (faq.length === 0 && totalMessages > 0) return <Text style={styles.emptyText}>Students have sent {totalMessages} message{totalMessages !== 1 ? "s" : ""}, but no recognizable math topics were detected.</Text>;
   if (faq.length === 0) return <Text style={styles.emptyText}>No student chat messages yet. Topics will appear as students ask questions.</Text>;
+  const visibleFaq = showAll ? faq : faq.slice(0, 3);
   const maxPct = Math.max(...faq.map((t) => t.student_percentage), 1);
   return (
-    <ScrollView style={styles.panel}>
-      {faq.map((topic) => (
+    <View>
+      {visibleFaq.map((topic) => (
         <TouchableOpacity key={topic.topic} style={styles.faqRow} onPress={() => setExpanded(expanded === topic.topic ? null : topic.topic)}>
           <View style={styles.faqHeader}>
             <Text style={styles.faqTopic}>{topic.topic}</Text>
@@ -243,35 +374,71 @@ function FaqPanel({ faq, totalMessages, loading, error }: {
           )}
         </TouchableOpacity>
       ))}
-    </ScrollView>
+      {faq.length > 3 && (
+        <TouchableOpacity onPress={onToggleShowAll}>
+          <Text style={styles.showMoreText}>{showAll ? "Show less topics" : `Show ${faq.length - 3} more topics`}</Text>
+        </TouchableOpacity>
+      )}
+    </View>
   );
 }
 
 // --- Mistakes Panel ---
 
-function MistakesPanel({ heatmap, loading, error, navigation, classroomId }: {
+function MistakesPanel({ heatmap, loading, error, navigation, classroomId, showAll, onToggleShowAll }: {
   heatmap: MistakeHeatmapResponse | null; loading: boolean; error: string | null;
   navigation: any; classroomId: string;
+  showAll: boolean; onToggleShowAll: () => void;
 }) {
   if (loading) return <ActivityIndicator style={styles.centered} />;
   if (error) return <Text style={styles.errorText}>{error}</Text>;
   if (!heatmap || heatmap.students.length === 0) return <Text style={styles.emptyText}>No mistake data yet. The heatmap will populate as students work through problems.</Text>;
   const sortedTags = sortTagsBySeverity(heatmap.tags);
-  const maxCount = Math.max(...heatmap.students.flatMap((s) => sortedTags.map((t) => s.tag_counts[t] ?? 0)), 1);
+  const tagLimit = showAll ? 8 : 4;
+  const studentLimit = showAll ? 6 : 3;
+  const topTags = sortedTags
+    .map((tag) => ({ tag, total: heatmap.tag_totals[tag] ?? 0 }))
+    .sort((a, b) => b.total - a.total)
+    .slice(0, tagLimit);
+  const topStudents = [...heatmap.students]
+    .sort((a, b) => b.total - a.total)
+    .slice(0, studentLimit);
+
   return (
-    <ScrollView style={styles.panel}>
+    <View>
       <HeatmapLegend />
-      <ScrollView horizontal showsHorizontalScrollIndicator>
-        <View>
-          <HeatmapHeader tags={sortedTags} />
-          {heatmap.students.map((student) => (
-            <HeatmapRow key={student.student_id} student={student} tags={sortedTags}
-              maxCount={maxCount} classroomId={classroomId} navigation={navigation} />
+      <View style={styles.compactGrid}>
+        <View style={styles.compactCard}>
+          <Text style={styles.compactTitle}>Top Mistake Tags</Text>
+          {topTags.map(({ tag, total }) => (
+            <View key={tag} style={styles.compactRow}>
+              <Text style={styles.compactLabel}>{TAG_ABBREV[tag] ?? tag}</Text>
+              <Text style={styles.compactValue}>{total}</Text>
+            </View>
           ))}
-          <HeatmapTotalRow tags={sortedTags} tagTotals={heatmap.tag_totals} />
         </View>
-      </ScrollView>
-    </ScrollView>
+        <View style={styles.compactCard}>
+          <Text style={styles.compactTitle}>Learners Needing Support</Text>
+          {topStudents.map((student) => (
+            <TouchableOpacity
+              key={student.student_id}
+              style={styles.compactRow}
+              onPress={() => navigation.navigate("StudentMistakeDetail", {
+                classroomId, studentId: student.student_id, displayName: student.display_name || "Student",
+              })}
+            >
+              <Text style={styles.compactLabel} numberOfLines={1}>{student.display_name || "Unnamed"}</Text>
+              <Text style={styles.compactValue}>{student.total}</Text>
+            </TouchableOpacity>
+          ))}
+        </View>
+      </View>
+      {(sortedTags.length > tagLimit || heatmap.students.length > studentLimit) && (
+        <TouchableOpacity onPress={onToggleShowAll}>
+          <Text style={styles.showMoreText}>{showAll ? "Show less detail" : "Show more detail"}</Text>
+        </TouchableOpacity>
+      )}
+    </View>
   );
 }
 
@@ -288,135 +455,86 @@ function HeatmapLegend() {
   );
 }
 
-function HeatmapHeader({ tags }: { tags: string[] }) {
-  let prevSev = "";
-  return (
-    <View style={styles.heatmapRow}>
-      <View style={styles.nameCell}><Text style={styles.headerText}>Student</Text></View>
-      {tags.map((tag) => {
-        const sev = TAG_TO_SEVERITY[tag] ?? "";
-        const showDivider = sev !== prevSev && prevSev !== "";
-        prevSev = sev;
-        return (
-          <View key={tag} style={[styles.tagCell, showDivider && styles.severityDivider,
-            { borderTopWidth: 3, borderTopColor: SEVERITY_COLORS[sev] ?? palette.border }]}>
-            <Text style={styles.tagHeader}>{TAG_ABBREV[tag] ?? tag.slice(0, 4)}</Text>
-          </View>
-        );
-      })}
-      <View style={styles.tagCell}><Text style={styles.tagHeader}>Total</Text></View>
-    </View>
-  );
-}
-
-function HeatmapRow({ student, tags, maxCount, classroomId, navigation }: {
-  student: { student_id: string; display_name: string; tag_counts: Record<string, number>; total: number };
-  tags: string[]; maxCount: number; classroomId: string; navigation: any;
-}) {
-  let prevSev = "";
-  return (
-    <TouchableOpacity style={styles.heatmapRow} onPress={() => navigation.navigate("StudentMistakeDetail", {
-      classroomId, studentId: student.student_id, displayName: student.display_name || "Student",
-    })}>
-      <View style={styles.nameCell}>
-        <Text style={styles.nameText} numberOfLines={1}>{student.display_name || "Unnamed"}</Text>
-      </View>
-      {tags.map((tag) => {
-        const count = student.tag_counts[tag] ?? 0;
-        const sev = TAG_TO_SEVERITY[tag] ?? "";
-        const showDivider = sev !== prevSev && prevSev !== "";
-        prevSev = sev;
-        return (
-          <View key={tag} style={[styles.tagCell, { backgroundColor: cellColor(count, maxCount) }, showDivider && styles.severityDivider]}>
-            <Text style={styles.cellText}>{count || ""}</Text>
-          </View>
-        );
-      })}
-      <View style={styles.tagCell}><Text style={styles.totalText}>{student.total}</Text></View>
-    </TouchableOpacity>
-  );
-}
-
-function HeatmapTotalRow({ tags, tagTotals }: { tags: string[]; tagTotals: Record<string, number> }) {
-  const grandTotal = Object.values(tagTotals).reduce((a, b) => a + b, 0);
-  let prevSev = "";
-  return (
-    <View style={[styles.heatmapRow, styles.totalRow]}>
-      <View style={styles.nameCell}><Text style={styles.totalLabel}>Class Total</Text></View>
-      {tags.map((tag) => {
-        const sev = TAG_TO_SEVERITY[tag] ?? "";
-        const showDivider = sev !== prevSev && prevSev !== "";
-        prevSev = sev;
-        return (
-          <View key={tag} style={[styles.tagCell, showDivider && styles.severityDivider]}>
-            <Text style={styles.totalText}>{tagTotals[tag] ?? 0}</Text>
-          </View>
-        );
-      })}
-      <View style={styles.tagCell}><Text style={styles.totalText}>{grandTotal}</Text></View>
-    </View>
-  );
-}
-
 // --- Trends Panel ---
 
-function TrendsPanel({ trends, loading, error }: {
+function TrendsPanel({ trends, loading, error, showAll, onToggleShowAll }: {
   trends: AssignmentTrend[]; loading: boolean; error: string | null;
+  showAll: boolean; onToggleShowAll: () => void;
 }) {
   if (loading) return <ActivityIndicator style={styles.centered} />;
   if (error) return <Text style={styles.errorText}>{error}</Text>;
   if (trends.length === 0) return <Text style={styles.emptyText}>No assignment data yet. Trends will appear as students submit work on assignments.</Text>;
+  const visibleTrends = showAll ? trends : trends.slice(0, 2);
   const maxMistakes = Math.max(...trends.map((t) => t.total_mistakes), 1);
+  const isWeb = Platform.OS === "web";
   return (
-    <ScrollView style={styles.panel}>
+    <View>
       <Text style={styles.trendSectionLabel}>Newest first</Text>
-      {trends.map((t, i) => {
-        const total = t.severity_distribution.conceptual + t.severity_distribution.procedural
-          + t.severity_distribution.mechanical + t.severity_distribution.notational;
-        const prev = trends[i + 1];
-        const curRate = t.student_count > 0 ? t.total_mistakes / t.student_count : 0;
-        const prevRate = prev && prev.student_count > 0 ? prev.total_mistakes / prev.student_count : null;
-        const trendArrow = prevRate === null ? null
-          : curRate < prevRate ? { symbol: "\u2193", color: palette.success }
-          : curRate > prevRate ? { symbol: "\u2191", color: palette.error }
-          : null;
-        return (
-          <View key={t.assignment_id} style={styles.trendRow}>
-            <View style={styles.trendHeader}>
-              <Text style={styles.trendTitle} numberOfLines={1}>{t.assignment_title || "Untitled"}</Text>
-              {trendArrow && (
-                <Text style={[styles.trendArrow, { color: trendArrow.color }]}>{trendArrow.symbol}</Text>
-              )}
-              <Text style={styles.trendDate}>
-                {t.date ? new Date(t.date).toLocaleDateString("en-US", { month: "short", day: "numeric", timeZone: "UTC" }) : ""}
-              </Text>
-            </View>
-            <View style={styles.trendBarBg}>
-              <View style={[styles.trendBarFill, { width: `${(t.total_mistakes / maxMistakes) * 100}%` }]} />
-            </View>
-            <View style={styles.trendStats}>
-              <Text style={styles.trendStat}>{t.total_mistakes} mistake{t.total_mistakes !== 1 ? "s" : ""}</Text>
-              <Text style={styles.trendStatSub}>{t.student_count} student{t.student_count !== 1 ? "s" : ""}</Text>
-              <Text style={styles.trendStatSub}>{t.problem_count} problem{t.problem_count !== 1 ? "s" : ""}</Text>
-            </View>
-            <MiniSeverityBar dist={t.severity_distribution} />
-            {total > 0 && (
-              <View style={styles.trendSeverityLabels}>
-                {SEVERITY_ORDER.map((sev) => {
-                  const count = t.severity_distribution[sev as keyof SeverityDistribution];
-                  if (count === 0) return null;
-                  return (
-                    <Text key={sev} style={[styles.trendSeverityLabel, { color: SEVERITY_COLORS[sev] }]}>
-                      {sev.slice(0, 4)} {count}
-                    </Text>
-                  );
-                })}
+      <View style={styles.trendGrid}>
+        {visibleTrends.map((t, i) => {
+          const total = t.severity_distribution.conceptual + t.severity_distribution.procedural
+            + t.severity_distribution.mechanical + t.severity_distribution.notational;
+          const prev = trends[i + 1];
+          const curRate = t.student_count > 0 ? t.total_mistakes / t.student_count : 0;
+          const prevRate = prev && prev.student_count > 0 ? prev.total_mistakes / prev.student_count : null;
+          const trendArrow = prevRate === null ? null
+            : curRate < prevRate ? { symbol: "\u2193", color: palette.success }
+            : curRate > prevRate ? { symbol: "\u2191", color: palette.error }
+            : null;
+          return (
+            <View key={t.assignment_id} style={[styles.trendCardWrap, isWeb && styles.trendCardWrapWeb]}>
+              <View style={styles.trendRow}>
+                <View style={styles.trendHeader}>
+                  <Text style={styles.trendTitle} numberOfLines={1}>{t.assignment_title || "Untitled"}</Text>
+                  {trendArrow && (
+                    <Text style={[styles.trendArrow, { color: trendArrow.color }]}>{trendArrow.symbol}</Text>
+                  )}
+                  <Text style={styles.trendDate}>
+                    {t.date ? new Date(t.date).toLocaleDateString("en-US", { month: "short", day: "numeric", timeZone: "UTC" }) : ""}
+                  </Text>
+                </View>
+                <View style={styles.trendBarBg}>
+                  <View style={[styles.trendBarFill, { width: `${(t.total_mistakes / maxMistakes) * 100}%` }]} />
+                </View>
+                <View style={styles.trendStats}>
+                  <View style={styles.trendMetricChip}>
+                    <Text style={styles.trendMetricLabel}>Mistakes</Text>
+                    <Text style={styles.trendMetricValue}>{t.total_mistakes}</Text>
+                  </View>
+                  <View style={styles.trendMetricChip}>
+                    <Text style={styles.trendMetricLabel}>Students</Text>
+                    <Text style={styles.trendMetricValue}>{t.student_count}</Text>
+                  </View>
+                  <View style={styles.trendMetricChip}>
+                    <Text style={styles.trendMetricLabel}>Problems</Text>
+                    <Text style={styles.trendMetricValue}>{t.problem_count}</Text>
+                  </View>
+                </View>
+                <MiniSeverityBar dist={t.severity_distribution} />
+                {total > 0 && (
+                  <View style={styles.trendSeverityLabels}>
+                    {SEVERITY_ORDER.map((sev) => {
+                      const count = t.severity_distribution[sev as keyof SeverityDistribution];
+                      if (count === 0) return null;
+                      return (
+                        <Text key={sev} style={[styles.trendSeverityLabel, { color: SEVERITY_COLORS[sev] }]}>
+                          {sev.slice(0, 4)} {count}
+                        </Text>
+                      );
+                    })}
+                  </View>
+                )}
               </View>
-            )}
-          </View>
-        );
-      })}
-    </ScrollView>
+            </View>
+          );
+        })}
+      </View>
+      {trends.length > 2 && (
+        <TouchableOpacity onPress={onToggleShowAll}>
+          <Text style={styles.showMoreText}>{showAll ? "Show fewer assignments" : `Show ${trends.length - 2} more assignments`}</Text>
+        </TouchableOpacity>
+      )}
+    </View>
   );
 }
 
@@ -442,30 +560,106 @@ function MiniSeverityBar({ dist }: { dist: SeverityDistribution }) {
 
 const styles = StyleSheet.create({
   container: { flex: 1 },
-  subTabs: { flexDirection: "row" as const, gap: spacing.xs, marginBottom: spacing.sm, alignItems: "center" as const, flexWrap: "wrap" as const },
-  subTab: { paddingHorizontal: spacing.sm, paddingVertical: spacing.xs, borderRadius: radius.input, backgroundColor: palette.border },
-  subTabActive: { backgroundColor: palette.primary },
-  subTabText: { ...typography.bodySmall, fontWeight: "600" as const, color: palette.textSecondary },
-  subTabTextActive: { color: palette.white },
-  refreshBtn: { marginLeft: "auto" as const, paddingHorizontal: spacing.sm, paddingVertical: spacing.xs, borderRadius: radius.input, backgroundColor: palette.success, minWidth: 70, alignItems: "center" as const },
+  skeletonPanel: { paddingTop: spacing.sm },
+  headerRow: {
+    flexDirection: "row" as const,
+    justifyContent: "space-between" as const,
+    alignItems: "center" as const,
+    marginBottom: spacing.sm,
+  },
+  sectionHeader: { ...typography.bodySmall, color: palette.forestCanopy, fontWeight: "700" as const },
+  refreshBtn: { marginLeft: "auto" as const, paddingHorizontal: spacing.sm, paddingVertical: spacing.xs, borderRadius: radius.input, backgroundColor: palette.forestCanopy, minWidth: 70, alignItems: "center" as const },
   refreshBtnDisabled: { opacity: 0.6 },
   refreshBtnText: { color: palette.white, fontWeight: "600" as const, ...typography.bodySmall },
   panel: { flex: 1 },
+  panelContent: { gap: spacing.xs, paddingBottom: spacing.sm },
+  sectionShell: {
+    backgroundColor: palette.card,
+    borderRadius: radius.card,
+    borderWidth: 1,
+    borderColor: palette.primaryMuted,
+    overflow: "hidden" as const,
+  },
+  accordionHeader: {
+    paddingHorizontal: spacing.sm,
+    paddingVertical: spacing.xs,
+    flexDirection: "row" as const,
+    alignItems: "center" as const,
+    justifyContent: "space-between" as const,
+    backgroundColor: palette.forestMist,
+  },
+  accordionTitle: { ...typography.bodySmall, fontWeight: "700" as const, color: palette.textPrimary },
+  accordionSummary: { ...typography.caption, color: palette.textMuted, marginTop: 2 },
+  accordionChevron: { color: palette.forestCanopy, fontSize: 14, fontWeight: "700" as const },
+  sectionBody: { paddingHorizontal: spacing.sm, paddingBottom: spacing.sm },
+  sectionCard: { gap: spacing.xs },
+  canopyBand: {
+    borderRadius: radius.organic,
+    borderWidth: 1,
+    borderColor: palette.primaryMuted,
+    backgroundColor: palette.surfaceElevated,
+    padding: spacing.sm,
+    marginBottom: spacing.xxs,
+  },
+  gardenMoodRow: { marginBottom: spacing.xs },
+  gardenMoodChip: {
+    alignSelf: "flex-start" as const,
+    borderRadius: radius.chip,
+    paddingHorizontal: spacing.xs,
+    paddingVertical: spacing.xxs,
+    flexDirection: "row" as const,
+    alignItems: "center" as const,
+    gap: spacing.xxs,
+    marginBottom: spacing.xxs,
+  },
+  gardenMoodDot: { width: 7, height: 7, borderRadius: 7 },
+  gardenMoodLabel: { ...typography.caption, fontWeight: "700" as const },
+  gardenMoodText: { ...typography.caption, color: palette.textSecondary },
+  canopyGrid: {
+    flexDirection: "row" as const,
+    gap: spacing.xs,
+    alignItems: "stretch" as const,
+  },
+  compactMetricCard: {
+    flex: 1,
+    backgroundColor: palette.surface,
+    borderWidth: 1,
+    borderColor: palette.primaryMuted,
+    borderRadius: radius.card,
+    minHeight: 54,
+    paddingHorizontal: spacing.xs,
+    paddingVertical: spacing.xxs,
+    justifyContent: "center" as const,
+  },
+  compactMetricValue: { ...typography.body, color: palette.forestCanopy, fontWeight: "700" as const },
+  compactMetricLabel: { ...typography.caption, color: palette.textMuted, marginTop: 2, fontWeight: "600" as const },
   centered: { marginTop: spacing.xxl },
   errorText: { ...typography.body, textAlign: "center" as const, color: palette.error, marginTop: spacing.lg },
   emptyText: { ...typography.body, textAlign: "center" as const, color: palette.textDisabled, marginTop: spacing.lg },
 
-  statsGrid: { flexDirection: "row" as const, flexWrap: "wrap" as const, gap: spacing.sm, marginBottom: spacing.md },
-  statCard: { flex: 1, minWidth: 140, backgroundColor: palette.card, borderRadius: radius.card, padding: spacing.sm, alignItems: "center" as const },
-  statValue: { fontSize: 26, fontWeight: "700" as const, color: palette.primary },
+  statsGridCompact: { flexDirection: "row" as const, flexWrap: "wrap" as const, gap: spacing.xxs, marginBottom: spacing.xs },
+  statCard: { width: "48%" as const, minHeight: 64, backgroundColor: palette.surface, borderRadius: radius.card, padding: spacing.xs, alignItems: "center" as const, justifyContent: "center" as const },
+  statValue: { fontSize: 16, fontWeight: "700" as const, color: palette.primary },
   statLabel: { ...typography.caption, color: palette.textMuted, marginTop: spacing.xxs, fontWeight: "600" as const },
-  statSub: { fontSize: 11, color: palette.textDisabled, marginTop: 2 },
-  highlightCard: { backgroundColor: palette.warningBg, borderRadius: radius.card, padding: spacing.sm, marginBottom: spacing.md, alignItems: "center" as const },
+  statSub: { fontSize: 10, color: palette.textDisabled, marginTop: 2 },
+  highlightCard: { minHeight: 58, backgroundColor: palette.warningBg, borderRadius: radius.card, padding: spacing.xs, marginBottom: spacing.xs, alignItems: "center" as const, justifyContent: "center" as const },
   highlightLabel: { ...typography.caption, color: palette.warning, fontWeight: "600" as const },
-  highlightValue: { fontSize: 18, fontWeight: "700" as const, color: palette.warning, marginTop: spacing.xxs },
-  highlightMeta: { flexDirection: "row" as const, alignItems: "center" as const, gap: spacing.xxs, marginTop: spacing.xxs },
+  highlightValue: { fontSize: 16, fontWeight: "700" as const, color: palette.warning, marginTop: 2 },
+  highlightMeta: { flexDirection: "row" as const, alignItems: "center" as const, gap: spacing.xxs, marginTop: 2 },
   highlightSevDot: { width: 8, height: 8, borderRadius: 4 },
   highlightSub: { ...typography.caption, color: palette.warning },
+  embeddedSection: {
+    marginTop: spacing.xs,
+    paddingTop: spacing.xs,
+    borderTopWidth: 1,
+    borderTopColor: palette.primaryMuted,
+  },
+  embeddedSectionTitle: {
+    ...typography.caption,
+    color: palette.textPrimary,
+    fontWeight: "700" as const,
+    marginBottom: spacing.xs,
+  },
 
   severitySection: { marginBottom: spacing.md },
   sectionTitle: { ...typography.bodySmall, fontWeight: "700" as const, color: palette.textPrimary, marginBottom: spacing.xs },
@@ -486,32 +680,58 @@ const styles = StyleSheet.create({
   sampleSection: { marginTop: spacing.sm, paddingTop: spacing.sm, borderTopWidth: 1, borderTopColor: palette.surface },
   sampleTitle: { ...typography.caption, fontWeight: "700" as const, color: palette.textMuted, marginBottom: spacing.xs },
   sampleQuestion: { ...typography.bodySmall, color: palette.textSecondary, marginBottom: spacing.xxs, paddingLeft: spacing.xs, borderLeftWidth: 2, borderLeftColor: palette.border },
+  showMoreText: { ...typography.caption, color: palette.forestCanopy, fontWeight: "700" as const, marginTop: spacing.xs },
 
   heatmapLegendRow: { flexDirection: "row" as const, gap: spacing.md, marginBottom: spacing.sm, paddingHorizontal: spacing.xxs },
-  heatmapRow: { flexDirection: "row" as const, borderBottomWidth: 1, borderBottomColor: palette.border },
-  nameCell: { width: 120, padding: spacing.xs, justifyContent: "center" as const },
-  nameText: { ...typography.bodySmall, color: palette.textSecondary },
-  headerText: { ...typography.caption, fontWeight: "700" as const, color: palette.textSecondary },
-  tagCell: { width: 48, padding: spacing.xxs, alignItems: "center" as const, justifyContent: "center" as const, borderLeftWidth: 1, borderLeftColor: palette.surface },
-  tagHeader: { fontSize: 10, fontWeight: "700" as const, color: palette.textMuted, textAlign: "center" as const },
-  cellText: { ...typography.caption, color: palette.textSecondary },
-  totalText: { ...typography.caption, fontWeight: "700" as const, color: palette.textPrimary },
-  totalRow: { backgroundColor: palette.surface },
-  totalLabel: { ...typography.bodySmall, fontWeight: "700" as const, color: palette.textPrimary },
-  severityDivider: { borderLeftWidth: 2, borderLeftColor: palette.textDisabled },
+  compactGrid: { flexDirection: "row" as const, flexWrap: "wrap" as const, gap: spacing.xs, alignItems: "stretch" as const },
+  compactCard: {
+    flex: 1,
+    minWidth: 200,
+    minHeight: 126,
+    backgroundColor: palette.surface,
+    borderWidth: 1,
+    borderColor: palette.primaryMuted,
+    borderRadius: radius.card,
+    padding: spacing.xs,
+  },
+  compactTitle: { ...typography.caption, color: palette.textMuted, fontWeight: "700" as const, marginBottom: spacing.xxs },
+  compactRow: { flexDirection: "row" as const, justifyContent: "space-between" as const, marginBottom: 2, minHeight: 16, gap: spacing.xxs },
+  compactLabel: { ...typography.bodySmall, color: palette.textSecondary, flex: 1 },
+  compactValue: { ...typography.bodySmall, color: palette.forestCanopy, fontWeight: "700" as const },
 
-  trendRow: { backgroundColor: palette.card, borderRadius: radius.input, padding: spacing.sm, marginBottom: spacing.xs },
-  trendHeader: { flexDirection: "row" as const, justifyContent: "space-between" as const, marginBottom: spacing.xs },
+  trendRow: {
+    minHeight: 126,
+    backgroundColor: palette.card,
+    borderRadius: radius.input,
+    borderWidth: 1,
+    borderColor: palette.primaryMuted,
+    padding: spacing.xs,
+    marginBottom: spacing.xxs,
+    justifyContent: "space-between" as const,
+  },
+  trendGrid: { flexDirection: "row" as const, flexWrap: "wrap" as const, gap: spacing.xxs },
+  trendCardWrap: { width: "100%" as const },
+  trendCardWrapWeb: { width: "49%" as const },
+  trendHeader: { flexDirection: "row" as const, justifyContent: "space-between" as const, alignItems: "center" as const, marginBottom: spacing.xxs },
   trendTitle: { ...typography.bodySmall, fontWeight: "600" as const, color: palette.textSecondary, flex: 1 },
-  trendArrow: { fontSize: 16, fontWeight: "700" as const, marginLeft: spacing.xxs },
+  trendArrow: { fontSize: 14, fontWeight: "700" as const, marginLeft: spacing.xxs },
   trendDate: { ...typography.caption, color: palette.textDisabled, marginLeft: spacing.xs },
-  trendBarBg: { height: 8, backgroundColor: palette.border, borderRadius: spacing.xxs, marginBottom: spacing.xs },
+  trendBarBg: { height: 6, backgroundColor: palette.border, borderRadius: spacing.xxs, marginBottom: spacing.xxs },
   trendBarFill: { height: 8, backgroundColor: palette.primary, borderRadius: spacing.xxs },
-  trendStats: { flexDirection: "row" as const, gap: spacing.sm, marginBottom: spacing.xxs },
-  trendStat: { ...typography.bodySmall, color: palette.primary, fontWeight: "600" as const },
-  trendStatSub: { ...typography.caption, color: palette.textDisabled },
-  trendSectionLabel: { fontSize: 11, color: palette.textDisabled, marginBottom: spacing.xs, fontStyle: "italic" as const },
-  trendSeverityLabels: { flexDirection: "row" as const, gap: spacing.sm, marginTop: spacing.xxs },
+  trendStats: { flexDirection: "row" as const, flexWrap: "wrap" as const, gap: spacing.xxs, marginBottom: spacing.xxs },
+  trendMetricChip: {
+    backgroundColor: palette.forestMist,
+    borderWidth: 1,
+    borderColor: palette.primaryMuted,
+    borderRadius: radius.chip,
+    paddingHorizontal: spacing.xs,
+    paddingVertical: spacing.xxs,
+    minWidth: 78,
+  },
+  trendMetricLabel: { ...typography.caption, color: palette.textMuted },
+  trendMetricValue: { ...typography.bodySmall, color: palette.forestCanopy, fontWeight: "700" as const, marginTop: 0 },
+  trendSectionLabel: { fontSize: 10, color: palette.textDisabled, marginBottom: spacing.xxs, fontStyle: "italic" as const },
+  trendSeverityLabels: { minHeight: 14, flexDirection: "row" as const, gap: spacing.xs, marginTop: 2 },
   trendSeverityLabel: { fontSize: 11, fontWeight: "600" as const },
   miniSeverityBar: { flexDirection: "row" as const, height: 4, borderRadius: 2, overflow: "hidden" as const, marginTop: spacing.xxs },
   miniSeveritySegment: { height: 4 },

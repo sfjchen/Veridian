@@ -18,6 +18,7 @@ import { Classroom, CorpusFile } from "../../types";
 import { palette, radius, typography } from "../../constants/palette";
 import { alert } from "../../lib/alert";
 import { SkeletonCard } from "../../components/ui/Skeleton";
+import { ErrorState } from "../../components/ui/ErrorState";
 
 type Tab = "assignments" | "corpus" | "students";
 
@@ -137,7 +138,7 @@ export function TeacherClassroomScreen({ route, navigation }: { route: any; navi
               <SkeletonCard />
             </View>
           ) : assignmentsError ? (
-            <Text style={styles.errorText}>{assignmentsError}</Text>
+            <ErrorState message={assignmentsError} onRetry={refreshAssignments} />
           ) : (
             <FlatList
               data={assignments}
@@ -204,7 +205,7 @@ export function TeacherClassroomScreen({ route, navigation }: { route: any; navi
               <SkeletonCard />
             </View>
           ) : corpusError ? (
-            <Text style={styles.errorText}>{corpusError}</Text>
+            <ErrorState message={corpusError} onRetry={refreshCorpus} />
           ) : (
             <FlatList
               data={files}
@@ -253,7 +254,7 @@ export function TeacherClassroomScreen({ route, navigation }: { route: any; navi
               <SkeletonCard />
             </View>
           ) : studentsError ? (
-            <Text style={styles.errorText}>{studentsError}</Text>
+            <ErrorState message={studentsError} onRetry={refreshStudents} />
           ) : (
             <FlatList
               data={students}

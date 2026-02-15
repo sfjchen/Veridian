@@ -176,7 +176,7 @@ export function CorpusUploadScreen({ route, navigation }: { route: any; navigati
         formData.append("job_id", jobId);
 
         await apiMultipart(`/classrooms/${classroomId}/corpus/upload-pdf`, formData);
-        showToast("PDF converted and added to corpus!");
+        showToast("PDF converted and added to course texts!");
         navigation.goBack();
       } catch (e: unknown) {
         alert("Conversion Failed", e instanceof Error ? e.message : "Failed to convert PDF");
@@ -232,7 +232,7 @@ export function CorpusUploadScreen({ route, navigation }: { route: any; navigati
       <View style={styles.content}>
         <View style={styles.headerRow}>
           <LeafAccent size={24} />
-          <Text style={styles.headerTitle}>Upload Corpus File</Text>
+          <Text style={styles.headerTitle}>Upload Course Text</Text>
         </View>
         <Section title="">
           <Card onPress={pickFile} style={styles.fileCard}>
@@ -240,7 +240,7 @@ export function CorpusUploadScreen({ route, navigation }: { route: any; navigati
               {file ? file.name : "Select File"}
             </Text>
           </Card>
-          {!file && <Text style={styles.fileHint}>Pick a PDF or text file to add to the classroom corpus.</Text>}
+          {!file && <Text style={styles.fileHint}>Pick a PDF or text file to add to the classroom course texts.</Text>}
 
           {isPdf && (
             <View style={styles.pdfNote}>

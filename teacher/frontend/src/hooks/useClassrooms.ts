@@ -50,5 +50,10 @@ export function useClassrooms() {
     await refresh();
   }, [refresh]);
 
-  return { classrooms, loading, error, refresh, create, join };
+  const deleteClassroom = useCallback(async (id: string): Promise<void> => {
+    await api(`/classrooms/${id}`, { method: "DELETE" });
+    await refresh();
+  }, [refresh]);
+
+  return { classrooms, loading, error, refresh, create, join, deleteClassroom };
 }

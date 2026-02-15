@@ -7,6 +7,8 @@ import {
   StyleSheet,
   RefreshControl,
   Platform,
+  Alert,
+  ScrollView,
 } from "react-native";
 import { spacing } from "../../constants/spacing";
 import * as Clipboard from "expo-clipboard";
@@ -15,13 +17,17 @@ import { useFocusEffect } from "@react-navigation/native";
 import { useCorpus } from "../../hooks/useCorpus";
 import { useAssignments } from "../../hooks/useAssignments";
 import { useClassroomStudents } from "../../hooks/useClassroomStudents";
-import { Classroom, CorpusFile } from "../../types";
+import { useClassrooms } from "../../hooks/useClassrooms";
+import { Classroom, CorpusFile, AssignmentConfig } from "../../types";
 import { palette, radius } from "../../constants/palette";
 import { typography } from "../../constants/typography";
 import { alert } from "../../lib/alert";
+import { api } from "../../lib/api";
 import { SkeletonCard, StaggeredFade } from "../../components/ui";
 import { TabBar } from "../../components/ui/TabBar";
 import { TreeIcon } from "../../components/forest";
+import { InsightsContent } from "./InsightsContent";
+import { ConfigEditor } from "../../components/ConfigEditor";
 
 type Tab = "assignments" | "corpus" | "students" | "insights" | "settings";
 
@@ -48,6 +54,8 @@ export function TeacherClassroomScreen({ route, navigation }: { route: any; navi
   const classroom: Classroom = route.params.classroom;
   const [activeTab, setActiveTab] = useState<Tab>("assignments");
   const [refreshing, setRefreshing] = useState(false);
+  const [config, setConfig] = useState<Partial<AssignmentConfig>>(classroom.config ?? {});
+  const [saving, setSaving] = useState(false);
   const { files, loading: corpusLoading, error: corpusError, refresh: refreshCorpus } = useCorpus(classroom.id);
   const { assignments, loading: assignmentsLoading, error: assignmentsError, refresh: refreshAssignments } = useAssignments(classroom.id);
   const {
@@ -56,6 +64,7 @@ export function TeacherClassroomScreen({ route, navigation }: { route: any; navi
     error: studentsError,
     refresh: refreshStudents,
   } = useClassroomStudents(classroom.id);
+  const { refresh: refreshClassrooms } = useClassrooms();
 
   useFocusEffect(
     useCallback(() => {
@@ -88,6 +97,45 @@ export function TeacherClassroomScreen({ route, navigation }: { route: any; navi
     if (file.download_url) Linking.openURL(file.download_url);
   };
 
+  const handleSaveConfig = async () => {
+    setSaving(true);
+    try {
+      await api(`/classrooms/${classroom.id}`, {
+        method: "PATCH",
+        body: { config },
+      });
+      alert("Success", "Classroom settings saved.");
+    } catch (e: unknown) {
+      alert("Error", e instanceof Error ? e.message : "Failed to save settings");
+    } finally {
+      setSaving(false);
+    }
+  };
+
+  const handleDeleteClassroom = () => {
+    Alert.alert(
+      "Delete Classroom",
+      `Are you sure you want to delete "${classroom.name}"? This action cannot be undone.`,
+      [
+        { text: "Cancel", style: "cancel" },
+        {
+          text: "Delete",
+          style: "destructive",
+          onPress: async () => {
+            try {
+              await api(`/classrooms/${classroom.id}`, { method: "DELETE" });
+              await refreshClassrooms();
+              navigation.goBack();
+              alert("Deleted", "Classroom deleted successfully.");
+            } catch (e: unknown) {
+              alert("Error", e instanceof Error ? e.message : "Failed to delete classroom");
+            }
+          },
+        },
+      ]
+    );
+  };
+
   const refreshControl = (
     <RefreshControl refreshing={refreshing} onRefresh={onRefresh} colors={[palette.primary]} />
   );
@@ -111,7 +159,7 @@ export function TeacherClassroomScreen({ route, navigation }: { route: any; navi
         <TabBar
           options={[
             { key: "assignments", label: "Assignments" },
-            { key: "corpus", label: "Corpus" },
+            { key: "corpus", label: "Course Texts" },
             { key: "students", label: "Students" },
             { key: "insights", label: "Insights" },
             { key: "settings", label: "Settings" },
@@ -200,7 +248,7 @@ export function TeacherClassroomScreen({ route, navigation }: { route: any; navi
             style={styles.addButton}
             onPress={() => navigation.navigate("CorpusUpload", { classroomId: classroom.id })}
             accessibilityRole="button"
-            accessibilityLabel="Upload file to corpus"
+            accessibilityLabel="Upload file to course texts"
           >
             <Text style={styles.addButtonText}>+ Upload File</Text>
           </TouchableOpacity>
@@ -239,7 +287,7 @@ export function TeacherClassroomScreen({ route, navigation }: { route: any; navi
                   <View style={styles.emptyIconWrap}>
                     <TreeIcon size={40} color={palette.primary} />
                   </View>
-                  <Text style={styles.emptyTitle}>No corpus files yet</Text>
+                  <Text style={styles.emptyTitle}>No course texts yet</Text>
                   <Text style={styles.emptySubtitle}>Upload reference files for this classroom.</Text>
                   <TouchableOpacity
                     style={styles.emptyButton}
@@ -305,20 +353,31 @@ export function TeacherClassroomScreen({ route, navigation }: { route: any; navi
 
       {activeTab === "insights" && (
         <View style={styles.content}>
-          <View style={styles.emptyWrap}>
-            <Text style={styles.emptyTitle}>Insights coming soon</Text>
-            <Text style={styles.emptySubtitle}>Classroom analytics and mistake heatmaps will appear here.</Text>
-          </View>
+          <InsightsContent classroomId={classroom.id} navigation={navigation} />
         </View>
       )}
 
       {activeTab === "settings" && (
-        <View style={styles.content}>
-          <View style={styles.emptyWrap}>
-            <Text style={styles.emptyTitle}>Settings coming soon</Text>
-            <Text style={styles.emptySubtitle}>Classroom settings will appear here.</Text>
-          </View>
-        </View>
+        <ScrollView style={styles.content}>
+          <ConfigEditor config={config} onChange={setConfig} mode="classroom" />
+          <TouchableOpacity
+            style={styles.saveButton}
+            onPress={handleSaveConfig}
+            disabled={saving}
+            accessibilityRole="button"
+            accessibilityLabel="Save settings"
+          >
+            <Text style={styles.saveButtonText}>{saving ? "Saving..." : "Save Settings"}</Text>
+          </TouchableOpacity>
+          <TouchableOpacity
+            style={styles.deleteButton}
+            onPress={handleDeleteClassroom}
+            accessibilityRole="button"
+            accessibilityLabel="Delete classroom"
+          >
+            <Text style={styles.deleteButtonText}>Delete Classroom</Text>
+          </TouchableOpacity>
+        </ScrollView>
       )}
     </View>
   );
@@ -380,4 +439,21 @@ const styles = StyleSheet.create({
   },
   emptyButtonText: { color: palette.white, fontSize: 16, fontWeight: "600" },
   errorText: { textAlign: "center", color: palette.error, marginTop: 20 },
+  saveButton: {
+    backgroundColor: palette.primary,
+    borderRadius: radius.button,
+    padding: 14,
+    alignItems: "center",
+    marginTop: spacing.md,
+  },
+  saveButtonText: { color: palette.white, fontSize: 16, fontWeight: "600" },
+  deleteButton: {
+    backgroundColor: palette.error,
+    borderRadius: radius.button,
+    padding: 14,
+    alignItems: "center",
+    marginTop: spacing.xl,
+    marginBottom: spacing.lg,
+  },
+  deleteButtonText: { color: palette.white, fontSize: 16, fontWeight: "600" },
 });

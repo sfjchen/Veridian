@@ -95,6 +95,8 @@ def can_student_access_assignment(
         return False
     if user_role == "teacher":
         return _is_classroom_teacher(classroom_id, user_id)
+    if not assignment.get("published", False):
+        return False
     return _is_classroom_member(classroom_id, user_id)
 
 

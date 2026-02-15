@@ -93,6 +93,7 @@ def list_assignments_for_classroom(
         supabase.table(ASSIGNMENTS_TABLE)
         .select(_STUDENT_ASSIGNMENT_FIELDS)
         .eq("classroom_id", classroom_id)
+        .eq("published", True)
         .order("created_at", desc=True)
         .execute()
     )

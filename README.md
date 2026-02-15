@@ -115,6 +115,10 @@ Use this sequence for a repeatable demo:
 
 After migrations: assignments load without config errors; corpus upload works.
 
+## Production Deployment
+
+Frontends deploy to Vercel; backends (Flask + Socket.IO) deploy to Railway or Render. See `plans/production-deployment.md` for env vars, DNS, and deployment steps. Domain: veridian.fyi (teacher.veridian.fyi, student.veridian.fyi).
+
 ## Development
 
 See `AGENTS.md`, `CLAUDE.md` for workflow and conventions. Running docs: `AGENTS.md`, `CLAUDE.md`, `README.md`, `PLAN.md`.

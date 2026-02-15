@@ -87,10 +87,18 @@ if not CLAUDE_MODEL:
 
 log = logging.getLogger(__name__)
 
+
+def _cors_origins() -> list[str] | str:
+    raw = os.getenv("CORS_ALLOWED_ORIGINS", "").strip()
+    if raw:
+        return [o.strip() for o in raw.split(",") if o.strip()]
+    return "*"
+
+
 client = Anthropic(api_key=ANTHROPIC_API_KEY)
 app = Flask(__name__)
 app.config["MAX_CONTENT_LENGTH"] = 16 * 1024 * 1024  # 16 MB upload limit
-CORS(app)
+CORS(app, origins=_cors_origins())
 socketio = init_socketio(app)
 
 # -- Chat rate limiting: max 10 messages per minute per student --

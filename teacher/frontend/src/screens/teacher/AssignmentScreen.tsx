@@ -14,6 +14,7 @@ import { supabase } from "../../lib/supabase";
 import { api } from "../../lib/api";
 import { API_URL } from "../../lib/apiBaseUrl";
 import { createPdfPreviewDataUri, looksLikeImage, looksLikePdf, looksLikeText } from "../../lib/pdfPreview";
+import { useToast } from "../../contexts/ToastContext";
 import { useSubmissions } from "../../hooks/useSubmissions";
 import { LatexRenderer } from "../../components/LatexRenderer";
 import { FileUploader } from "../../components/FileUploader";
@@ -50,6 +51,7 @@ type ViewMode = "teacher" | "student";
 
 export function TeacherAssignmentScreen({ route, navigation }: { route: any; navigation: any }) {
   const { assignmentId } = route.params;
+  const { showToast } = useToast();
   const mountedRef = useRef(true);
   const [assignment, setAssignment] = useState<AssignmentDetail | null>(null);
   const [loading, setLoading] = useState(true);
@@ -522,7 +524,7 @@ export function TeacherAssignmentScreen({ route, navigation }: { route: any; nav
                       uploadUrl={reuploadUrls.assignment_file_upload_url}
                       label="Select New Assignment File"
                       onUploadComplete={() => {
-                        alert("Success", "Assignment file replaced");
+                        showToast("Assignment file replaced");
                         setReuploadUrls(null);
                         setLoading(true);
                         fetchAssignment();
@@ -537,7 +539,7 @@ export function TeacherAssignmentScreen({ route, navigation }: { route: any; nav
                       uploadUrl={reuploadUrls.answer_key_upload_url}
                       label="Select New Answer Key"
                       onUploadComplete={() => {
-                        alert("Success", "Answer key replaced");
+                        showToast("Answer key replaced");
                         setReuploadUrls(null);
                         setLoading(true);
                         fetchAssignment();

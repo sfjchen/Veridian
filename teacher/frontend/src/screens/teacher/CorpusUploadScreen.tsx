@@ -1,6 +1,7 @@
 import React, { useState } from "react";
 import { StyleSheet, Text, View } from "react-native";
 import * as DocumentPicker from "expo-document-picker";
+import { useToast } from "../../contexts/ToastContext";
 import { api } from "../../lib/api";
 import { alert } from "../../lib/alert";
 import { uploadFile } from "../../lib/upload";
@@ -28,6 +29,7 @@ function inferFileType(name: string, mimeType: string): string | null {
 
 export function CorpusUploadScreen({ route, navigation }: { route: any; navigation: any }) {
   const { classroomId } = route.params;
+  const { showToast } = useToast();
   const [displayName, setDisplayName] = useState("");
   const [file, setFile] = useState<PickedFile | null>(null);
   const [uploading, setUploading] = useState(false);
@@ -87,9 +89,8 @@ export function CorpusUploadScreen({ route, navigation }: { route: any; navigati
         file: file.file,
       });
 
-      alert("Success", "File uploaded!", [
-        { text: "OK", onPress: () => navigation.goBack() },
-      ]);
+      showToast("File uploaded!");
+      navigation.goBack();
     } catch (e: unknown) {
       alert("Error", e instanceof Error ? e.message : "Upload failed");
     } finally {

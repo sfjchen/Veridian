@@ -84,7 +84,7 @@ export default function SignInScreen() {
           style={({ pressed }) => [styles.backLink, pressed && { opacity: 0.7 }]}
           onPress={() => router.replace('/sign-up')}
           accessibilityRole="button">
-          <Text style={styles.backLinkText}>Don't have an account? Sign up</Text>
+          <Text style={styles.backLinkText}>Do not have an account? Sign up</Text>
         </Pressable>
       </View>
     </SafeAreaView>

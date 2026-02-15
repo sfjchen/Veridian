@@ -11,7 +11,8 @@ import { createPdfPreviewDataUri, looksLikeImage, looksLikePdf, looksLikeText } 
 import { useSubmissions } from "../../hooks/useSubmissions";
 import { LatexRenderer } from "../../components/LatexRenderer";
 import { FileUploader } from "../../components/FileUploader";
-import { AssignmentDetail, Submission } from "../../types";
+import { ConfigEditor } from "../../components/ConfigEditor";
+import { AssignmentConfig, AssignmentDetail, Submission } from "../../types";
 import { alert } from "../../lib/alert";
 
 const MAX_CONTENT_LENGTH = 100_000;
@@ -50,6 +51,7 @@ export function TeacherAssignmentScreen({ route, navigation }: { route: any; nav
   const [editing, setEditing] = useState(false);
   const [editTitle, setEditTitle] = useState("");
   const [editDueDate, setEditDueDate] = useState("");
+  const [editConfig, setEditConfig] = useState<Partial<AssignmentConfig>>({});
   const [saving, setSaving] = useState(false);
 
   const [reuploadUrls, setReuploadUrls] = useState<{
@@ -71,6 +73,7 @@ export function TeacherAssignmentScreen({ route, navigation }: { route: any; nav
       setAssignment(data);
       setEditTitle(data.title);
       setEditDueDate(data.due_date ? data.due_date.split("T")[0] : "");
+      setEditConfig(data.config ?? {});
       setAssignmentContent(null);
       setIsPdf(false);
       setPdfPreviewUri(null);
@@ -93,8 +96,10 @@ export function TeacherAssignmentScreen({ route, navigation }: { route: any; nav
               const previewUri = await createPdfPreviewDataUri(blob);
               if (mountedRef.current) setPdfPreviewUri(previewUri);
             } catch (previewError) {
-              console.error("Failed to generate PDF preview image:", previewError);
-              if (mountedRef.current) setPdfPreviewUri(null);
+              if (mountedRef.current) {
+                setPdfPreviewUri(null);
+                alert("Warning", "Could not generate PDF preview image");
+              }
             }
           } else if (looksLikeImage(contentType, bytes)) {
             setIsPdf(false);
@@ -177,6 +182,7 @@ export function TeacherAssignmentScreen({ route, navigation }: { route: any; nav
         body: {
           title: editTitle.trim(),
           due_date: editDueDate.trim() || null,
+          config: editConfig,
         },
       });
       setAssignment((prev) => prev ? { ...prev, ...updated } : updated);
@@ -294,7 +300,19 @@ export function TeacherAssignmentScreen({ route, navigation }: { route: any; nav
                 value={editDueDate}
                 onChangeText={setEditDueDate}
               />
-              <View style={styles.editActions}>
+              <Text style={styles.sectionTitle}>Config Overrides</Text>
+              {!assignment.classroom_config && (
+                <Text style={styles.configFallbackHint}>
+                  Classroom config unavailable; showing platform defaults.
+                </Text>
+              )}
+              <ConfigEditor
+                config={editConfig}
+                inheritedConfig={assignment.classroom_config}
+                onChange={setEditConfig}
+                mode="assignment"
+              />
+              <View style={[styles.editActions, { marginTop: 16 }]}>
                 <TouchableOpacity
                   style={[styles.actionButton, styles.saveButton]}
                   onPress={handleSave}
@@ -308,6 +326,7 @@ export function TeacherAssignmentScreen({ route, navigation }: { route: any; nav
                     setEditing(false);
                     setEditTitle(assignment.title);
                     setEditDueDate(assignment.due_date ? assignment.due_date.split("T")[0] : "");
+                    setEditConfig(assignment.config ?? {});
                   }}
                 >
                   <Text style={styles.cancelButtonText}>Cancel</Text>
@@ -328,6 +347,23 @@ export function TeacherAssignmentScreen({ route, navigation }: { route: any; nav
                     year: "numeric", month: "short", day: "numeric", timeZone: "UTC",
                   })}
                 </Text>
+              )}
+
+              {assignment.resolved_config && (
+                <View style={styles.configSummary}>
+                  <Text style={styles.sectionTitle}>Active Config</Text>
+                  {Object.entries(assignment.resolved_config).map(([key, value]) => {
+                    const isOverridden = key in (assignment.config ?? {});
+                    return (
+                      <View key={key} style={styles.configRow}>
+                        <Text style={[styles.configKey, isOverridden && styles.configKeyOverridden]}>
+                          {key.replace(/_/g, " ")}
+                        </Text>
+                        <Text style={styles.configValue}>{String(value)}</Text>
+                      </View>
+                    );
+                  })}
+                </View>
               )}
             </View>
           )}
@@ -614,6 +650,21 @@ const styles = StyleSheet.create({
 
   contentPreview: { marginTop: 24, flex: 1, minHeight: 300 },
   noContent: { color: "#9CA3AF", textAlign: "center", marginTop: 16 },
+
+  configFallbackHint: {
+    fontSize: 12, color: "#92400E", backgroundColor: "#FEF3C7",
+    padding: 8, borderRadius: 6, marginBottom: 8,
+  },
+  configSummary: {
+    backgroundColor: "#F9FAFB", borderRadius: 8, padding: 14, marginBottom: 16,
+  },
+  configRow: {
+    flexDirection: "row", justifyContent: "space-between",
+    paddingVertical: 4,
+  },
+  configKey: { fontSize: 13, color: "#6B7280", textTransform: "capitalize" },
+  configKeyOverridden: { color: "#4F46E5", fontWeight: "600" },
+  configValue: { fontSize: 13, fontWeight: "500", color: "#374151" },
 
   disabledButton: {
     backgroundColor: "#D1D5DB", borderRadius: 8, padding: 16,

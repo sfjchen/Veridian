@@ -4,9 +4,11 @@ import {
   ScrollView, ActivityIndicator,
 } from "react-native";
 import * as DocumentPicker from "expo-document-picker";
+import { ConfigEditor } from "../../components/ConfigEditor";
 import { api } from "../../lib/api";
 import { alert } from "../../lib/alert";
 import { uploadFile } from "../../lib/upload";
+import { AssignmentConfig } from "../../types";
 
 const DATE_PATTERN = /^\d{4}-\d{2}-\d{2}$/;
 
@@ -24,6 +26,9 @@ export function CreateAssignmentScreen({ route, navigation }: { route: any; navi
   const [assignmentFile, setAssignmentFile] = useState<PickedFile | null>(null);
   const [answerKeyFile, setAnswerKeyFile] = useState<PickedFile | null>(null);
   const [creating, setCreating] = useState(false);
+  const [configExpanded, setConfigExpanded] = useState(false);
+  const [configDraft, setConfigDraft] = useState<Partial<AssignmentConfig>>({});
+  const classroomConfig: AssignmentConfig | undefined = route.params?.classroomConfig;
 
   const pickFile = async (setter: (f: PickedFile) => void) => {
     const result = await DocumentPicker.getDocumentAsync({
@@ -62,12 +67,16 @@ export function CreateAssignmentScreen({ route, navigation }: { route: any; navi
 
     setCreating(true);
     try {
+      const body: Record<string, any> = { title: title.trim(), due_date: dueDateValue };
+      if (Object.keys(configDraft).length > 0) {
+        body.config = configDraft;
+      }
       const result = await api<{
         assignment_file_upload_url: string;
         answer_key_upload_url: string;
       }>(`/classrooms/${classroomId}/assignments`, {
         method: "POST",
-        body: { title: title.trim(), due_date: dueDateValue },
+        body,
       });
 
       const uploads: Promise<void>[] = [];
@@ -124,6 +133,25 @@ export function CreateAssignmentScreen({ route, navigation }: { route: any; navi
       </TouchableOpacity>
 
       <TouchableOpacity
+        style={styles.expandToggle}
+        onPress={() => setConfigExpanded(!configExpanded)}
+      >
+        <Text style={styles.expandToggleText}>
+          {configExpanded ? "- Hide Settings" : "+ Assignment Settings"}
+        </Text>
+      </TouchableOpacity>
+      {configExpanded && (
+        <View style={styles.configSection}>
+          <ConfigEditor
+            config={configDraft}
+            inheritedConfig={classroomConfig}
+            onChange={setConfigDraft}
+            mode="assignment"
+          />
+        </View>
+      )}
+
+      <TouchableOpacity
         style={[styles.button, creating && styles.buttonDisabled]}
         onPress={handleCreate}
         disabled={creating}
@@ -151,6 +179,11 @@ const styles = StyleSheet.create({
     padding: 14, marginBottom: 16, backgroundColor: "#F9FAFB",
   },
   filePickerText: { fontSize: 15, color: "#6B7280" },
+  expandToggle: {
+    paddingVertical: 12, marginBottom: 8,
+  },
+  expandToggleText: { fontSize: 14, fontWeight: "600", color: "#4F46E5" },
+  configSection: { marginBottom: 16 },
   button: {
     backgroundColor: "#4F46E5", borderRadius: 8, padding: 16,
     alignItems: "center", marginTop: 8,

@@ -9,6 +9,7 @@ Math Mistake Analysis Platform — full monorepo (teacher + student). Shared Sup
 - **Teacher**: `teacher/backend/`, `teacher/frontend/` — Flask + React. Classrooms, assignments, corpus, submissions.
 - **Student**: `student/backend/`, `student/frontend/` — Flask + Expo. Canvas, mistake analysis, Socratic chat.
 - **Student assignment contract**: `GET /assignments/<id>` on student backend is auth + classroom-membership protected and returns merged `resolved_config` used by the student frontend runtime.
+- **Assignment problems**: Stored as JSONB array `problems` on the `assignments` table. Each problem: `{ num: int, statement_tex: string }`. Teacher creates/edits via ProblemEditor UI. Student frontend renders one problem per page.
 
 ## Code Review Process
 

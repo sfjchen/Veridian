@@ -28,6 +28,11 @@ export interface Classroom {
   config: Partial<AssignmentConfig>;
 }
 
+export interface Problem {
+  num: number;
+  statement_tex: string;
+}
+
 export interface Assignment {
   id: string;
   classroom_id: string;
@@ -35,6 +40,7 @@ export interface Assignment {
   prompt_storage_path: string | null;
   answer_key_storage_path: string | null;
   context_file_ids: string[];
+  problems: Problem[];
   due_date: string | null;
   created_at: string;
   config: Partial<AssignmentConfig>;

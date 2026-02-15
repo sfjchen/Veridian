@@ -19,6 +19,38 @@ assignments_bp = Blueprint("assignments", __name__)
 ASSIGNMENTS_BUCKET = "assignments"
 SUBMISSIONS_BUCKET = "submissions"
 MAX_TITLE_LENGTH = 500
+MAX_PROBLEMS = 100
+MAX_STATEMENT_LENGTH = 5000
+
+
+def _validate_problem_item(index: int, item: Any) -> dict[str, Any]:
+    if not isinstance(item, dict):
+        raise ValueError(f"problems[{index}] must be an object")
+    num = item.get("num")
+    if not isinstance(num, int) or num < 1:
+        raise ValueError(f"problems[{index}].num must be a positive integer")
+    tex = item.get("statement_tex", "")
+    if not isinstance(tex, str) or len(tex) > MAX_STATEMENT_LENGTH:
+        raise ValueError(f"problems[{index}].statement_tex must be a string (<= {MAX_STATEMENT_LENGTH} chars)")
+    if not tex.strip():
+        raise ValueError(f"problems[{index}].statement_tex must not be empty")
+    return {"num": num, "statement_tex": tex}
+
+
+def _validate_problems(raw: Any) -> list[dict[str, Any]]:
+    if not isinstance(raw, list):
+        raise ValueError("problems must be a list")
+    if len(raw) > MAX_PROBLEMS:
+        raise ValueError(f"Too many problems (max {MAX_PROBLEMS})")
+    seen_nums: set[int] = set()
+    result: list[dict[str, Any]] = []
+    for i, item in enumerate(raw):
+        validated = _validate_problem_item(i, item)
+        if validated["num"] in seen_nums:
+            raise ValueError(f"Duplicate problem num {validated['num']}")
+        seen_nums.add(validated["num"])
+        result.append(validated)
+    return result
 
 
 def _is_classroom_teacher(client: Client, classroom_id: str) -> bool:
@@ -92,6 +124,13 @@ def create_assignment(classroom_id: str) -> Tuple[Response, int]:
         except ValueError as e:
             return jsonify({"error": str(e)}), 400
 
+    problems: list[dict[str, Any]] | None = None
+    if "problems" in data:
+        try:
+            problems = _validate_problems(data["problems"])
+        except ValueError as e:
+            return jsonify({"error": str(e)}), 400
+
     assignment_id = str(uuid.uuid4())
     has_assignment_file = bool(data.get("has_assignment_file"))
     has_answer_key = bool(data.get("has_answer_key"))
@@ -112,6 +151,8 @@ def create_assignment(classroom_id: str) -> Tuple[Response, int]:
         insert_data["answer_key_storage_path"] = answer_key_path
     if config:
         insert_data["config"] = config
+    if problems is not None:
+        insert_data["problems"] = problems
 
     try:
         record = client.table("assignments").insert(insert_data).execute()
@@ -265,6 +306,11 @@ def update_assignment(assignment_id: str) -> Tuple[Response, int]:
     if "config" in data:
         try:
             updates["config"] = validate_config(data["config"])
+        except ValueError as e:
+            return jsonify({"error": str(e)}), 400
+    if "problems" in data:
+        try:
+            updates["problems"] = _validate_problems(data["problems"])
         except ValueError as e:
             return jsonify({"error": str(e)}), 400
 

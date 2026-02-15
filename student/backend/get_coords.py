@@ -25,7 +25,13 @@ from artifact_service import (
     list_artifacts,
     mark_artifact_uploaded,
 )
-from assignment_service import get_assignment, get_problem, get_problems, get_resolved_config
+from assignment_service import (
+    can_student_access_assignment,
+    get_assignment,
+    get_problem,
+    get_problems,
+    get_resolved_config,
+)
 from auth_middleware import require_auth, require_auth_or_sample, require_auth_or_sample_chat
 from classroom_service import list_assignments_for_classroom, list_classrooms_for_student
 from chat import generate_chat_response
@@ -1477,11 +1483,20 @@ def list_classroom_assignments(classroom_id: str) -> Any:
 
 
 @app.get("/assignments/<assignment_id>")
+@require_auth
 def get_assignment_endpoint(assignment_id: str) -> Any:
     assignment = get_assignment(assignment_id)
     if assignment is None:
         return jsonify({"error": "Assignment not found."}), 404
-    return jsonify({"assignment": assignment})
+    if not can_student_access_assignment(assignment_id, g.user_id):
+        return jsonify({"error": "Access denied"}), 403
+    try:
+        resolved_config = get_resolved_config(assignment_id)
+    except ValueError as exc:
+        return jsonify({"error": str(exc)}), 400
+    payload = dict(assignment)
+    payload["resolved_config"] = resolved_config
+    return jsonify({"assignment": payload})
 
 
 @app.get("/assignments/<assignment_id>/problems")

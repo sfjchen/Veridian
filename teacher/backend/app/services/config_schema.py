@@ -22,7 +22,7 @@ HARDCODED_DEFAULTS: dict[str, Any] = {
 
 VALID_VALUES: dict[str, list[str]] = {
     "dot_threshold": ["notational", "mechanical", "procedural", "conceptual"],
-    "analysis_trigger": ["auto_idle", "manual_only", "passive"],
+    "analysis_trigger": ["auto_idle", "auto_page_change", "manual_only", "passive"],
     "notification_style": ["silent", "toast", "badge"],
     "hint_level": ["guided", "minimal", "detailed"],
 }

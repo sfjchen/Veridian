@@ -10,7 +10,6 @@ import { api } from "../../lib/api";
 import { StudentMistakeProfile, SeverityDistribution } from "../../types";
 import { SEVERITY_ORDER, SEVERITY_COLORS } from "../../constants/severity";
 import { TAG_TO_SEVERITY } from "../../constants/tags";
-import { ScreenContainer } from "../../components/ui/ScreenContainer";
 import { palette, radius } from "../../constants/palette";
 import { spacing } from "../../constants/spacing";
 import { typography } from "../../constants/typography";
@@ -44,40 +43,18 @@ export function StudentMistakeDetailScreen({ route }: { route: any }) {
     })();
   }, [classroomId, studentId]);
 
-  if (loading) {
-    return (
-      <ScreenContainer maxWidth="dashboard">
-        <View style={styles.centered}>
-          <ActivityIndicator size="large" color={palette.primary} />
-        </View>
-      </ScreenContainer>
-    );
-  }
-  if (error) {
-    return (
-      <ScreenContainer maxWidth="dashboard">
-        <Text style={styles.errorText}>{error}</Text>
-      </ScreenContainer>
-    );
-  }
-  if (!profile) {
-    return (
-      <ScreenContainer maxWidth="dashboard">
-        <Text style={styles.emptyText}>No data available</Text>
-      </ScreenContainer>
-    );
-  }
+  if (loading) return <ActivityIndicator style={styles.centered} size="large" color={palette.primary} />;
+  if (error) return <Text style={styles.errorText}>{error}</Text>;
+  if (!profile) return <Text style={styles.emptyText}>No data available</Text>;
 
   return (
-    <ScreenContainer maxWidth="dashboard">
-      <ScrollView style={styles.scroll} contentContainerStyle={styles.scrollContent}>
-        <Text style={styles.title}>{displayName}</Text>
-        <StatsRow profile={profile} />
-        <SeverityBreakdown dist={profile.severity_distribution} />
-        <TopTags tags={profile.top_tags} />
-        <TemporalChart entries={profile.temporal} />
-      </ScrollView>
-    </ScreenContainer>
+    <ScrollView style={styles.container}>
+      <Text style={styles.title}>{displayName}</Text>
+      <StatsRow profile={profile} />
+      <SeverityBreakdown dist={profile.severity_distribution} />
+      <TopTags tags={profile.top_tags} />
+      <TemporalChart entries={profile.temporal} />
+    </ScrollView>
   );
 }
 
@@ -219,52 +196,51 @@ function TemporalChart({ entries }: { entries: StudentMistakeProfile["temporal"]
 }
 
 const styles = StyleSheet.create({
-  scroll: { flex: 1 },
-  scrollContent: { paddingVertical: spacing.md, paddingBottom: spacing.xxl },
-  centered: { flex: 1, justifyContent: "center", alignItems: "center", paddingTop: spacing.xxl },
-  title: { ...typography.h1, color: palette.textPrimary, marginBottom: spacing.md },
-  errorText: { ...typography.body, textAlign: "center" as const, color: palette.error, marginTop: spacing.xxl },
-  emptyText: { ...typography.bodySmall, textAlign: "center" as const, color: palette.textDisabled, marginTop: spacing.sm },
+  container: { flex: 1, padding: spacing.md, backgroundColor: palette.surface },
+  centered: { flex: 1, justifyContent: "center", alignItems: "center" },
+  title: { ...typography.h2, fontWeight: "700" as const, color: palette.textPrimary, marginBottom: spacing.md },
+  errorText: { ...typography.bodySmall, textAlign: "center", color: palette.error, marginTop: spacing.xxl },
+  emptyText: { ...typography.caption, textAlign: "center", color: palette.textMuted, marginTop: spacing.sm },
 
-  statsRow: { flexDirection: "row" as const, gap: spacing.sm, marginBottom: spacing.lg },
-  statCard: { flex: 1, backgroundColor: palette.card, borderRadius: radius.card, padding: spacing.sm, alignItems: "center" as const },
-  statValue: { fontSize: 26, fontWeight: "700" as const, color: palette.primary },
+  statsRow: { flexDirection: "row", gap: spacing.sm, marginBottom: spacing.lg },
+  statCard: { flex: 1, backgroundColor: palette.card, borderRadius: radius.card, padding: spacing.sm, alignItems: "center" },
+  statValue: { ...typography.h1, fontSize: 26, fontWeight: "700" as const, color: palette.primary },
   statLabel: { ...typography.caption, color: palette.textMuted, marginTop: spacing.xxs, fontWeight: "600" as const },
 
   severitySection: { marginBottom: spacing.md },
-  sectionTitle: { ...typography.h2, color: palette.textPrimary, marginBottom: spacing.sm, marginTop: spacing.xs },
-  severityBar: { flexDirection: "row" as const, height: 12, borderRadius: radius.input, overflow: "hidden" as const, backgroundColor: palette.border },
+  sectionTitle: { ...typography.body, fontWeight: "700" as const, color: palette.textPrimary, marginBottom: spacing.sm, marginTop: spacing.xs },
+  severityBar: { flexDirection: "row", height: 12, borderRadius: radius.input, overflow: "hidden", backgroundColor: palette.border },
   severitySegment: { height: 12 },
-  severityLegend: { flexDirection: "row" as const, flexWrap: "wrap" as const, gap: spacing.sm, marginTop: spacing.xs },
-  legendItem: { flexDirection: "row" as const, alignItems: "center" as const, gap: spacing.xxs },
+  severityLegend: { flexDirection: "row", flexWrap: "wrap", gap: spacing.sm, marginTop: spacing.xs },
+  legendItem: { flexDirection: "row", alignItems: "center", gap: spacing.xxs },
   legendDot: { width: 10, height: 10, borderRadius: 5 },
   legendText: { ...typography.caption, fontSize: 11, color: palette.textMuted },
 
   tagRow: {
-    flexDirection: "row" as const,
-    justifyContent: "space-between" as const,
-    alignItems: "center" as const,
+    flexDirection: "row",
+    justifyContent: "space-between",
+    alignItems: "center",
     backgroundColor: palette.card,
-    borderRadius: radius.input,
+    borderRadius: radius.button,
     padding: spacing.sm,
     marginBottom: spacing.xs,
   },
   tagInfo: { flex: 1 },
   tagName: { ...typography.bodySmall, fontWeight: "600" as const, color: palette.textSecondary },
-  severityBadge: { flexDirection: "row" as const, alignItems: "center" as const, gap: spacing.xxs, marginTop: spacing.xxs },
+  severityBadge: { flexDirection: "row", alignItems: "center", gap: spacing.xxs, marginTop: 3 },
   badgeDot: { width: 8, height: 8, borderRadius: 4 },
   tagSeverity: { ...typography.caption, color: palette.textMuted },
-  tagCount: { fontSize: 18, fontWeight: "700" as const, color: palette.primary, marginLeft: spacing.sm },
+  tagCount: { ...typography.body, fontWeight: "700" as const, color: palette.primary, marginLeft: spacing.sm },
 
-  temporalRow: { backgroundColor: palette.card, borderRadius: radius.input, padding: spacing.sm, marginBottom: spacing.xs },
-  temporalHeader: { flexDirection: "row" as const, justifyContent: "space-between" as const, marginBottom: spacing.xs },
+  temporalRow: { backgroundColor: palette.card, borderRadius: radius.button, padding: spacing.sm, marginBottom: spacing.xs },
+  temporalHeader: { flexDirection: "row", justifyContent: "space-between", marginBottom: spacing.xs },
   temporalTitle: { ...typography.bodySmall, fontWeight: "600" as const, color: palette.textSecondary, flex: 1 },
-  temporalDate: { ...typography.caption, color: palette.textDisabled, marginLeft: spacing.xs },
+  temporalDate: { ...typography.caption, color: palette.textMuted, marginLeft: spacing.xs },
   temporalBarBg: { height: 8, backgroundColor: palette.border, borderRadius: spacing.xxs, marginBottom: spacing.xs },
   temporalBarFill: { height: 8, backgroundColor: palette.primary, borderRadius: spacing.xxs },
   temporalCount: { ...typography.bodySmall, color: palette.primary, fontWeight: "600" as const },
-  temporalTagsRow: { flexDirection: "row" as const, flexWrap: "wrap" as const, gap: spacing.xs, marginTop: spacing.xs },
-  temporalTagChip: { flexDirection: "row" as const, alignItems: "center" as const, gap: 3, backgroundColor: palette.surface, borderRadius: spacing.xxs, paddingHorizontal: spacing.xs, paddingVertical: 2 },
+  temporalTagsRow: { flexDirection: "row", flexWrap: "wrap", gap: spacing.xs, marginTop: spacing.xs },
+  temporalTagChip: { flexDirection: "row", alignItems: "center", gap: 3, backgroundColor: palette.surface, borderRadius: spacing.xxs, paddingHorizontal: spacing.xs, paddingVertical: 2 },
   temporalTagDot: { width: 6, height: 6, borderRadius: 3 },
   temporalTagText: { ...typography.caption, fontSize: 11, color: palette.textMuted },
 });

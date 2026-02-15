@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useRef } from "react";
-import { Animated, FlatList, Modal, StyleSheet, Text, TouchableOpacity, View } from "react-native";
+import { Animated, FlatList, Modal, StyleSheet, Text, TouchableOpacity, View, ViewStyle } from "react-native";
 import { useClassrooms } from "../../hooks/useClassrooms";
 import { useToast } from "../../contexts/ToastContext";
 import { alert } from "../../lib/alert";
@@ -18,6 +18,21 @@ import { elevation, palette, radius } from "../../constants/palette";
 import { motion } from "../../constants/motion";
 import { spacing } from "../../constants/spacing";
 import { typography } from "../../constants/typography";
+
+const STAGGER_DELAY_MS = 50;
+
+function StaggeredCard({ index, style, children }: { index: number; style?: ViewStyle; children: React.ReactNode }) {
+  const opacity = useRef(new Animated.Value(0)).current;
+  useEffect(() => {
+    Animated.timing(opacity, {
+      toValue: 1,
+      duration: motion.normal,
+      delay: index * STAGGER_DELAY_MS,
+      useNativeDriver: true,
+    }).start();
+  }, [index, opacity]);
+  return <Animated.View style={[style, { opacity }]}>{children}</Animated.View>;
+}
 
 export function TeacherDashboardScreen({ navigation }: { navigation: { navigate: (a: string, b: { classroom: { id: string; name: string; class_code: string } }) => void } }) {
   const { classrooms, loading, error, create, refresh } = useClassrooms();
@@ -137,16 +152,18 @@ export function TeacherDashboardScreen({ navigation }: { navigation: { navigate:
             numColumns={2}
             columnWrapperStyle={classrooms.length > 0 ? styles.cardRow : undefined}
             contentContainerStyle={classrooms.length === 0 ? styles.emptyList : styles.list}
-            renderItem={({ item }) => (
-            <Card
-              onPress={() => navigation.navigate("Classroom", { classroom: item })}
-              style={styles.card}
-            >
-              <Text style={styles.cardTitle} numberOfLines={2}>{item.name}</Text>
-              <Text style={styles.cardLabel}>Class code</Text>
-              <CopyableBadge text={item.class_code} onCopy={() => showToast("Class code copied")} />
-            </Card>
-          )}
+            renderItem={({ item, index }) => (
+              <StaggeredCard index={index} style={styles.cardWrapper}>
+                <Card
+                  onPress={() => navigation.navigate("Classroom", { classroom: item })}
+                  style={styles.card}
+                >
+                  <Text style={styles.cardTitle} numberOfLines={2}>{item.name}</Text>
+                  <Text style={styles.cardLabel}>Class code</Text>
+                  <CopyableBadge text={item.class_code} onCopy={() => showToast("Class code copied")} />
+                </Card>
+              </StaggeredCard>
+            )}
           ListEmptyComponent={
             <EmptyState
               title="No classrooms yet"
@@ -241,8 +258,8 @@ const styles = StyleSheet.create({
     alignItems: "center",
   },
   emptyIconV: {
-    ...typography.display,
-    fontSize: 28,
+    ...typography.h1,
     color: palette.primary,
   },
+  cardWrapper: { flex: 1 },
 });

@@ -11,6 +11,7 @@ import { palette } from "../../constants/palette";
 import { spacing } from "../../constants/spacing";
 import { typography } from "../../constants/typography";
 import { useToast } from "../../contexts/ToastContext";
+import { useCorpus } from "../../hooks/useCorpus";
 import { api, apiMultipart } from "../../lib/api";
 import { alert } from "../../lib/alert";
 import {
@@ -86,6 +87,7 @@ function toMultipartFile(file: PickedFile): File | NativeMultipartFile {
 export function CreateAssignmentScreen({ route, navigation }: { route: any; navigation: any }) {
   const { classroomId } = route.params;
   const { showToast } = useToast();
+  const { files: corpusFiles, loading: corpusLoading } = useCorpus(classroomId);
 
   // Manual creation state
   const [title, setTitle] = useState("");
@@ -94,6 +96,7 @@ export function CreateAssignmentScreen({ route, navigation }: { route: any; navi
   const [answerKeyFile, setAnswerKeyFile] = useState<PickedFile | null>(null);
   const [creating, setCreating] = useState(false);
   const [problems, setProblems] = useState<Problem[]>([]);
+  const [selectedContextFiles, setSelectedContextFiles] = useState<string[]>([]);
   const [configExpanded, setConfigExpanded] = useState(false);
   const [configDraft, setConfigDraft] = useState<Partial<AssignmentConfig>>({});
   const classroomConfig: AssignmentConfig | undefined = route.params?.classroomConfig;
@@ -193,6 +196,9 @@ export function CreateAssignmentScreen({ route, navigation }: { route: any; navi
       formData.append("file", toMultipartFile(picked) as any);
       formData.append("title", assignmentTitle);
       formData.append("job_id", jobId);
+      if (selectedContextFiles.length > 0) {
+        formData.append("context_file_ids", JSON.stringify(selectedContextFiles));
+      }
 
       const data = await apiMultipart<{ id: string; problems?: DetectedProblem[] }>(
         `/classrooms/${classroomId}/assignments/from-file`,
@@ -270,6 +276,9 @@ export function CreateAssignmentScreen({ route, navigation }: { route: any; navi
       if (answerKeyFile) body.has_answer_key = true;
       if (problems.length > 0) {
         body.problems = problems;
+      }
+      if (selectedContextFiles.length > 0) {
+        body.context_file_ids = selectedContextFiles;
       }
       if (Object.keys(configDraft).length > 0) {
         body.config = configDraft;
@@ -430,6 +439,41 @@ export function CreateAssignmentScreen({ route, navigation }: { route: any; navi
           <ProblemEditor problems={problems} onChange={setProblems} />
         </Section>
 
+        <Section title="Course Texts (optional)">
+          <Text style={styles.hint}>
+            Select course materials to provide context for mistake analysis.
+          </Text>
+          {corpusLoading ? (
+            <Text style={styles.emptyMessage}>Loading course texts...</Text>
+          ) : corpusFiles.length === 0 ? (
+            <Text style={styles.emptyMessage}>No course texts uploaded yet</Text>
+          ) : (
+            <View style={styles.courseTextList}>
+              {corpusFiles.map((file) => {
+                const isSelected = selectedContextFiles.includes(file.id);
+                return (
+                  <TouchableOpacity
+                    key={file.id}
+                    style={[styles.courseTextItem, isSelected && styles.courseTextItemSelected]}
+                    onPress={() => {
+                      setSelectedContextFiles((prev) =>
+                        prev.includes(file.id)
+                          ? prev.filter((id) => id !== file.id)
+                          : [...prev, file.id]
+                      );
+                    }}
+                  >
+                    <View style={[styles.checkbox, isSelected && styles.checkboxSelected]}>
+                      {isSelected && <Text style={styles.checkmark}>✓</Text>}
+                    </View>
+                    <Text style={styles.courseTextName}>{file.display_name}</Text>
+                  </TouchableOpacity>
+                );
+              })}
+            </View>
+          )}
+        </Section>
+
         <TouchableOpacity
           style={styles.expandToggle}
           onPress={() => setConfigExpanded(!configExpanded)}
@@ -502,6 +546,52 @@ const styles = StyleSheet.create({
   fileCard: { marginBottom: spacing.md },
   filePickerText: { ...typography.body, color: palette.textMuted },
   hint: { ...typography.caption, color: palette.textMuted, marginBottom: spacing.sm },
+  emptyMessage: {
+    ...typography.body,
+    color: palette.textMuted,
+    fontStyle: "italic",
+  },
+  courseTextList: {
+    gap: spacing.xs,
+  },
+  courseTextItem: {
+    flexDirection: "row",
+    alignItems: "center",
+    padding: spacing.sm,
+    borderRadius: 8,
+    borderWidth: 1,
+    borderColor: palette.border,
+    backgroundColor: palette.surface,
+    gap: spacing.sm,
+  },
+  courseTextItemSelected: {
+    borderColor: palette.primary,
+    backgroundColor: palette.primaryMutedTint,
+  },
+  checkbox: {
+    width: 20,
+    height: 20,
+    borderRadius: 4,
+    borderWidth: 2,
+    borderColor: palette.border,
+    backgroundColor: palette.surface,
+    alignItems: "center",
+    justifyContent: "center",
+  },
+  checkboxSelected: {
+    borderColor: palette.primary,
+    backgroundColor: palette.primary,
+  },
+  checkmark: {
+    color: "white",
+    fontSize: 14,
+    fontWeight: "bold",
+  },
+  courseTextName: {
+    ...typography.body,
+    color: palette.textPrimary,
+    flex: 1,
+  },
   expandToggle: { paddingVertical: spacing.sm, marginBottom: spacing.xs },
   expandToggleText: { ...typography.buttonSmall, color: palette.link },
   configSection: { marginBottom: spacing.md },

@@ -41,10 +41,16 @@ See `scripts/README.md` for all script options.
 
 ## Setup
 
-1. Copy env: `teacher/backend/.env.example` → `teacher/backend/.env`, `teacher/frontend/.env.example` → `teacher/frontend/.env`, `student/backend/.env.example` → `student/backend/.env`, `student/frontend/.env.example` → `student/frontend/.env`
-2. Install deps: `pip install -r requirements.txt` in `teacher/backend/` and `student/backend/`; `npm install` in `teacher/frontend/` and `student/frontend/`
+1. **Copy env** (4 apps, 4 `.env` files — each app loads from its own dir):
+   - `teacher/backend/.env.example` → `teacher/backend/.env`
+   - `teacher/frontend/.env.example` → `teacher/frontend/.env` (set `EXPO_PUBLIC_API_URL=http://localhost:5001` for teacher backend)
+   - `student/backend/.env.example` → `student/backend/.env`
+   - `student/frontend/.env.example` → `student/frontend/.env` (set `EXPO_PUBLIC_BACKEND_URL` for student backend, e.g. `http://localhost:8000`)
+2. **Install deps**: `pip install -r requirements.txt` in `teacher/backend/` and `student/backend/`; `npm install` in `teacher/frontend/` and `student/frontend/`
 
 (Migrations: run once per project via `./scripts/apply_migrations.sh` if needed.)
+
+**Convention**: When adding packages or env vars, update `requirements.txt` (or `package.json`), the relevant `.env.example`, and running docs in the same PR.
 
 ## Supabase Migrations
 

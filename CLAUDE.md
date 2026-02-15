@@ -1,6 +1,6 @@
 # CLAUDE.md
 
-**Running docs**: `AGENTS.md`, `CLAUDE.md`, `README.md`, `PLAN.md`. Update when features, architecture, or conventions change.
+**Running docs**: `AGENTS.md`, `CLAUDE.md`, `README.md`, `PLAN.md`. Update when features, architecture, or conventions change. When adding packages or env vars: update `requirements.txt` (or `package.json`), `.env.example`, and running docs in the same PR.
 
 ## Project Overview
 
@@ -65,3 +65,7 @@ Constants: `mistake_analysis/constants.py` — SEVERITIES, TAG_BANK, ALL_TAGS, T
 - No premature abstraction
 - Minimal comments — code should be self-documenting
 - **NEVER silently swallow exceptions** — always surface errors to the user or implement proper retry/recovery. No bare `except: pass`, no `catch { /* ignore */ }`. If an operation can fail, handle the failure visibly (toast, error state, retry) rather than hiding it.
+
+## Env layout (dev)
+
+Four `.env` files — one per app — is intentional. Each app loads from its own directory when run (`cd teacher/backend && python run.py`). Shared vars (Supabase) are duplicated; app-specific vars (e.g. `ANTHROPIC_API_KEY` for teacher, `OPENAI_API_KEY` for student) stay isolated. Copy from `.env.example` per app; see README Setup.

@@ -32,6 +32,8 @@ Wait for plan approval before proceeding
  Integrate the updates and relevant documentation you made here into PLAN.md, then delete the now redundant plans/feature made in this process.
  **Running docs**: Keep `AGENTS.md`, `CLAUDE.md`, `README.md`, `PLAN.md` in sync with the codebase. Update them in the same PR when features, architecture, or conventions change.
 
+**Deps and env**: When adding/removing Python packages or env variables, update in the same PR: `requirements.txt` (or `package.json`), the relevant `.env.example`, and running docs (README Setup, etc.).
+
 ## For Bug Fixes / Small Changes
 
 Skip the plan if it's truly trivial (< 10 lines, obvious fix)
@@ -41,6 +43,7 @@ Still use sub-agents for code changes
 
  Document any decisions or dead ends in PR description
  **Update running docs when applicable** — `AGENTS.md`, `CLAUDE.md`, `README.md`, `PLAN.md`. When you add features, change architecture, or modify conventions, update the relevant doc(s). Include doc updates in the same PR as the code change.
+ **Deps/env changes** — Update `requirements.txt` (or `package.json`), `.env.example`, and running docs in the same PR.
 
 ## Code Style Rules
 

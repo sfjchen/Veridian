@@ -42,12 +42,16 @@ export const palette = {
   forestMist: "#E8F5E9",
   forestGradientStart: "#E8F5E9",
   forestGradientEnd: "#f9fafb",
-  /** Firewatch-style layered forest — background to foreground */
-  forestLayer1: "#C5E1C5",
-  forestLayer2: "#9BCC9B",
-  forestLayer3: "#6FB86F",
-  forestLayer4: "#4A9F4A",
-  forestLayer5: "#2D7A2D",
+  /** Firewatch-style layered forest — background to foreground (7 layers) */
+  forestSky: "#F0F7F0",
+  forestSunGlow: "#D8ECBE",
+  forestLayer1: "#C8DCC8",
+  forestLayer2: "#AED0AE",
+  forestLayer3: "#88BE88",
+  forestLayer4: "#58A258",
+  forestLayer5: "#358435",
+  forestLayer6: "#1C6420",
+  forestLayer7: "#0C3010",
 } as const;
 
 export const radius = {

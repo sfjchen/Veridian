@@ -855,7 +855,7 @@ export function TeacherAssignmentScreen({ route, navigation }: { route: any; nav
 
 const styles = StyleSheet.create({
   scroll: { flexGrow: 1, paddingBottom: 24 },
-  container: { flex: 1, padding: 16, backgroundColor: "rgba(255,255,255,0.85)" },
+  container: { flex: 1, padding: 16, backgroundColor: "rgba(255,255,255,0.68)" },
   title: { ...typography.h1, flex: 1, color: palette.textPrimary },
   due: { ...typography.bodySmall, color: palette.textMuted, marginTop: 4, marginBottom: 16 },
   sectionTitle: { fontSize: 16, fontWeight: "600", marginBottom: 8, color: palette.textPrimary },

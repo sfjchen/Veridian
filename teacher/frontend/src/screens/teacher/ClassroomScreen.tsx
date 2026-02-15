@@ -382,7 +382,7 @@ export function TeacherClassroomScreen({ route, navigation }: { route: any; navi
 }
 
 const styles = StyleSheet.create({
-  container: { flex: 1, padding: 16, backgroundColor: "rgba(255,255,255,0.8)" },
+  container: { flex: 1, padding: 16, backgroundColor: "rgba(255,255,255,0.68)" },
   title: { ...typography.h1, color: palette.textPrimary, marginBottom: 4 },
   codeRow: { flexDirection: "row", alignItems: "center", marginBottom: 16, gap: 8 },
   code: { ...typography.bodySmall, color: palette.textMuted },

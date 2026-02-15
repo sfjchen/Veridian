@@ -196,7 +196,7 @@ function TemporalChart({ entries }: { entries: StudentMistakeProfile["temporal"]
 }
 
 const styles = StyleSheet.create({
-  container: { flex: 1, padding: spacing.md, backgroundColor: "rgba(255,255,255,0.85)" },
+  container: { flex: 1, padding: spacing.md, backgroundColor: "rgba(255,255,255,0.68)" },
   centered: { flex: 1, justifyContent: "center", alignItems: "center" },
   title: { ...typography.h2, fontWeight: "700" as const, color: palette.textPrimary, marginBottom: spacing.md },
   errorText: { ...typography.bodySmall, textAlign: "center", color: palette.error, marginTop: spacing.xxl },

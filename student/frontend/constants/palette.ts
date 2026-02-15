@@ -12,6 +12,7 @@ export const palette = {
   card: '#ffffff',
   border: '#e5e7eb',
   borderStrong: '#d1d5db',
+  inputBorder: '#d1d5db',
   tabInactive: '#e5e7eb',
   textPrimary: '#111827',
   textSecondary: '#374151',

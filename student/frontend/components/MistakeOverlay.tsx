@@ -156,7 +156,12 @@ export function MistakeOverlay({
   return (
     <View style={styles.overlay} pointerEvents="box-none" onLayout={handleLayout}>
       {activeDot && (
-        <Pressable style={StyleSheet.absoluteFill} onPress={dismissBubble} />
+        <Pressable
+          style={StyleSheet.absoluteFill}
+          onPress={dismissBubble}
+          accessibilityRole="button"
+          accessibilityLabel="Dismiss hint"
+        />
       )}
       {visibleMistakes.map((m) => {
         if (!m.dot) return null;

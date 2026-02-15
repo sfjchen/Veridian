@@ -5,7 +5,6 @@ import {
   FlatList,
   TouchableOpacity,
   StyleSheet,
-  ActivityIndicator,
   RefreshControl,
   Platform,
 } from "react-native";
@@ -16,8 +15,10 @@ import { useCorpus } from "../../hooks/useCorpus";
 import { useAssignments } from "../../hooks/useAssignments";
 import { useClassroomStudents } from "../../hooks/useClassroomStudents";
 import { Classroom, CorpusFile } from "../../types";
-import { palette, radius, typography } from "../../constants/palette";
+import { palette, radius } from "../../constants/palette";
+import { typography } from "../../constants/typography";
 import { alert } from "../../lib/alert";
+import { SkeletonCard } from "../../components/ui/Skeleton";
 
 type Tab = "assignments" | "corpus" | "students" | "insights" | "settings";
 
@@ -131,7 +132,11 @@ export function TeacherClassroomScreen({ route, navigation }: { route: any; navi
             <Text style={styles.addButtonText}>+ New Assignment</Text>
           </TouchableOpacity>
           {assignmentsLoading && !refreshing ? (
-            <ActivityIndicator color={palette.primary} style={styles.loader} />
+            <View style={styles.skeletonList}>
+              <SkeletonCard />
+              <SkeletonCard />
+              <SkeletonCard />
+            </View>
           ) : assignmentsError ? (
             <Text style={styles.errorText}>{assignmentsError}</Text>
           ) : (
@@ -194,7 +199,11 @@ export function TeacherClassroomScreen({ route, navigation }: { route: any; navi
             <Text style={styles.addButtonText}>+ Upload File</Text>
           </TouchableOpacity>
           {corpusLoading && !refreshing ? (
-            <ActivityIndicator color={palette.primary} style={styles.loader} />
+            <View style={styles.skeletonList}>
+              <SkeletonCard />
+              <SkeletonCard />
+              <SkeletonCard />
+            </View>
           ) : corpusError ? (
             <Text style={styles.errorText}>{corpusError}</Text>
           ) : (
@@ -239,7 +248,11 @@ export function TeacherClassroomScreen({ route, navigation }: { route: any; navi
       {activeTab === "students" && (
         <View style={styles.content}>
           {studentsLoading && !refreshing ? (
-            <ActivityIndicator color={palette.primary} style={styles.loader} />
+            <View style={styles.skeletonList}>
+              <SkeletonCard />
+              <SkeletonCard />
+              <SkeletonCard />
+            </View>
           ) : studentsError ? (
             <Text style={styles.errorText}>{studentsError}</Text>
           ) : (
@@ -316,7 +329,7 @@ const styles = StyleSheet.create({
     marginBottom: 12,
   },
   addButtonText: { color: palette.white, fontSize: 16, fontWeight: "600" },
-  loader: { marginTop: 16 },
+  skeletonList: { marginTop: 8 },
   listItem: {
     backgroundColor: palette.card,
     borderRadius: radius.button,
@@ -344,13 +357,6 @@ const styles = StyleSheet.create({
     paddingHorizontal: 20,
     paddingVertical: 12,
   },
-  emptyIconText: {
-    ...typography.h1,
-    fontSize: 24,
-    color: palette.primary,
-  },
-  empty: { textAlign: "center", color: palette.textDisabled, marginTop: spacing.lg },
   emptyButtonText: { color: palette.white, fontSize: 16, fontWeight: "600" },
-  errorText: { textAlign: "center", color: palette.error, marginTop: spacing.lg },
-  settingsHint: { ...typography.bodySmall, color: palette.textMuted, marginBottom: spacing.md, lineHeight: 18 },
+  errorText: { textAlign: "center", color: palette.error, marginTop: 20 },
 });

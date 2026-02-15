@@ -11,8 +11,7 @@ import {
 } from "react-native";
 
 import { Button, EmptyState, ScreenContainer, SkeletonCard } from "@/components/ui";
-import { palette } from "@/constants/palette";
-import { radius } from "@/constants/palette";
+import { palette, radius } from "@/constants/palette";
 import { spacing } from "@/constants/spacing";
 import { typography } from "@/constants/typography";
 import { useAuth } from "@/hooks/useAuth";
@@ -50,6 +49,8 @@ function NoteRow({
       onPress={onPress}
       onLongPress={onDelete}
       accessibilityRole="button"
+      accessibilityLabel={`Open note ${note.name}`}
+      accessibilityHint="Double tap to open. Long press to delete."
     >
       <View style={styles.rowIcon}>
         <MaterialCommunityIcons name="notebook-outline" size={28} color={palette.textMuted} />

@@ -112,7 +112,11 @@ function JoinClassModal({
 
   return (
     <Modal visible={visible} transparent animationType="fade" onRequestClose={handleClose}>
-      <Pressable style={styles.modalOverlay} onPress={handleClose}>
+      <Pressable
+        style={styles.modalOverlay}
+        onPress={handleClose}
+        accessibilityRole="button"
+        accessibilityLabel="Close modal">
         <Pressable style={styles.modalContent} onPress={() => {}}>
           <Text style={styles.modalTitle}>Join a class</Text>
           <Text style={styles.modalSubtitle}>Enter the class code from your teacher.</Text>
@@ -125,6 +129,7 @@ function JoinClassModal({
             editable={!joining}
             error={error ?? undefined}
             containerStyle={styles.modalInputWrap}
+            accessibilityLabel="Class code"
           />
           <View style={styles.modalActions}>
             <Button variant="ghost" onPress={handleClose} disabled={joining}>
@@ -134,6 +139,7 @@ function JoinClassModal({
               onPress={handleJoin}
               loading={joining}
               disabled={!code.trim()}
+              accessibilityLabel="Join class"
             >
               Join
             </Button>
@@ -238,7 +244,11 @@ export default function ClassroomsScreen() {
       </View>
 
       {welcomeName && (
-        <Pressable style={styles.welcomeBanner} onPress={dismissWelcome}>
+        <Pressable
+          style={styles.welcomeBanner}
+          onPress={dismissWelcome}
+          accessibilityRole="button"
+          accessibilityLabel="Dismiss welcome message">
           <MaterialCommunityIcons name="party-popper" size={20} color={palette.primary} />
           <Text style={styles.welcomeText}>Welcome to {welcomeName}!</Text>
           <MaterialCommunityIcons name="close" size={18} color={palette.textMuted} />
@@ -298,7 +308,8 @@ const styles = StyleSheet.create({
     gap: spacing.xs,
   },
   title: {
-    ...typography.h1,
+    fontSize: 22,
+    fontWeight: '700',
     color: palette.textPrimary,
   },
   joinButton: { marginRight: spacing.xs },
@@ -314,12 +325,13 @@ const styles = StyleSheet.create({
     borderColor: palette.borderStrong,
   },
   workspaceButtonText: {
-    ...typography.buttonSmall,
     color: palette.primary,
+    fontSize: 14,
+    fontWeight: '600',
   },
   listContent: {
-    padding: spacing.md,
-    paddingBottom: spacing.xl,
+    padding: 16,
+    paddingBottom: 32,
   },
   card: {
     flexDirection: "row",
@@ -336,7 +348,7 @@ const styles = StyleSheet.create({
   cardCode: {
     ...typography.caption,
     color: palette.textMuted,
-    marginRight: spacing.xs,
+    marginRight: 8,
   },
   skeletonList: { padding: spacing.md },
   welcomeBanner: {
@@ -370,18 +382,19 @@ const styles = StyleSheet.create({
     width: "100%",
     maxWidth: 400,
     backgroundColor: palette.card,
-    borderRadius: radius.modal,
-    padding: spacing.lg,
+    borderRadius: radius.card,
+    padding: 24,
   },
   modalTitle: {
-    ...typography.h2,
+    fontSize: 18,
+    fontWeight: '700',
     color: palette.textPrimary,
-    marginBottom: spacing.xxs,
+    marginBottom: 4,
   },
   modalSubtitle: {
-    ...typography.bodySmall,
+    fontSize: 14,
     color: palette.textMuted,
-    marginBottom: spacing.md,
+    marginBottom: 16,
   },
   modalInputWrap: { marginBottom: spacing.sm },
   modalActions: {

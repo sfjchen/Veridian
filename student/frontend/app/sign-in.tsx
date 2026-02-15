@@ -55,6 +55,7 @@ export default function SignInScreen() {
             keyboardType="email-address"
             editable={!loading}
             containerStyle={styles.inputWrap}
+            accessibilityLabel="Email"
           />
           <Input
             label="Password"
@@ -65,6 +66,7 @@ export default function SignInScreen() {
             editable={!loading}
             error={error ?? undefined}
             containerStyle={styles.inputWrap}
+            accessibilityLabel="Password"
           />
           <Button
             onPress={handleSignIn}
@@ -72,11 +74,12 @@ export default function SignInScreen() {
             disabled={!email.trim() || !password}
             fullWidth
             style={styles.button}
+            accessibilityLabel="Sign in"
           >
             Sign in
           </Button>
         </Card>
-        <Button variant="ghost" onPress={() => router.replace("/sign-up")} style={styles.backLink}>
+        <Button variant="ghost" onPress={() => router.replace("/sign-up")} style={styles.backLink} accessibilityLabel="Go to sign up">
           Do not have an account? Sign up
         </Button>
       </View>

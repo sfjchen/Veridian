@@ -62,6 +62,8 @@ function QuickActions({ onAction, disabled }: { onAction: (a: string) => void; d
           style={({ pressed }) => [styles.quickActionBtn, pressed && { opacity: 0.7 }]}
           onPress={() => onAction(action)}
           disabled={disabled}
+          accessibilityRole="button"
+          accessibilityLabel={action}
         >
           <Text style={styles.quickActionText}>{action}</Text>
         </Pressable>
@@ -147,6 +149,7 @@ function ChatInputBar({ inputText, onChangeText, onSend, loading }: ChatInputBar
         editable={!loading}
         onSubmitEditing={onSend}
         blurOnSubmit={false}
+        accessibilityLabel="Message"
       />
       <Pressable
         style={({ pressed }) => [
@@ -300,12 +303,14 @@ const styles = StyleSheet.create({
     backgroundColor: palette.surface,
   },
   studentText: {
-    ...typography.bodySmall,
-    color: palette.textOnPrimary,
+    color: palette.white,
+    fontSize: 14,
+    lineHeight: 20,
   },
   assistantText: {
-    ...typography.bodySmall,
     color: palette.textPrimary,
+    fontSize: 14,
+    lineHeight: 20,
   },
   errorBar: {
     paddingHorizontal: spacing.md,
@@ -323,14 +328,14 @@ const styles = StyleSheet.create({
     paddingVertical: 10,
     borderTopWidth: 1,
     borderTopColor: palette.border,
-    gap: spacing.xs,
+    gap: 8,
   },
   textInput: {
     flex: 1,
     minHeight: 40,
     maxHeight: 100,
     backgroundColor: palette.surface,
-    borderRadius: radius.input,
+    borderRadius: radius.button,
     borderWidth: 1,
     borderColor: palette.border,
     paddingHorizontal: spacing.sm,

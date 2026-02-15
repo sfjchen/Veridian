@@ -63,7 +63,7 @@ export default function SignUpScreen() {
           <Text style={styles.subtitle}>
             We sent a confirmation link to {email.trim()}. Open it to activate your account.
           </Text>
-          <Button variant="ghost" onPress={() => router.replace("/sign-in")} style={styles.backLink}>
+          <Button variant="ghost" onPress={() => router.replace("/sign-in")} style={styles.backLink} accessibilityLabel="Back to sign in">
             Back to sign in
           </Button>
         </View>
@@ -90,6 +90,7 @@ export default function SignUpScreen() {
             autoCorrect={false}
             editable={!loading}
             containerStyle={styles.inputWrap}
+            accessibilityLabel="Display name"
           />
           <Input
             label="Email"
@@ -101,6 +102,7 @@ export default function SignUpScreen() {
             keyboardType="email-address"
             editable={!loading}
             containerStyle={styles.inputWrap}
+            accessibilityLabel="Email"
           />
           <Input
             label="Password"
@@ -111,6 +113,7 @@ export default function SignUpScreen() {
             editable={!loading}
             error={error ?? undefined}
             containerStyle={styles.inputWrap}
+            accessibilityLabel="Password"
           />
           <Button
             onPress={handleSignUp}
@@ -118,11 +121,12 @@ export default function SignUpScreen() {
             disabled={!canSubmit}
             fullWidth
             style={styles.button}
+            accessibilityLabel="Sign up"
           >
             Sign up
           </Button>
         </Card>
-        <Button variant="ghost" onPress={() => router.replace("/sign-in")} style={styles.backLink}>
+        <Button variant="ghost" onPress={() => router.replace("/sign-in")} style={styles.backLink} accessibilityLabel="Go to sign in">
           Already have an account? Sign in
         </Button>
       </View>

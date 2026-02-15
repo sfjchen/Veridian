@@ -8,7 +8,6 @@ import {
 } from "react-native";
 
 import {
-  Button,
   EmptyState,
   ErrorState,
   ScreenContainer,
@@ -52,6 +51,7 @@ function AssignmentRow({
       ]}
       onPress={onPress}
       accessibilityRole="button"
+      accessibilityLabel={`Open assignment ${assignment.title}`}
     >
       <View style={styles.rowIcon}>
         <MaterialCommunityIcons name="file-document-outline" size={28} color={palette.textMuted} />
@@ -200,9 +200,10 @@ const styles = StyleSheet.create({
     minWidth: 80,
   },
   backText: {
-    ...typography.button,
+    fontSize: 16,
+    fontWeight: '600',
     color: palette.primary,
-    marginLeft: spacing.xxs,
+    marginLeft: 4,
   },
   title: {
     flex: 1,
@@ -211,18 +212,18 @@ const styles = StyleSheet.create({
     color: palette.textPrimary,
   },
   headerSpacer: { width: 88 },
-  listContent: { padding: spacing.md, paddingBottom: spacing.xl },
+  listContent: { padding: 16, paddingBottom: 32 },
   row: {
     flexDirection: "row",
     alignItems: "center",
     backgroundColor: palette.card,
     padding: 14,
     borderRadius: radius.card,
-    marginBottom: spacing.sm,
+    marginBottom: 10,
     borderWidth: 1,
     borderColor: palette.border,
   },
-  rowIcon: { marginRight: spacing.sm },
+  rowIcon: { marginRight: 12 },
   rowContent: { flex: 1, minWidth: 0 },
   rowTitle: {
     ...typography.body,

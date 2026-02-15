@@ -420,7 +420,7 @@ function ChatFab({ onPress }: { onPress: () => void }) {
 }
 
 const styles = StyleSheet.create({
-  screen: { flex: 1, backgroundColor: palette.surface },
+  screen: { flex: 1, backgroundColor: "rgba(255,255,255,0.85)" },
   center: { flex: 1, justifyContent: 'center', alignItems: 'center', padding: 24 },
   loadingText: { marginTop: 12, fontSize: 15, color: palette.textMuted },
   errorText: { fontSize: 16, color: palette.textSecondary, textAlign: 'center' },

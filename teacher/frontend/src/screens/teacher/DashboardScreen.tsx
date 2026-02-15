@@ -14,6 +14,7 @@ import {
   ErrorState,
   Section,
 } from "../../components/ui";
+import { TreeIcon, LeafAccent } from "../../components/forest";
 import { elevation, palette, radius } from "../../constants/palette";
 import { motion } from "../../constants/motion";
 import { spacing } from "../../constants/spacing";
@@ -93,7 +94,10 @@ export function TeacherDashboardScreen({ navigation }: { navigation: { navigate:
   return (
     <ScreenContainer maxWidth="dashboard">
       <View style={styles.header}>
-        <Text style={styles.hero}>My Classrooms</Text>
+        <View style={styles.heroRow}>
+          <LeafAccent size={28} />
+          <Text style={styles.hero}>My Classrooms</Text>
+        </View>
         <View style={styles.headerActions}>
           <Button onPress={openModal} variant="primary" size="sm" accessibilityLabel="New classroom">
             + New classroom
@@ -171,7 +175,7 @@ export function TeacherDashboardScreen({ navigation }: { navigation: { navigate:
               descriptionSecondary="Create a classroom to share assignments and see how students think."
               icon={
                 <View style={styles.emptyIconWrap}>
-                  <Text style={styles.emptyIconV}>V</Text>
+                  <TreeIcon size={40} color={palette.primary} />
                 </View>
               }
               actionLabel="New classroom"
@@ -195,6 +199,11 @@ const styles = StyleSheet.create({
     marginBottom: spacing.lg,
     paddingTop: spacing.xs,
   },
+  heroRow: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: spacing.xs,
+  },
   hero: {
     ...typography.display,
     color: palette.textPrimary,
@@ -213,7 +222,7 @@ const styles = StyleSheet.create({
   },
   modalCard: {
     backgroundColor: palette.card,
-    borderRadius: radius.modal,
+    borderRadius: radius.organic,
     padding: spacing.lg,
     width: "100%",
     maxWidth: 400,
@@ -237,7 +246,8 @@ const styles = StyleSheet.create({
     flex: 1,
     minHeight: 120,
     borderTopWidth: 4,
-    borderTopColor: palette.primary,
+    borderTopColor: palette.forestCanopy,
+    borderRadius: radius.organic,
   },
   cardTitle: {
     ...typography.h2,
@@ -256,10 +266,6 @@ const styles = StyleSheet.create({
     backgroundColor: palette.primaryMuted,
     justifyContent: "center",
     alignItems: "center",
-  },
-  emptyIconV: {
-    ...typography.h1,
-    color: palette.primary,
   },
   cardWrapper: { flex: 1 },
 });

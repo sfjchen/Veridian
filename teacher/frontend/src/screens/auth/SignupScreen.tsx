@@ -1,10 +1,12 @@
 import React, { useState } from "react";
-import { ScrollView, StyleSheet, Text, TouchableOpacity } from "react-native";
+import { ScrollView, StyleSheet, Text, TouchableOpacity, View } from "react-native";
 import { NativeStackNavigationProp } from "@react-navigation/native-stack";
+import { LinearGradient } from "expo-linear-gradient";
 import { useAuth } from "../../stores/auth";
 import { UserRole } from "../../types";
 import { alert } from "../../lib/alert";
 import { Button, Card, Input, Row, ScreenContainer } from "../../components/ui";
+import { TreeIcon } from "../../components/forest";
 import { elevation, palette, radius } from "../../constants/palette";
 import { spacing } from "../../constants/spacing";
 import { typography } from "../../constants/typography";
@@ -58,14 +60,18 @@ export function SignupScreen({ navigation }: SignupScreenProps) {
 
   return (
     <ScreenContainer maxWidth="form">
-      <ScrollView
-        contentContainerStyle={styles.scroll}
-        keyboardShouldPersistTaps="handled"
-        showsVerticalScrollIndicator={false}
-      >
+      <LinearGradient colors={[palette.forestMist, palette.surface]} style={styles.gradientBg}>
+        <ScrollView
+          contentContainerStyle={styles.scroll}
+          keyboardShouldPersistTaps="handled"
+          showsVerticalScrollIndicator={false}
+        >
         <Card style={StyleSheet.flatten([styles.card, elevation.shadowMd])}>
+          <View style={styles.brandWrap}>
+            <TreeIcon size={36} color={palette.primary} />
+          </View>
           <Text style={styles.wordmark}>Veridian</Text>
-          <Text style={styles.tagline}>Math, clearer.</Text>
+          <Text style={styles.tagline}>Math, clearer. Where learning grows.</Text>
           <Text style={styles.title}>Create Account</Text>
           <Input
             placeholder="Display Name"
@@ -114,20 +120,22 @@ export function SignupScreen({ navigation }: SignupScreenProps) {
             <Text style={styles.link}>Already have an account? Sign In</Text>
           </TouchableOpacity>
         </Card>
-      </ScrollView>
+        </ScrollView>
+      </LinearGradient>
     </ScreenContainer>
   );
 }
 
 const styles = StyleSheet.create({
+  gradientBg: { flex: 1 },
   scroll: {
     flexGrow: 1,
     justifyContent: "center",
     paddingVertical: spacing.xl,
     paddingHorizontal: spacing.md,
-    backgroundColor: palette.primaryMutedTint,
   },
-  card: { padding: spacing.lg },
+  card: { padding: spacing.lg, borderRadius: radius.organic },
+  brandWrap: { alignItems: "center", marginBottom: spacing.sm },
   wordmark: {
     ...typography.display,
     color: palette.primary,

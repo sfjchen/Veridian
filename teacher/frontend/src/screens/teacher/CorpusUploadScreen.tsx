@@ -1,5 +1,5 @@
 import React, { useState } from "react";
-import { Platform, StyleSheet, Text, View } from "react-native";
+import { StyleSheet, Text, View } from "react-native";
 import * as DocumentPicker from "expo-document-picker";
 import { useToast } from "../../contexts/ToastContext";
 import { api, apiMultipart } from "../../lib/api";
@@ -12,6 +12,7 @@ import {
 import { uploadFile } from "../../lib/upload";
 import { generateUuidV4 } from "../../lib/uuid";
 import { Button, Card, Input, ScreenContainer, Section } from "../../components/ui";
+import { LeafAccent } from "../../components/forest";
 import { ConversionProgressModal } from "../../components/ConversionProgressModal";
 import { palette } from "../../constants/palette";
 import { spacing } from "../../constants/spacing";
@@ -229,7 +230,11 @@ export function CorpusUploadScreen({ route, navigation }: { route: any; navigati
       />
 
       <View style={styles.content}>
-        <Section title="Upload Corpus File">
+        <View style={styles.headerRow}>
+          <LeafAccent size={24} />
+          <Text style={styles.headerTitle}>Upload Corpus File</Text>
+        </View>
+        <Section title="">
           <Card onPress={pickFile} style={styles.fileCard}>
             <Text style={styles.filePickerText}>
               {file ? file.name : "Select File"}
@@ -268,6 +273,8 @@ export function CorpusUploadScreen({ route, navigation }: { route: any; navigati
 
 const styles = StyleSheet.create({
   content: { paddingVertical: spacing.lg },
+  headerRow: { flexDirection: "row", alignItems: "center", gap: spacing.xs, marginBottom: spacing.md },
+  headerTitle: { ...typography.h1, color: palette.textPrimary },
   fileCard: { marginBottom: spacing.xs },
   filePickerText: { ...typography.body, color: palette.textMuted },
   fileHint: { ...typography.caption, color: palette.textMuted, marginBottom: spacing.md },

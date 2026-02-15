@@ -10,9 +10,8 @@ import {
 import { useClassrooms } from "../../hooks/useClassrooms";
 import { useAuth } from "../../stores/auth";
 import { ClassCodeInput } from "../../components/ClassCodeInput";
-import { ScreenContainer } from "../../components/ui";
 import { Classroom } from "../../types";
-import { palette, radius, elevation } from "../../constants/palette";
+import { palette, radius } from "../../constants/palette";
 import { spacing } from "../../constants/spacing";
 import { typography } from "../../constants/typography";
 
@@ -66,7 +65,7 @@ export function StudentDashboardScreen({ navigation }: { navigation: any }) {
 }
 
 const styles = StyleSheet.create({
-  container: { flex: 1, padding: 16, backgroundColor: palette.surface },
+  container: { flex: 1, padding: 16, backgroundColor: "rgba(255,255,255,0.75)" },
   header: {
     flexDirection: "row",
     justifyContent: "space-between",

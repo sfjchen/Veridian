@@ -2,6 +2,7 @@ import React, { useState } from "react";
 import { Modal, StyleSheet, Text, TouchableOpacity, View } from "react-native";
 import * as DocumentPicker from "expo-document-picker";
 import { Button, Card, Input, ScreenContainer, Section } from "../../components/ui";
+import { LeafAccent } from "../../components/forest";
 import { ConfigEditor } from "../../components/ConfigEditor";
 import { ProblemEditor } from "../../components/ProblemEditor";
 import { ConversionProgressModal } from "../../components/ConversionProgressModal";
@@ -371,7 +372,10 @@ export function CreateAssignmentScreen({ route, navigation }: { route: any; navi
       </Modal>
 
       <View style={styles.content}>
-        <Text style={styles.title}>New Assignment</Text>
+        <View style={styles.titleRow}>
+          <LeafAccent size={24} />
+          <Text style={styles.title}>New Assignment</Text>
+        </View>
 
         {/* Quick Upload Section */}
         <Section title="Quick Create from PDF/TEX">
@@ -462,7 +466,8 @@ export function CreateAssignmentScreen({ route, navigation }: { route: any; navi
 
 const styles = StyleSheet.create({
   content: { paddingVertical: spacing.lg },
-  title: { ...typography.h1, color: palette.textPrimary, marginBottom: spacing.lg },
+  titleRow: { flexDirection: "row", alignItems: "center", gap: spacing.xs, marginBottom: spacing.lg },
+  title: { ...typography.h1, color: palette.textPrimary },
   quickUploadCard: {
     padding: spacing.lg,
     backgroundColor: palette.primaryMutedTint,

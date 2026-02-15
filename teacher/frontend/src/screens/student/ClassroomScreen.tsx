@@ -8,10 +8,8 @@ import {
   ActivityIndicator,
 } from "react-native";
 import { useAssignments } from "../../hooks/useAssignments";
-import { ScreenContainer } from "../../components/ui";
 import { Classroom } from "../../types";
-import { palette, radius, elevation } from "../../constants/palette";
-import { spacing } from "../../constants/spacing";
+import { palette, radius } from "../../constants/palette";
 import { typography } from "../../constants/typography";
 
 export function StudentClassroomScreen({ route, navigation }: { route: any; navigation: any }) {
@@ -62,7 +60,7 @@ export function StudentClassroomScreen({ route, navigation }: { route: any; navi
 }
 
 const styles = StyleSheet.create({
-  container: { flex: 1, padding: 16, backgroundColor: palette.surface },
+  container: { flex: 1, padding: 16, backgroundColor: "rgba(255,255,255,0.75)" },
   title: { ...typography.h1, marginBottom: 16, color: palette.textPrimary },
   card: {
     backgroundColor: palette.card,

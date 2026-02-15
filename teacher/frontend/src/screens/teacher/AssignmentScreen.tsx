@@ -25,11 +25,10 @@ import { alert } from "../../lib/alert";
 import {
   Button,
   Card,
-  Input,
-  Row,
   ScreenContainer,
   Section,
 } from "../../components/ui";
+import { LeafAccent } from "../../components/forest";
 import { palette, radius } from "../../constants/palette";
 import { spacing } from "../../constants/spacing";
 import { typography } from "../../constants/typography";
@@ -329,7 +328,8 @@ export function TeacherAssignmentScreen({ route, navigation }: { route: any; nav
           </TouchableOpacity>
         </View>
       ) : (
-        /* Teacher View */
+        <>
+        {/* Teacher View */}
         <View>
           {editing ? (
             <View>
@@ -378,6 +378,7 @@ export function TeacherAssignmentScreen({ route, navigation }: { route: any; nav
           ) : (
             <View>
               <View style={styles.headerRow}>
+                <LeafAccent size={22} />
                 <Text style={styles.title}>{assignment.title}</Text>
                 <TouchableOpacity
                   style={styles.editChip}
@@ -702,17 +703,20 @@ export function TeacherAssignmentScreen({ route, navigation }: { route: any; nav
               {binaryDownloadUrl && (
                 <Card style={styles.binaryNotice}>
                   <Text style={styles.binaryNoticeText}>This file type cannot be previewed in-app.</Text>
-                  <Button size="sm" onPress={() => handleOpenFile(binaryDownloadUrl)}>Download File</Button>
-                </Card>
-              )}
-        </View>
+              <Button size="sm" onPress={() => handleOpenFile(binaryDownloadUrl)}>Download File</Button>
+            </Card>
+          )}
+        </>
       )}
+        </View>
       </ScrollView>
     </ScreenContainer>
+  );
 }
 
 const styles = StyleSheet.create({
-  container: { flex: 1, padding: 16, backgroundColor: palette.card },
+  scroll: { flexGrow: 1, paddingBottom: 24 },
+  container: { flex: 1, padding: 16, backgroundColor: "rgba(255,255,255,0.85)" },
   title: { ...typography.h1, flex: 1, color: palette.textPrimary },
   due: { ...typography.bodySmall, color: palette.textMuted, marginTop: 4, marginBottom: 16 },
   sectionTitle: { fontSize: 16, fontWeight: "600", marginBottom: 8, color: palette.textPrimary },
@@ -771,6 +775,7 @@ const styles = StyleSheet.create({
   configSummary: { marginTop: 8, marginBottom: 12, gap: 6 },
   configRow: { flexDirection: "row", justifyContent: "space-between", gap: 8 },
   configKey: { ...typography.caption, color: palette.textMuted, flex: 1 },
+  configKeyOverridden: { color: palette.primary, fontWeight: "600" as const },
   configValue: { ...typography.caption, color: palette.textSecondary, fontWeight: "600" },
 
   fileCard: {
@@ -801,6 +806,7 @@ const styles = StyleSheet.create({
   },
   reuploadButtonText: { color: palette.white, fontSize: 16, fontWeight: "600" },
   reuploadSection: { marginTop: 16 },
+  cancelReupload: { marginTop: 8 },
 
   convertSection: { marginTop: 24, backgroundColor: palette.successBg, borderRadius: radius.button, padding: 16 },
   convertHint: { fontSize: 14, color: palette.textSecondary, marginBottom: 12 },
@@ -859,20 +865,6 @@ const styles = StyleSheet.create({
     borderRadius: radius.input,
     marginBottom: spacing.xs,
   },
-  configSummary: {
-    backgroundColor: palette.surface,
-    borderRadius: radius.button,
-    padding: spacing.sm,
-    marginBottom: spacing.md,
-  },
-  configRow: {
-    flexDirection: "row",
-    justifyContent: "space-between",
-    paddingVertical: spacing.xxs,
-  },
-  configKey: { ...typography.bodySmall, color: palette.textMuted, textTransform: "capitalize" as const },
-  configKeyOverridden: { color: palette.primary, fontWeight: "600" as const },
-  configValue: { ...typography.bodySmall, fontWeight: "500" as const, color: palette.textSecondary },
   contentPreview: { marginTop: 24, flex: 1, minHeight: 300 },
   noContent: { color: palette.textDisabled, textAlign: "center", marginTop: 16 },
 
@@ -892,14 +884,4 @@ const styles = StyleSheet.create({
     marginTop: spacing.sm,
   },
   tryStudentButtonText: { ...typography.button, color: palette.textOnPrimary },
-
-  problemsSummary: { marginTop: spacing.md },
-  problemRow: {
-    flexDirection: "row",
-    alignItems: "flex-start",
-    gap: spacing.xs,
-    paddingVertical: spacing.xxs,
-  },
-  problemNum: { ...typography.bodySmall, fontWeight: "700" as const, color: palette.textSecondary, minWidth: 28 },
-  problemTex: { ...typography.bodySmall, color: palette.textMuted, flex: 1, fontFamily: "monospace" as const },
 });

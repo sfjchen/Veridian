@@ -26,7 +26,7 @@ Address both reviewers' feedback before merging. **Always tag @codex and @claude
 | Path | Purpose |
 |------|---------|
 | `teacher/backend/` | Teacher Flask app (assignments, classrooms, corpus, convert) |
-| `teacher/frontend/` | Teacher React app (screens, hooks, components). Veridian design system: `src/constants/` (palette, typography, spacing), `src/components/ui/` (Button, Card, Input, Badge, EmptyState, Skeleton, ScreenContainer, Section, Row, ErrorState). Primary: #16A34A. App root is wrapped in `ErrorBoundary` (fallback: message + Retry). |
+| `teacher/frontend/` | Teacher React app (screens, hooks, components). Veridian design system: `src/constants/` (palette, typography, spacing), `src/components/ui/` (Button, Card, Input, Badge, EmptyState, Skeleton, ScreenContainer, Section, Row, ErrorState, TabBar), `src/components/forest/` (TreeIcon, LeafAccent, ForestBackground). Primary: #16A34A. Forest theme: forestCanopy, forestLeaf, forestBark, TreeIcon for empty states. App root is wrapped in `ErrorBoundary` (fallback: message + Retry). |
 | `student/backend/` | Student Flask (mistake analysis, OCR, chat) |
 | `student/backend/get_coords.py` | Main student API server |
 | `student/backend/mistake_analysis/` | LLM mistake detection (Claude) |
@@ -40,7 +40,7 @@ Address both reviewers' feedback before merging. **Always tag @codex and @claude
 
 | File | Exports | Use for |
 |------|---------|--------|
-| `palette.ts` | `palette`, `radius`, `elevation` | Colors (primary #16A34A, surface, card, text, error, success, etc.), border radius, shadows |
+| `palette.ts` | `palette`, `radius`, `elevation` | Colors (primary #16A34A, surface, card, text, error, success, forestCanopy, forestLeaf, forestBark, forestMist, forestGradientStart/End), radii (button, card, organic 20, etc.), elevation shadows |
 | `typography.ts` | `typography`, `fontFamily` | Font families (DM Sans, Dancing Script wordmark), sizes and line heights (display, h1, h2, body, caption, button) |
 | `spacing.ts` | `spacing` | 4px grid: padding, margin, gap (xxs 4 → xxxl 64) |
 | `motion.ts` | `motion` | Animation durations in ms (fast 150, normal 250, slow 400 for page/modals) |

@@ -8,6 +8,7 @@ import {
   RefreshControl,
   Platform,
 } from "react-native";
+import { spacing } from "../../constants/spacing";
 import * as Clipboard from "expo-clipboard";
 import * as Linking from "expo-linking";
 import { useFocusEffect } from "@react-navigation/native";
@@ -18,7 +19,9 @@ import { Classroom, CorpusFile } from "../../types";
 import { palette, radius } from "../../constants/palette";
 import { typography } from "../../constants/typography";
 import { alert } from "../../lib/alert";
-import { SkeletonCard } from "../../components/ui/Skeleton";
+import { SkeletonCard, StaggeredFade } from "../../components/ui";
+import { TabBar } from "../../components/ui/TabBar";
+import { TreeIcon } from "../../components/forest";
 
 type Tab = "assignments" | "corpus" | "students" | "insights" | "settings";
 
@@ -104,21 +107,19 @@ export function TeacherClassroomScreen({ route, navigation }: { route: any; navi
         </TouchableOpacity>
       </View>
 
-      <View style={styles.tabs}>
-        {(["assignments", "corpus", "students", "insights", "settings"] as Tab[]).map((tab) => (
-          <TouchableOpacity
-            key={tab}
-            style={[styles.tab, activeTab === tab && styles.tabActive]}
-            onPress={() => setActiveTab(tab)}
-            accessibilityRole="tab"
-            accessibilityLabel={tab}
-            accessibilityState={{ selected: activeTab === tab }}
-          >
-            <Text style={[styles.tabText, activeTab === tab && styles.tabTextActive]}>
-              {tab.charAt(0).toUpperCase() + tab.slice(1)}
-            </Text>
-          </TouchableOpacity>
-        ))}
+      <View style={styles.tabBarWrap}>
+        <TabBar
+          options={[
+            { key: "assignments", label: "Assignments" },
+            { key: "corpus", label: "Corpus" },
+            { key: "students", label: "Students" },
+            { key: "insights", label: "Insights" },
+            { key: "settings", label: "Settings" },
+          ]}
+          value={activeTab}
+          onChange={(key) => setActiveTab(key as Tab)}
+          scrollable
+        />
       </View>
 
       {activeTab === "assignments" && (
@@ -144,15 +145,16 @@ export function TeacherClassroomScreen({ route, navigation }: { route: any; navi
               data={assignments}
               keyExtractor={(item) => item.id}
               refreshControl={refreshControl}
-              renderItem={({ item }) => {
+              renderItem={({ item, index }) => {
                 const { label, warning } = formatDueDateLabel(item.due_date);
                 return (
-                  <TouchableOpacity
-                    style={styles.listItem}
-                    onPress={() => navigation.navigate("TeacherAssignment", { assignmentId: item.id })}
-                    accessibilityRole="button"
-                    accessibilityLabel={`${item.title}, ${label}`}
-                  >
+                  <StaggeredFade index={index}>
+                    <TouchableOpacity
+                      style={styles.listItem}
+                      onPress={() => navigation.navigate("TeacherAssignment", { assignmentId: item.id })}
+                      accessibilityRole="button"
+                      accessibilityLabel={`${item.title}, ${label}`}
+                    >
                     <View style={styles.listItemContent}>
                       <Text style={styles.itemTitle}>{item.title}</Text>
                       <View style={styles.dueRow}>
@@ -167,10 +169,14 @@ export function TeacherClassroomScreen({ route, navigation }: { route: any; navi
                     </View>
                     <Text style={styles.chevron}>&gt;</Text>
                   </TouchableOpacity>
+                  </StaggeredFade>
                 );
               }}
               ListEmptyComponent={
                 <View style={styles.emptyWrap}>
+                  <View style={styles.emptyIconWrap}>
+                    <TreeIcon size={40} color={palette.primary} />
+                  </View>
                   <Text style={styles.emptyTitle}>No assignments yet</Text>
                   <Text style={styles.emptySubtitle}>Add an assignment so students can see and submit work.</Text>
                   <TouchableOpacity
@@ -211,8 +217,9 @@ export function TeacherClassroomScreen({ route, navigation }: { route: any; navi
               data={files}
               keyExtractor={(item) => item.id}
               refreshControl={refreshControl}
-              renderItem={({ item }) => (
-                <TouchableOpacity
+              renderItem={({ item, index }) => (
+                <StaggeredFade index={index}>
+                  <TouchableOpacity
                   style={styles.listItem}
                   onPress={() => handleOpenCorpusFile(item)}
                   disabled={!item.download_url}
@@ -225,9 +232,13 @@ export function TeacherClassroomScreen({ route, navigation }: { route: any; navi
                   </View>
                   {item.download_url && <Text style={styles.downloadHint}>Open</Text>}
                 </TouchableOpacity>
+                </StaggeredFade>
               )}
               ListEmptyComponent={
                 <View style={styles.emptyWrap}>
+                  <View style={styles.emptyIconWrap}>
+                    <TreeIcon size={40} color={palette.primary} />
+                  </View>
                   <Text style={styles.emptyTitle}>No corpus files yet</Text>
                   <Text style={styles.emptySubtitle}>Upload reference files for this classroom.</Text>
                   <TouchableOpacity
@@ -260,8 +271,9 @@ export function TeacherClassroomScreen({ route, navigation }: { route: any; navi
               data={students}
               keyExtractor={(item) => item.student_id}
               refreshControl={refreshControl}
-              renderItem={({ item }) => (
-                <View style={styles.listItem}>
+              renderItem={({ item, index }) => (
+                <StaggeredFade index={index}>
+                  <View style={styles.listItem}>
                   <View style={styles.listItemContent}>
                     <Text style={styles.itemTitle}>{item.display_name ?? "Unnamed Student"}</Text>
                     <Text style={styles.itemSub}>
@@ -275,9 +287,13 @@ export function TeacherClassroomScreen({ route, navigation }: { route: any; navi
                     </Text>
                   </View>
                 </View>
+                </StaggeredFade>
               )}
               ListEmptyComponent={
                 <View style={styles.emptyWrap}>
+                  <View style={styles.emptyIconWrap}>
+                    <TreeIcon size={40} color={palette.primary} />
+                  </View>
                   <Text style={styles.emptyTitle}>No students have joined yet</Text>
                   <Text style={styles.emptySubtitle}>Share the class code with students so they can join.</Text>
                 </View>
@@ -309,21 +325,17 @@ export function TeacherClassroomScreen({ route, navigation }: { route: any; navi
 }
 
 const styles = StyleSheet.create({
-  container: { flex: 1, padding: 16, backgroundColor: palette.surface },
+  container: { flex: 1, padding: 16, backgroundColor: "rgba(255,255,255,0.8)" },
   title: { ...typography.h1, color: palette.textPrimary, marginBottom: 4 },
   codeRow: { flexDirection: "row", alignItems: "center", marginBottom: 16, gap: 8 },
   code: { ...typography.bodySmall, color: palette.textMuted },
   copyButton: { paddingHorizontal: 10, paddingVertical: 4, borderRadius: radius.button, backgroundColor: palette.tabInactive },
   copyButtonText: { fontSize: 13, fontWeight: "600", color: palette.primary },
-  tabs: { flexDirection: "row", marginBottom: 16, gap: 8 },
-  tab: { flex: 1, padding: 10, borderRadius: radius.button, backgroundColor: palette.tabInactive, alignItems: "center" },
-  tabActive: { backgroundColor: palette.primary },
-  tabText: { fontWeight: "600", color: palette.textSecondary },
-  tabTextActive: { color: palette.white },
+  tabBarWrap: { marginBottom: spacing.md },
   content: { flex: 1 },
   addButton: {
-    backgroundColor: palette.success,
-    borderRadius: radius.button,
+    backgroundColor: palette.forestCanopy,
+    borderRadius: radius.organic,
     padding: 12,
     alignItems: "center",
     marginBottom: 12,
@@ -332,7 +344,7 @@ const styles = StyleSheet.create({
   skeletonList: { marginTop: 8 },
   listItem: {
     backgroundColor: palette.card,
-    borderRadius: radius.button,
+    borderRadius: radius.organic,
     padding: 14,
     marginBottom: 8,
     flexDirection: "row",
@@ -349,11 +361,20 @@ const styles = StyleSheet.create({
   chevron: { fontSize: 18, color: palette.textDisabled, marginLeft: 8 },
   downloadHint: { fontSize: 13, color: palette.primary, fontWeight: "600", marginLeft: 8 },
   emptyWrap: { paddingVertical: 40, paddingHorizontal: 24, alignItems: "center" },
+  emptyIconWrap: {
+    width: 64,
+    height: 64,
+    borderRadius: 32,
+    backgroundColor: palette.primaryMuted,
+    justifyContent: "center",
+    alignItems: "center",
+    marginBottom: spacing.md,
+  },
   emptyTitle: { fontSize: 18, fontWeight: "600", color: palette.textSecondary, marginBottom: 8 },
   emptySubtitle: { fontSize: 15, color: palette.textMuted, textAlign: "center", marginBottom: 20 },
   emptyButton: {
-    backgroundColor: palette.primary,
-    borderRadius: radius.button,
+    backgroundColor: palette.forestCanopy,
+    borderRadius: radius.organic,
     paddingHorizontal: 20,
     paddingVertical: 12,
   },

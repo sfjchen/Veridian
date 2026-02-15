@@ -28,6 +28,7 @@ Full platform monorepo: teacher side (classrooms, assignments, corpus, submissio
 - Signed URLs via admin client
 - PDF-to-LaTeX conversion, PDF preview fallback
 - Teacher UI overhaul: Veridian design system (primary #16A34A), design tokens (palette, typography, spacing), UI primitives (Button, Card, Input, Badge, EmptyState, Skeleton, ScreenContainer, etc.), auth/dashboard/classroom/assignment screens refactored to use tokens + primitives; responsive (web max-width, native SafeArea)
+- Forest-themed redesign: palette extensions (forestCanopy, forestLeaf, forestBark, forestMist, forestGradientStart/End, radius.organic), TreeIcon, LeafAccent, ForestBackground; auth gradient (forestMist → surface); Card organic variant + scale 0.98 press; StaggeredFade in ClassroomScreen; LeafAccent on CreateAssignment, CorpusUpload, Assignment headers
 
 ### Remaining
 

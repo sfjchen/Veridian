@@ -19,7 +19,6 @@ import { AssignmentDetail, Submission } from "../../types";
 import { alert } from "../../lib/alert";
 import { palette, radius } from "../../constants/palette";
 import { typography } from "../../constants/typography";
-import { spacing } from "../../constants/spacing";
 
 const MAX_ASSIGNMENT_FILE_LENGTH = 100_000;
 
@@ -48,7 +47,7 @@ export function AssignmentScreen({ route }: { route: any }) {
   const [binaryDownloadUrl, setBinaryDownloadUrl] = useState<string | null>(null);
   const [submissionUrl, setSubmissionUrl] = useState<string | null>(null);
   const [submitting, setSubmitting] = useState(false);
-  const [loadError, setLoadError] = useState<string | null>(null);
+  const [, setLoadError] = useState<string | null>(null);
   const {
     submissions,
     loading: submissionsLoading,
@@ -143,7 +142,8 @@ export function AssignmentScreen({ route }: { route: any }) {
   const hasIncompleteSubmission = submissions.some((submission) => !submission.download_url);
 
   return (
-    <ScrollView style={styles.container}>
+    <ScreenContainer>
+      <ScrollView style={styles.container}>
       <Text style={styles.title}>{assignment.title}</Text>
       {assignment.due_date && (
         <Text style={styles.due}>
@@ -260,7 +260,7 @@ export function AssignmentScreen({ route }: { route: any }) {
 }
 
 const styles = StyleSheet.create({
-  container: { flex: 1, padding: 16, backgroundColor: palette.card },
+  container: { flex: 1, padding: 16, backgroundColor: "rgba(255,255,255,0.85)" },
   title: { ...typography.h1, color: palette.textPrimary },
   due: { ...typography.bodySmall, color: palette.textMuted, marginTop: 4, marginBottom: 16 },
   sectionTitle: { fontSize: 16, fontWeight: "600", marginBottom: 8, color: palette.textPrimary },

@@ -9,3 +9,4 @@ export { Row } from "./Row";
 export { ScreenContainer } from "./ScreenContainer";
 export { Section } from "./Section";
 export { Skeleton, SkeletonCard } from "./Skeleton";
+export { StaggeredFade } from "./StaggeredFade";

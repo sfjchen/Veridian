@@ -42,8 +42,8 @@ export function ScreenContainer({
 }
 
 const styles = StyleSheet.create({
-  safe: { flex: 1, backgroundColor: palette.surface },
-  webRoot: { flex: 1, backgroundColor: palette.surface },
+  safe: { flex: 1, backgroundColor: "transparent" },
+  webRoot: { flex: 1, backgroundColor: "transparent" },
   inner: { flex: 1, paddingHorizontal: spacing.md },
   centered: { alignItems: "center" as const },
   content: { flex: 1, width: "100%" },

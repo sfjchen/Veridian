@@ -1,4 +1,5 @@
 import React from "react";
+import { Platform, View } from "react-native";
 import { useFonts } from "expo-font";
 import {
   DMSans_400Regular,
@@ -11,6 +12,7 @@ import { AuthProvider } from "./src/stores/auth";
 import { ToastProvider } from "./src/contexts/ToastContext";
 import { RootNavigator } from "./src/navigation";
 import { ErrorBoundary } from "./src/components/ErrorBoundary";
+import { ForestBackground } from "./src/components/forest";
 
 export default function App() {
   const [fontsLoaded] = useFonts({
@@ -21,13 +23,20 @@ export default function App() {
     DancingScript_600SemiBold,
   });
 
-  if (!fontsLoaded) return null;
+  if (!fontsLoaded && Platform.OS !== "web") {
+    return null;
+  }
 
   return (
     <ErrorBoundary>
       <AuthProvider>
         <ToastProvider>
-          <RootNavigator />
+          <View style={{ flex: 1 }}>
+            <ForestBackground />
+            <View style={{ flex: 1, backgroundColor: "transparent" }} pointerEvents="box-none">
+              <RootNavigator />
+            </View>
+          </View>
         </ToastProvider>
       </AuthProvider>
     </ErrorBoundary>

@@ -15,12 +15,13 @@ export class ErrorBoundary extends Component<Props, State> {
   }
 
   componentDidCatch(error: Error, errorInfo: ErrorInfo): void {
-    if (__DEV__) {
-      console.error("[ErrorBoundary]", error, errorInfo.componentStack);
-    }
+    console.error("[DEBUG ErrorBoundary]", error.message, errorInfo.componentStack);
   }
 
   render(): ReactNode {
+    if (this.state.hasError && typeof window !== "undefined") {
+      console.log("[DEBUG ErrorBoundary] rendering error fallback UI");
+    }
     if (this.state.hasError) {
       return (
         <View style={styles.container}>

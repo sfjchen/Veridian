@@ -1,5 +1,5 @@
 import React from "react";
-import { NavigationContainer } from "@react-navigation/native";
+import { DefaultTheme, NavigationContainer } from "@react-navigation/native";
 import { createNativeStackNavigator } from "@react-navigation/native-stack";
 import { ActivityIndicator, View, Text, TouchableOpacity, StyleSheet } from "react-native";
 import { useAuth } from "../stores/auth";
@@ -27,8 +27,9 @@ const TeacherStack = createNativeStackNavigator();
 const StudentStack = createNativeStackNavigator();
 
 const headerScreenOptions = {
+  contentStyle: { backgroundColor: "transparent" },
   headerStyle: {
-    backgroundColor: palette.surfaceElevated,
+    backgroundColor: "rgba(255,255,255,0.92)",
     borderBottomWidth: 1,
     borderBottomColor: palette.border,
   },
@@ -108,8 +109,17 @@ export function RootNavigator() {
     );
   }
 
+  const transparentTheme = {
+    ...DefaultTheme,
+    colors: {
+      ...DefaultTheme.colors,
+      background: "transparent",
+      card: "transparent",
+    },
+  };
+
   return (
-    <NavigationContainer>
+    <NavigationContainer theme={transparentTheme}>
       {!session ? (
         <AuthNavigator />
       ) : role === "teacher" ? (
@@ -124,7 +134,7 @@ export function RootNavigator() {
 }
 
 const styles = StyleSheet.create({
-  center: { flex: 1, justifyContent: "center", alignItems: "center", padding: spacing.lg, backgroundColor: palette.surface },
+  center: { flex: 1, justifyContent: "center", alignItems: "center", padding: spacing.lg, backgroundColor: "transparent" },
   errorText: { ...typography.h2, color: palette.textPrimary, marginBottom: spacing.xs, textAlign: "center" },
   errorSubtext: { ...typography.bodySmall, color: palette.textMuted, marginBottom: spacing.lg, textAlign: "center" },
   signOutButton: {

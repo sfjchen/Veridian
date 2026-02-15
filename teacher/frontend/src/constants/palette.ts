@@ -36,6 +36,18 @@ export const palette = {
   tabInactive: "#E5E7EB",
   link: "#16A34A",
   overlay: "rgba(0,0,0,0.4)",
+  forestCanopy: "#0F7B3A",
+  forestLeaf: "#22C55E",
+  forestBark: "#8B7355",
+  forestMist: "#E8F5E9",
+  forestGradientStart: "#E8F5E9",
+  forestGradientEnd: "#f9fafb",
+  /** Firewatch-style layered forest — background to foreground */
+  forestLayer1: "#C5E1C5",
+  forestLayer2: "#9BCC9B",
+  forestLayer3: "#6FB86F",
+  forestLayer4: "#4A9F4A",
+  forestLayer5: "#2D7A2D",
 } as const;
 
 export const radius = {
@@ -44,6 +56,7 @@ export const radius = {
   input: 8,
   chip: 16,
   modal: 16,
+  organic: 20,
 } as const;
 
 export const elevation = {

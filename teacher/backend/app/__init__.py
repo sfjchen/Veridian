@@ -1,11 +1,16 @@
 from flask import Flask, Response, jsonify
 from flask_cors import CORS
+from flask_socketio import SocketIO
 from .config import Config
+
+# Global SocketIO instance
+socketio = SocketIO(cors_allowed_origins="*")
 
 
 def create_app() -> Flask:
     app = Flask(__name__)
     CORS(app, origins="*")
+    socketio.init_app(app)
     config = Config.from_env()
     app.config.from_mapping(
         SECRET_KEY=config.flask_secret_key,
@@ -36,6 +41,9 @@ def create_app() -> Flask:
 
     from .routes.analytics import analytics_bp
     app.register_blueprint(analytics_bp)
+
+    # Import WebSocket handlers (registers with socketio)
+    from .routes import conversion_websocket  # noqa: F401
 
     @app.errorhandler(404)
     def not_found(e: Exception) -> tuple[Response, int]:

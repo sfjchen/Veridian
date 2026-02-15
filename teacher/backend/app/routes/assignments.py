@@ -20,6 +20,7 @@ from app.services.conversion_orchestrator import (
     ConversionError,
     create_orchestrator,
 )
+from app.services.progress_tracker import ProgressTracker
 
 log = logging.getLogger(__name__)
 
@@ -281,6 +282,9 @@ def create_assignment_from_file(classroom_id: str) -> Tuple[Response, int]:
     assignment_id = str(uuid.uuid4())
     prompt_path = f"{classroom_id}/{assignment_id}/prompt.{file_type}"
 
+    # Create progress tracker for WebSocket updates
+    progress_tracker = ProgressTracker(assignment_id)
+
     # Process file with conversion orchestrator
     orchestrator = create_orchestrator()
     try:
@@ -288,6 +292,7 @@ def create_assignment_from_file(classroom_id: str) -> Tuple[Response, int]:
             assignment_id=assignment_id,
             file_bytes=file_bytes,
             file_type=file_type,
+            progress_tracker=progress_tracker,
         )
     except ConversionError as e:
         log.exception("Conversion failed for assignment %s", assignment_id)
@@ -341,6 +346,7 @@ def create_assignment_from_file(classroom_id: str) -> Tuple[Response, int]:
     response: dict[str, Any] = {
         **record.data[0],
         "needs_review": result.needs_review,
+        "job_id": assignment_id,  # For WebSocket subscription
     }
 
     return jsonify(response), 201

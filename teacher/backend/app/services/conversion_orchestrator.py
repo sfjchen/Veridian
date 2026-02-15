@@ -18,6 +18,7 @@ from ..utils.latex_parser import (
     extract_problems_from_latex,
     validate_problem_structure,
 )
+from .progress_tracker import ProgressTracker
 
 
 MAX_PDF_SIZE = 16 * 1024 * 1024  # 16MB (matches Flask config)
@@ -49,6 +50,7 @@ class ConversionOrchestrator:
         assignment_id: str,
         file_bytes: bytes,
         file_type: str,
+        progress_tracker: Optional[ProgressTracker] = None,
     ) -> ConversionResult:
         """
         Process assignment file (PDF or TEX) with automatic problem detection.
@@ -65,19 +67,30 @@ class ConversionOrchestrator:
             ConversionError: If conversion or problem detection fails
         """
         if file_type == "pdf":
-            latex_content = self._convert_pdf_to_latex(file_bytes)
+            latex_content = self._convert_pdf_to_latex(file_bytes, progress_tracker)
         elif file_type == "tex":
             latex_content = file_bytes.decode("utf-8")
         else:
             raise ConversionError(f"Unsupported file type: {file_type}")
 
         # Intelligent problem detection
+        if progress_tracker:
+            progress_tracker.detecting_problems()
+
         try:
             problems = self._intelligent_problem_detection(latex_content)
             needs_review = True  # Successful auto-detection, offer review
+
+            if progress_tracker:
+                progress_tracker.detecting_problems(num_detected=len(problems))
         except ProblemDetectionError as e:
             # Problem detection failed - teacher must use manual entry
+            if progress_tracker:
+                progress_tracker.error(f"Failed to detect problems: {e}")
             raise ConversionError(f"Failed to detect problems: {e}") from e
+
+        if progress_tracker:
+            progress_tracker.complete(problems, len(latex_content))
 
         return ConversionResult(
             latex_content=latex_content,
@@ -115,7 +128,11 @@ class ConversionOrchestrator:
             needs_review=False,
         )
 
-    def _convert_pdf_to_latex(self, pdf_bytes: bytes) -> str:
+    def _convert_pdf_to_latex(
+        self,
+        pdf_bytes: bytes,
+        progress_tracker: Optional[ProgressTracker] = None,
+    ) -> str:
         """
         Convert PDF to LaTeX, handling multi-page PDFs with chunked processing.
 
@@ -124,6 +141,7 @@ class ConversionOrchestrator:
 
         Args:
             pdf_bytes: Raw PDF file bytes
+            progress_tracker: Optional progress tracker for WebSocket updates
 
         Returns:
             Merged LaTeX content
@@ -141,15 +159,22 @@ class ConversionOrchestrator:
         page_chunks = self._split_pdf_pages(pdf_bytes)
         num_chunks = len(page_chunks)
 
+        # Calculate total pages for progress
+        total_pages = sum(len(chunk) for chunk in page_chunks)
+        if progress_tracker:
+            progress_tracker.splitting_pages(total_pages)
+
         if num_chunks == 0:
             raise ConversionError("PDF has no pages")
 
         # For single chunk (≤6 pages), use simple conversion
         if num_chunks == 1:
+            if progress_tracker:
+                progress_tracker.converting_page(1, 1)
             return self._convert_page_chunk(page_chunks[0], 0, num_chunks)
 
         # For multiple chunks, use parallel conversion
-        latex_parts = self._spawn_page_agents(page_chunks)
+        latex_parts = self._spawn_page_agents(page_chunks, progress_tracker)
         return self._merge_latex_results(latex_parts)
 
     def _split_pdf_pages(self, pdf_bytes: bytes) -> list[list[bytes]]:
@@ -196,12 +221,17 @@ class ConversionOrchestrator:
         finally:
             document.close()
 
-    def _spawn_page_agents(self, page_chunks: list[list[bytes]]) -> list[str]:
+    def _spawn_page_agents(
+        self,
+        page_chunks: list[list[bytes]],
+        progress_tracker: Optional[ProgressTracker] = None,
+    ) -> list[str]:
         """
         Spawn parallel conversion tasks for each page chunk.
 
         Args:
             page_chunks: List of page chunks (each chunk is list of PNG bytes)
+            progress_tracker: Optional progress tracker for WebSocket updates
 
         Returns:
             List of LaTeX strings (one per chunk, in order)
@@ -211,6 +241,7 @@ class ConversionOrchestrator:
         """
         num_chunks = len(page_chunks)
         results = [None] * num_chunks  # Preserve order
+        completed_chunks = 0
 
         with ThreadPoolExecutor(max_workers=min(4, num_chunks)) as executor:
             # Submit all chunk conversion tasks
@@ -230,6 +261,11 @@ class ConversionOrchestrator:
                 try:
                     latex = future.result()
                     results[chunk_index] = latex
+                    completed_chunks += 1
+
+                    # Emit progress after each chunk completes
+                    if progress_tracker:
+                        progress_tracker.converting_page(completed_chunks, num_chunks)
                 except Exception as e:
                     raise ConversionError(f"Failed to convert chunk {chunk_index + 1}: {e}") from e
 

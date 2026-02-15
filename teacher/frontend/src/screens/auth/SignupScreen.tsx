@@ -1,9 +1,13 @@
 import React, { useState } from "react";
-import { View, Text, TextInput, TouchableOpacity, StyleSheet, ScrollView } from "react-native";
+import { ScrollView, StyleSheet, Text, TouchableOpacity } from "react-native";
 import { NativeStackNavigationProp } from "@react-navigation/native-stack";
 import { useAuth } from "../../stores/auth";
 import { UserRole } from "../../types";
 import { alert } from "../../lib/alert";
+import { Button, Card, Input, Row, ScreenContainer } from "../../components/ui";
+import { elevation, palette, radius } from "../../constants/palette";
+import { spacing } from "../../constants/spacing";
+import { typography } from "../../constants/typography";
 
 const EMAIL_REGEX = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
 const MIN_PASSWORD_LENGTH = 8;
@@ -41,90 +45,126 @@ export function SignupScreen({ navigation }: SignupScreenProps) {
     setLoading(true);
     try {
       await signUp(email.trim(), password, role, displayName.trim());
-      // If we reach here, auto-confirm happened — auth state change will unmount this screen
-    } catch (e: any) {
-      if (e.message?.includes("check your email")) {
+    } catch (e: unknown) {
+      if (e instanceof Error && e.message?.includes("check your email")) {
         alert("Account Created", e.message);
         navigation.navigate("Login");
       } else {
-        alert("Signup Failed", e.message);
+        alert("Signup Failed", e instanceof Error ? e.message : "Sign up failed");
       }
       setLoading(false);
     }
   };
 
   return (
-    <ScrollView contentContainerStyle={styles.container}>
-      <Text style={styles.title}>Create Account</Text>
-      <TextInput
-        style={styles.input}
-        placeholder="Display Name"
-        value={displayName}
-        onChangeText={setDisplayName}
-      />
-      <TextInput
-        style={styles.input}
-        placeholder="Email"
-        value={email}
-        onChangeText={setEmail}
-        autoCapitalize="none"
-        keyboardType="email-address"
-      />
-      <TextInput
-        style={styles.input}
-        placeholder="Password"
-        value={password}
-        onChangeText={setPassword}
-        secureTextEntry
-      />
-      <View style={styles.roleContainer}>
-        <Text style={styles.roleLabel}>I am a:</Text>
-        <View style={styles.roleButtons}>
-          <TouchableOpacity
-            style={[styles.roleButton, role === "student" && styles.roleActive]}
-            onPress={() => setRole("student")}
-          >
-            <Text style={[styles.roleText, role === "student" && styles.roleTextActive]}>Student</Text>
+    <ScreenContainer maxWidth="form">
+      <ScrollView
+        contentContainerStyle={styles.scroll}
+        keyboardShouldPersistTaps="handled"
+        showsVerticalScrollIndicator={false}
+      >
+        <Card style={StyleSheet.flatten([styles.card, elevation.shadowMd])}>
+          <Text style={styles.wordmark}>Veridian</Text>
+          <Text style={styles.tagline}>Math, clearer.</Text>
+          <Text style={styles.title}>Create Account</Text>
+          <Input
+            placeholder="Display Name"
+            value={displayName}
+            onChangeText={setDisplayName}
+            autoComplete="name"
+          />
+          <Input
+            placeholder="Email"
+            value={email}
+            onChangeText={setEmail}
+            autoCapitalize="none"
+            keyboardType="email-address"
+            autoComplete="email"
+          />
+          <Input
+            placeholder="Password"
+            value={password}
+            onChangeText={setPassword}
+            secureTextEntry
+            autoComplete="password-new"
+          />
+          <Text style={styles.roleLabel}>I am a:</Text>
+          <Row gap={spacing.sm} style={styles.roleRow}>
+            <TouchableOpacity
+              style={[styles.roleButton, role === "student" && styles.roleActive]}
+              onPress={() => setRole("student")}
+            >
+              <Text style={[styles.roleText, role === "student" && styles.roleTextActive]}>
+                Student
+              </Text>
+            </TouchableOpacity>
+            <TouchableOpacity
+              style={[styles.roleButton, role === "teacher" && styles.roleActive]}
+              onPress={() => setRole("teacher")}
+            >
+              <Text style={[styles.roleText, role === "teacher" && styles.roleTextActive]}>
+                Teacher
+              </Text>
+            </TouchableOpacity>
+          </Row>
+          <Button onPress={handleSignup} loading={loading} fullWidth style={styles.button}>
+            Sign Up
+          </Button>
+          <TouchableOpacity onPress={() => navigation.navigate("Login")} style={styles.linkWrap}>
+            <Text style={styles.link}>Already have an account? Sign In</Text>
           </TouchableOpacity>
-          <TouchableOpacity
-            style={[styles.roleButton, role === "teacher" && styles.roleActive]}
-            onPress={() => setRole("teacher")}
-          >
-            <Text style={[styles.roleText, role === "teacher" && styles.roleTextActive]}>Teacher</Text>
-          </TouchableOpacity>
-        </View>
-      </View>
-      <TouchableOpacity style={styles.button} onPress={handleSignup} disabled={loading}>
-        <Text style={styles.buttonText}>{loading ? "Creating account..." : "Sign Up"}</Text>
-      </TouchableOpacity>
-      <TouchableOpacity onPress={() => navigation.navigate("Login")}>
-        <Text style={styles.link}>Already have an account? Sign In</Text>
-      </TouchableOpacity>
-    </ScrollView>
+        </Card>
+      </ScrollView>
+    </ScreenContainer>
   );
 }
 
 const styles = StyleSheet.create({
-  container: { flexGrow: 1, justifyContent: "center", padding: 24, backgroundColor: "#fff" },
-  title: { fontSize: 28, fontWeight: "bold", marginBottom: 32, textAlign: "center" },
-  input: {
-    borderWidth: 1, borderColor: "#ddd", borderRadius: 8, padding: 14,
-    marginBottom: 16, fontSize: 16,
+  scroll: {
+    flexGrow: 1,
+    justifyContent: "center",
+    paddingVertical: spacing.xl,
+    paddingHorizontal: spacing.md,
+    backgroundColor: palette.primaryMutedTint,
   },
-  roleContainer: { marginBottom: 24 },
-  roleLabel: { fontSize: 16, marginBottom: 8, fontWeight: "500" },
-  roleButtons: { flexDirection: "row", gap: 12 },
+  card: { padding: spacing.lg },
+  wordmark: {
+    ...typography.display,
+    color: palette.primary,
+    textAlign: "center",
+    marginBottom: spacing.xxs,
+  },
+  tagline: {
+    ...typography.caption,
+    color: palette.textMuted,
+    textAlign: "center",
+    marginBottom: spacing.lg,
+  },
+  title: {
+    ...typography.h1,
+    color: palette.textPrimary,
+    textAlign: "center",
+    marginBottom: spacing.lg,
+  },
+  roleLabel: {
+    ...typography.body,
+    fontWeight: "600",
+    color: palette.textSecondary,
+    marginBottom: spacing.xs,
+  },
+  roleRow: { marginBottom: spacing.md },
   roleButton: {
-    flex: 1, borderWidth: 2, borderColor: "#ddd", borderRadius: 8,
-    padding: 12, alignItems: "center",
+    flex: 1,
+    borderWidth: 2,
+    borderColor: palette.border,
+    borderRadius: radius.input,
+    paddingVertical: spacing.sm,
+    alignItems: "center",
   },
-  roleActive: { borderColor: "#4F46E5", backgroundColor: "#EEF2FF" },
-  roleText: { fontSize: 16, color: "#666" },
-  roleTextActive: { color: "#4F46E5", fontWeight: "600" },
-  button: {
-    backgroundColor: "#4F46E5", borderRadius: 8, padding: 16,
-    alignItems: "center", marginBottom: 16,
-  },
-  buttonText: { color: "#fff", fontSize: 16, fontWeight: "600" },
-  link: { textAlign: "center", color: "#4F46E5", fontSize: 14 },
+  roleActive: { borderColor: palette.primary, backgroundColor: palette.successBg },
+  roleText: { ...typography.body, color: palette.textMuted },
+  roleTextActive: { color: palette.primary, fontWeight: "600" },
+  button: { marginBottom: spacing.sm },
+  linkWrap: { alignSelf: "center", marginTop: spacing.xs },
+  link: { ...typography.bodySmall, color: palette.link, textAlign: "center" },
 });

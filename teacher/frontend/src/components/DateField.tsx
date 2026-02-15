@@ -1,6 +1,8 @@
 import React, { useState } from "react";
 import { View, Text, TextInput, TouchableOpacity, StyleSheet, Platform } from "react-native";
 import { palette, radius } from "../constants/palette";
+import { spacing } from "../constants/spacing";
+import { typography } from "../constants/typography";
 
 const DATE_PATTERN = /^\d{4}-\d{2}-\d{2}$/;
 
@@ -97,10 +99,10 @@ const styles = StyleSheet.create({
     borderColor: palette.inputBorder,
     borderRadius: radius.input,
     padding: 14,
-    marginBottom: 12,
+    marginBottom: spacing.sm,
     minHeight: 48,
     justifyContent: "center",
   },
-  inputText: { fontSize: 16, color: palette.textPrimary },
-  inputPlaceholder: { fontSize: 16, color: palette.textMuted },
+  inputText: { ...typography.body, color: palette.textPrimary },
+  inputPlaceholder: { ...typography.body, color: palette.textMuted },
 });

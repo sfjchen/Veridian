@@ -1,6 +1,8 @@
 import React, { useState } from "react";
-import { View, TextInput, TouchableOpacity, Text, StyleSheet } from "react-native";
+import { View, StyleSheet } from "react-native";
 import { alert } from "../lib/alert";
+import { Button, Input, Row } from "./ui";
+import { spacing } from "../constants/spacing";
 
 const CLASS_CODE_LENGTH = 6;
 const CLASS_CODE_PATTERN = /^[A-Z0-9]{6}$/;
@@ -27,39 +29,33 @@ export function ClassCodeInput({ onSubmit }: Props) {
     try {
       await onSubmit(trimmed);
       setCode("");
-    } catch (e: any) {
-      alert("Error", e.message);
+    } catch (e: unknown) {
+      alert("Error", e instanceof Error ? e.message : "Failed to join");
     } finally {
       setLoading(false);
     }
   };
 
   return (
-    <View style={styles.container}>
-      <TextInput
-        style={styles.input}
+    <Row gap={spacing.sm} style={styles.row}>
+      <Input
         placeholder="Enter class code"
         value={code}
         onChangeText={setCode}
         autoCapitalize="characters"
         maxLength={CLASS_CODE_LENGTH}
+        containerStyle={styles.inputWrap}
+        style={styles.inputText}
       />
-      <TouchableOpacity style={styles.button} onPress={handleSubmit} disabled={loading}>
-        <Text style={styles.buttonText}>{loading ? "Joining..." : "Join"}</Text>
-      </TouchableOpacity>
-    </View>
+      <Button onPress={handleSubmit} disabled={loading} loading={loading}>
+        Join
+      </Button>
+    </Row>
   );
 }
 
 const styles = StyleSheet.create({
-  container: { flexDirection: "row", gap: 12, marginVertical: 8 },
-  input: {
-    flex: 1, borderWidth: 1, borderColor: "#ddd", borderRadius: 8,
-    padding: 14, fontSize: 18, letterSpacing: 4, textAlign: "center",
-  },
-  button: {
-    backgroundColor: "#4F46E5", borderRadius: 8, paddingHorizontal: 24,
-    justifyContent: "center",
-  },
-  buttonText: { color: "#fff", fontSize: 16, fontWeight: "600" },
+  row: { marginVertical: spacing.xs },
+  inputWrap: { flex: 1, marginBottom: 0 },
+  inputText: { textAlign: "center", letterSpacing: 4, fontSize: 18 },
 });

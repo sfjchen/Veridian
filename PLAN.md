@@ -26,6 +26,7 @@ Full platform monorepo: teacher side (classrooms, assignments, corpus, submissio
 - Student dashboard: join/list classrooms
 - Signed URLs via admin client
 - PDF-to-LaTeX conversion, PDF preview fallback
+- Teacher UI overhaul: Veridian design system (primary #16A34A), design tokens (palette, typography, spacing), UI primitives (Button, Card, Input, Badge, EmptyState, Skeleton, ScreenContainer, etc.), auth/dashboard/classroom/assignment screens refactored to use tokens + primitives; responsive (web max-width, native SafeArea)
 
 ### Remaining
 

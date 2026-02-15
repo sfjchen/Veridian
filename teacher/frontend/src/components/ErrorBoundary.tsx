@@ -1,6 +1,7 @@
 import React, { Component, ErrorInfo, ReactNode } from "react";
 import { View, Text, TouchableOpacity, StyleSheet } from "react-native";
-import { palette, radius, typography } from "../constants/palette";
+import { palette, radius } from "../constants/palette";
+import { typography } from "../constants/typography";
 
 type Props = { children: ReactNode };
 

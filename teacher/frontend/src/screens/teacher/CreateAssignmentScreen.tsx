@@ -1,12 +1,13 @@
 import React, { useState } from "react";
-import {
-  Text, TextInput, TouchableOpacity, StyleSheet,
-  ScrollView, ActivityIndicator,
-} from "react-native";
+import { ScrollView, StyleSheet, Text, View } from "react-native";
 import * as DocumentPicker from "expo-document-picker";
 import { api } from "../../lib/api";
 import { alert } from "../../lib/alert";
 import { uploadFile } from "../../lib/upload";
+import { Button, Card, Input, ScreenContainer, Section } from "../../components/ui";
+import { palette } from "../../constants/palette";
+import { spacing } from "../../constants/spacing";
+import { typography } from "../../constants/typography";
 
 const DATE_PATTERN = /^\d{4}-\d{2}-\d{2}$/;
 
@@ -72,20 +73,32 @@ export function CreateAssignmentScreen({ route, navigation }: { route: any; navi
 
       const uploads: Promise<void>[] = [];
       if (assignmentFile) {
-        uploads.push(uploadFile({ uri: assignmentFile.uri, uploadUrl: result.assignment_file_upload_url, mimeType: assignmentFile.mimeType, file: assignmentFile.file }));
+        uploads.push(
+          uploadFile({
+            uri: assignmentFile.uri,
+            uploadUrl: result.assignment_file_upload_url,
+            mimeType: assignmentFile.mimeType,
+            file: assignmentFile.file,
+          })
+        );
       }
       if (answerKeyFile) {
-        uploads.push(uploadFile({ uri: answerKeyFile.uri, uploadUrl: result.answer_key_upload_url, mimeType: answerKeyFile.mimeType, file: answerKeyFile.file }));
+        uploads.push(
+          uploadFile({
+            uri: answerKeyFile.uri,
+            uploadUrl: result.answer_key_upload_url,
+            mimeType: answerKeyFile.mimeType,
+            file: answerKeyFile.file,
+          })
+        );
       }
 
-      if (uploads.length > 0) {
-        await Promise.all(uploads);
-      }
+      if (uploads.length > 0) await Promise.all(uploads);
 
       alert("Success", "Assignment created!", [
         { text: "OK", onPress: () => navigation.goBack() },
       ]);
-    } catch (e: any) {
+    } catch (e: unknown) {
       alert("Error", e instanceof Error ? e.message : "Failed to create assignment");
     } finally {
       setCreating(false);
@@ -93,68 +106,47 @@ export function CreateAssignmentScreen({ route, navigation }: { route: any; navi
   };
 
   return (
-    <ScrollView style={styles.container}>
-      <Text style={styles.title}>New Assignment</Text>
+    <ScreenContainer maxWidth="form">
+      <ScrollView contentContainerStyle={styles.scroll} showsVerticalScrollIndicator={false}>
+        <Section title="New Assignment">
+          <Input
+            placeholder="Assignment title"
+            value={title}
+            onChangeText={setTitle}
+          />
+          <Input
+            placeholder="Due date (YYYY-MM-DD, optional)"
+            value={dueDate}
+            onChangeText={setDueDate}
+          />
+        </Section>
 
-      <TextInput
-        style={styles.input}
-        placeholder="Assignment title"
-        value={title}
-        onChangeText={setTitle}
-      />
-      <TextInput
-        style={styles.input}
-        placeholder="Due date (YYYY-MM-DD, optional)"
-        value={dueDate}
-        onChangeText={setDueDate}
-      />
+        <Section title="Assignment File (optional)">
+          <Card onPress={() => pickFile(setAssignmentFile)} style={styles.fileCard}>
+            <Text style={styles.filePickerText}>
+              {assignmentFile ? assignmentFile.name : "Select Assignment File"}
+            </Text>
+          </Card>
+        </Section>
 
-      <Text style={styles.sectionTitle}>Assignment File (optional)</Text>
-      <TouchableOpacity style={styles.filePicker} onPress={() => pickFile(setAssignmentFile)}>
-        <Text style={styles.filePickerText}>
-          {assignmentFile ? assignmentFile.name : "Select Assignment File"}
-        </Text>
-      </TouchableOpacity>
+        <Section title="Answer Key (optional)">
+          <Card onPress={() => pickFile(setAnswerKeyFile)} style={styles.fileCard}>
+            <Text style={styles.filePickerText}>
+              {answerKeyFile ? answerKeyFile.name : "Select Answer Key"}
+            </Text>
+          </Card>
+        </Section>
 
-      <Text style={styles.sectionTitle}>Answer Key (optional)</Text>
-      <TouchableOpacity style={styles.filePicker} onPress={() => pickFile(setAnswerKeyFile)}>
-        <Text style={styles.filePickerText}>
-          {answerKeyFile ? answerKeyFile.name : "Select Answer Key"}
-        </Text>
-      </TouchableOpacity>
-
-      <TouchableOpacity
-        style={[styles.button, creating && styles.buttonDisabled]}
-        onPress={handleCreate}
-        disabled={creating}
-      >
-        {creating ? (
-          <ActivityIndicator color="#fff" />
-        ) : (
-          <Text style={styles.buttonText}>Create Assignment</Text>
-        )}
-      </TouchableOpacity>
-    </ScrollView>
+        <Button onPress={handleCreate} loading={creating} disabled={creating} fullWidth>
+          Create Assignment
+        </Button>
+      </ScrollView>
+    </ScreenContainer>
   );
 }
 
 const styles = StyleSheet.create({
-  container: { flex: 1, padding: 24, backgroundColor: "#fff" },
-  title: { fontSize: 22, fontWeight: "bold", marginBottom: 24 },
-  sectionTitle: { fontSize: 14, fontWeight: "600", color: "#374151", marginBottom: 8, marginTop: 8 },
-  input: {
-    borderWidth: 1, borderColor: "#ddd", borderRadius: 8,
-    padding: 14, marginBottom: 16, fontSize: 16,
-  },
-  filePicker: {
-    borderWidth: 1, borderColor: "#ddd", borderRadius: 8,
-    padding: 14, marginBottom: 16, backgroundColor: "#F9FAFB",
-  },
-  filePickerText: { fontSize: 15, color: "#6B7280" },
-  button: {
-    backgroundColor: "#4F46E5", borderRadius: 8, padding: 16,
-    alignItems: "center", marginTop: 8,
-  },
-  buttonDisabled: { opacity: 0.7 },
-  buttonText: { color: "#fff", fontSize: 16, fontWeight: "600" },
+  scroll: { paddingVertical: spacing.lg, paddingBottom: spacing.xxl },
+  fileCard: { marginBottom: spacing.md },
+  filePickerText: { ...typography.body, color: palette.textMuted },
 });

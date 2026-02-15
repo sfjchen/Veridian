@@ -7,7 +7,7 @@ Full EdTech platform: teacher side (classrooms, assignments, corpus, submissions
 | Path | Purpose |
 |------|---------|
 | `teacher/backend/` | Teacher backend (Flask) — classrooms, assignments, corpus |
-| `teacher/frontend/` | Teacher frontend (Expo React) — dashboard, assignment creation |
+| `teacher/frontend/` | Teacher frontend (Expo React) — dashboard, assignment creation; Veridian design system (tokens + `src/components/ui/`) |
 | `student/backend/` | Student backend (Flask) — mistake analysis, OCR, chat |
 | `student/frontend/` | Student frontend (Expo React) — canvas, document, workspace |
 | `supabase/` | Shared DB migrations |

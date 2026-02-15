@@ -35,7 +35,9 @@ function NoteRow({ note, onPress, onDelete }: { note: NoteMeta; onPress: () => v
       style={({ pressed }) => [styles.row, pressed && { backgroundColor: palette.rowPressed, opacity: 0.9 }]}
       onPress={onPress}
       onLongPress={onDelete}
-      accessibilityRole="button">
+      accessibilityRole="button"
+      accessibilityLabel={`Open note ${note.name}`}
+      accessibilityHint="Double tap to open. Long press to delete.">
       <View style={styles.rowIcon}>
         <MaterialCommunityIcons name="notebook-outline" size={28} color={palette.textMuted} />
       </View>

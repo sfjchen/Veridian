@@ -69,7 +69,8 @@ export default function SignUpScreen() {
           <Pressable
             style={({ pressed }) => [styles.backLink, pressed && { opacity: 0.7 }]}
             onPress={() => router.replace('/sign-in')}
-            accessibilityRole="button">
+            accessibilityRole="button"
+            accessibilityLabel="Back to sign in">
             <Text style={styles.backLinkText}>Back to sign in</Text>
           </Pressable>
         </View>
@@ -94,6 +95,7 @@ export default function SignUpScreen() {
           autoCapitalize="words"
           autoCorrect={false}
           editable={!loading}
+          accessibilityLabel="Display name"
         />
         <TextInput
           style={styles.input}
@@ -105,6 +107,7 @@ export default function SignUpScreen() {
           autoCorrect={false}
           keyboardType="email-address"
           editable={!loading}
+          accessibilityLabel="Email"
         />
         <TextInput
           style={styles.input}
@@ -114,6 +117,7 @@ export default function SignUpScreen() {
           onChangeText={setPassword}
           secureTextEntry
           editable={!loading}
+          accessibilityLabel="Password"
         />
         {error ? <Text style={styles.errorText}>{error}</Text> : null}
         <Pressable
@@ -124,7 +128,8 @@ export default function SignUpScreen() {
           ]}
           onPress={handleSignUp}
           disabled={!canSubmit}
-          accessibilityRole="button">
+          accessibilityRole="button"
+          accessibilityLabel="Sign up">
           {loading ? (
             <ActivityIndicator size="small" color={palette.white} />
           ) : (
@@ -134,7 +139,8 @@ export default function SignUpScreen() {
         <Pressable
           style={({ pressed }) => [styles.backLink, pressed && { opacity: 0.7 }]}
           onPress={() => router.replace('/sign-in')}
-          accessibilityRole="button">
+          accessibilityRole="button"
+          accessibilityLabel="Go to sign in">
           <Text style={styles.backLinkText}>Already have an account? Sign in</Text>
         </Pressable>
       </View>

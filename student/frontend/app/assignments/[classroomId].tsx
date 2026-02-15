@@ -38,7 +38,8 @@ function AssignmentRow({
         pressed && { backgroundColor: palette.rowPressed, opacity: 0.9 },
       ]}
       onPress={onPress}
-      accessibilityRole="button">
+      accessibilityRole="button"
+      accessibilityLabel={`Open assignment ${assignment.title}`}>
       <View style={styles.rowIcon}>
         <MaterialCommunityIcons name="file-document-outline" size={28} color={palette.textMuted} />
       </View>

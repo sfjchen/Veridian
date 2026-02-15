@@ -54,6 +54,7 @@ export default function SignInScreen() {
           autoCorrect={false}
           keyboardType="email-address"
           editable={!loading}
+          accessibilityLabel="Email"
         />
         <TextInput
           style={styles.input}
@@ -63,6 +64,7 @@ export default function SignInScreen() {
           onChangeText={setPassword}
           secureTextEntry
           editable={!loading}
+          accessibilityLabel="Password"
         />
         {error ? <Text style={styles.errorText}>{error}</Text> : null}
         <Pressable
@@ -73,7 +75,8 @@ export default function SignInScreen() {
           ]}
           onPress={handleSignIn}
           disabled={loading || !email.trim() || !password}
-          accessibilityRole="button">
+          accessibilityRole="button"
+          accessibilityLabel="Sign in">
           {loading ? (
             <ActivityIndicator size="small" color={palette.white} />
           ) : (
@@ -83,7 +86,8 @@ export default function SignInScreen() {
         <Pressable
           style={({ pressed }) => [styles.backLink, pressed && { opacity: 0.7 }]}
           onPress={() => router.replace('/sign-up')}
-          accessibilityRole="button">
+          accessibilityRole="button"
+          accessibilityLabel="Go to sign up">
           <Text style={styles.backLinkText}>Do not have an account? Sign up</Text>
         </Pressable>
       </View>

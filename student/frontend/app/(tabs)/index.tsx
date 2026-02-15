@@ -50,7 +50,8 @@ function ClassroomCard({
         pressed && { backgroundColor: palette.rowPressed, opacity: 0.9 },
       ]}
       onPress={onPress}
-      accessibilityRole="button">
+      accessibilityRole="button"
+      accessibilityLabel={`Open class ${classroom.name}`}>
       <View style={styles.cardIcon}>
         <MaterialCommunityIcons name="school-outline" size={32} color={palette.primary} />
       </View>
@@ -109,7 +110,11 @@ function JoinClassModal({
 
   return (
     <Modal visible={visible} transparent animationType="fade" onRequestClose={handleClose}>
-      <Pressable style={styles.modalOverlay} onPress={handleClose}>
+      <Pressable
+        style={styles.modalOverlay}
+        onPress={handleClose}
+        accessibilityRole="button"
+        accessibilityLabel="Close modal">
         <Pressable style={styles.modalContent} onPress={() => {}}>
           <Text style={styles.modalTitle}>Join a class</Text>
           <Text style={styles.modalSubtitle}>Enter the class code from your teacher.</Text>
@@ -122,13 +127,16 @@ function JoinClassModal({
             autoCapitalize="characters"
             autoCorrect={false}
             editable={!joining}
+            accessibilityLabel="Class code"
           />
           {error ? <Text style={styles.modalError}>{error}</Text> : null}
           <View style={styles.modalActions}>
             <Pressable
               style={({ pressed }) => [styles.modalCancel, pressed && { opacity: 0.7 }]}
               onPress={handleClose}
-              disabled={joining}>
+              disabled={joining}
+              accessibilityRole="button"
+              accessibilityLabel="Cancel">
               <Text style={styles.modalCancelText}>Cancel</Text>
             </Pressable>
             <Pressable
@@ -138,7 +146,9 @@ function JoinClassModal({
                 pressed && code.trim() && !joining && { opacity: 0.8 },
               ]}
               onPress={handleJoin}
-              disabled={!code.trim() || joining}>
+              disabled={!code.trim() || joining}
+              accessibilityRole="button"
+              accessibilityLabel="Join class">
               {joining ? (
                 <ActivityIndicator size="small" color={palette.white} />
               ) : (
@@ -236,7 +246,11 @@ export default function ClassroomsScreen() {
       </View>
 
       {welcomeName && (
-        <Pressable style={styles.welcomeBanner} onPress={dismissWelcome}>
+        <Pressable
+          style={styles.welcomeBanner}
+          onPress={dismissWelcome}
+          accessibilityRole="button"
+          accessibilityLabel="Dismiss welcome message">
           <MaterialCommunityIcons name="party-popper" size={20} color={palette.primary} />
           <Text style={styles.welcomeText}>Welcome to {welcomeName}!</Text>
           <MaterialCommunityIcons name="close" size={18} color={palette.textMuted} />
@@ -251,7 +265,8 @@ export default function ClassroomsScreen() {
           <Pressable
             style={({ pressed }) => [styles.joinCtaButton, pressed && { opacity: 0.8 }]}
             onPress={() => setJoinModalVisible(true)}
-            accessibilityRole="button">
+            accessibilityRole="button"
+            accessibilityLabel="Join a class">
             <MaterialCommunityIcons name="plus" size={20} color={palette.white} />
             <Text style={styles.joinCtaText}>Join a Class</Text>
           </Pressable>

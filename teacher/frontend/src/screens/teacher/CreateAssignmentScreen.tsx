@@ -104,6 +104,7 @@ export function CreateAssignmentScreen({ route, navigation }: { route: any; navi
   const [detectedProblems, setDetectedProblems] = useState<DetectedProblem[] | null>(null);
   const [convertedAssignmentId, setConvertedAssignmentId] = useState<string | null>(null);
   const [publishing, setPublishing] = useState(false);
+  const [quickUploadTitle, setQuickUploadTitle] = useState("");
 
   const pickFile = async (setter: (f: PickedFile) => void) => {
     const result = await DocumentPicker.getDocumentAsync({
@@ -142,9 +143,8 @@ export function CreateAssignmentScreen({ route, navigation }: { route: any; navi
       return;
     }
 
-    // Prompt for title
-    const assignmentTitle = prompt("Enter assignment title:");
-    if (!assignmentTitle?.trim()) {
+    const assignmentTitle = quickUploadTitle.trim();
+    if (!assignmentTitle) {
       alert("Error", "Title is required");
       return;
     }
@@ -184,7 +184,7 @@ export function CreateAssignmentScreen({ route, navigation }: { route: any; navi
       // Create FormData
       const formData = new FormData();
       formData.append("file", toMultipartFile(picked) as any);
-      formData.append("title", assignmentTitle.trim());
+      formData.append("title", assignmentTitle);
       formData.append("job_id", jobId);
       const token = await api.getToken();
       if (!token) {
@@ -356,6 +356,11 @@ export function CreateAssignmentScreen({ route, navigation }: { route: any; navi
 
         {/* Quick Upload Section */}
         <Section title="Quick Create from PDF/TEX">
+          <Input
+            placeholder="Assignment title for quick upload"
+            value={quickUploadTitle}
+            onChangeText={setQuickUploadTitle}
+          />
           <Card onPress={handleQuickUpload} style={styles.quickUploadCard}>
             <Text style={styles.quickUploadTitle}>📄 Upload PDF or TEX File</Text>
             <Text style={styles.quickUploadSubtitle}>

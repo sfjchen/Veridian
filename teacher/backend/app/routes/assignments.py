@@ -296,19 +296,21 @@ def create_assignment_from_file(classroom_id: str) -> Tuple[Response, int]:
     # Parse optional due_date
     due_date = request.form.get("due_date")
 
-    # Generate assignment ID and storage paths
+    # Keep client job_id only for websocket progress correlation.
+    # Persisted assignment IDs must be server-generated to avoid storage path collisions.
     try:
-        assignment_id = _parse_job_id(request.form.get("job_id")) or str(uuid.uuid4())
+        job_id = _parse_job_id(request.form.get("job_id")) or str(uuid.uuid4())
     except ValueError as e:
         return jsonify({"error": str(e)}), 400
+    assignment_id = str(uuid.uuid4())
     prompt_path = f"{classroom_id}/{assignment_id}/prompt.{file_type}"
 
     # Create progress tracker for WebSocket updates
-    progress_tracker = ProgressTracker(assignment_id)
+    progress_tracker = ProgressTracker(job_id)
 
     # Process file with conversion orchestrator
     orchestrator = create_orchestrator()
-    register_conversion_job(assignment_id, g.user_id)
+    register_conversion_job(job_id, g.user_id)
     try:
         result = orchestrator.process_assignment(
             assignment_id=assignment_id,
@@ -324,7 +326,7 @@ def create_assignment_from_file(classroom_id: str) -> Tuple[Response, int]:
             "detail": str(e),
         }), 422
     finally:
-        complete_conversion_job(assignment_id)
+        complete_conversion_job(job_id)
 
     # Upload original file as backup
     try:
@@ -371,7 +373,7 @@ def create_assignment_from_file(classroom_id: str) -> Tuple[Response, int]:
     response: dict[str, Any] = {
         **record.data[0],
         "needs_review": result.needs_review,
-        "job_id": assignment_id,  # For WebSocket subscription
+        "job_id": job_id,  # For WebSocket subscription
     }
 
     return jsonify(response), 201

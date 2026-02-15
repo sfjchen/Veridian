@@ -316,17 +316,19 @@ def upload_pdf_corpus(classroom_id: str) -> tuple[Response, int]:
     if not _teacher_owns_classroom(client, classroom_id, g.user_id):
         return jsonify({"error": "Classroom not found"}), 404
 
-    # Generate file ID and storage path
+    # Keep client job_id only for websocket progress correlation.
+    # Persisted corpus file IDs must be server-generated to avoid storage path collisions.
     try:
-        file_id = _parse_job_id(request.form.get("job_id")) or str(uuid.uuid4())
+        job_id = _parse_job_id(request.form.get("job_id")) or str(uuid.uuid4())
     except ValueError as e:
         return jsonify({"error": str(e)}), 400
+    file_id = str(uuid.uuid4())
     storage_path = _build_storage_path(classroom_id, file_id, "pdf", folder_path)
-    progress_tracker = ProgressTracker(file_id)
+    progress_tracker = ProgressTracker(job_id)
 
     # Convert PDF to LaTeX
     orchestrator = create_orchestrator()
-    register_conversion_job(file_id, g.user_id)
+    register_conversion_job(job_id, g.user_id)
     try:
         result = orchestrator.process_corpus(
             corpus_file_id=file_id,
@@ -341,7 +343,7 @@ def upload_pdf_corpus(classroom_id: str) -> tuple[Response, int]:
             "detail": str(e),
         }), 422
     finally:
-        complete_conversion_job(file_id)
+        complete_conversion_job(job_id)
 
     # Upload original PDF
     try:
@@ -378,7 +380,7 @@ def upload_pdf_corpus(classroom_id: str) -> tuple[Response, int]:
         return jsonify({"error": "Failed to create corpus file"}), 500
 
     response = _serialize_file(record.data[0])
-    response["job_id"] = file_id
+    response["job_id"] = job_id
     return jsonify(response), 201
 
 

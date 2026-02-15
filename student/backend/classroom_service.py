@@ -46,11 +46,14 @@ def _is_classroom_member(supabase: Any, classroom_id: str, student_id: str) -> b
 
 
 def join_classroom_by_code(student_id: str, class_code: str) -> Dict[str, Any]:
+    normalized = class_code.strip().upper()
+    if not normalized:
+        raise ValueError("class_code is required")
     supabase = get_supabase_service_client()
     result = (
         supabase.table(CLASSROOMS_TABLE)
         .select("id, name, class_code")
-        .eq("class_code", class_code)
+        .eq("class_code", normalized)
         .limit(1)
         .execute()
     )

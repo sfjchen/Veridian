@@ -1495,7 +1495,7 @@ def list_classrooms() -> Any:
 @require_auth
 def join_classroom() -> Any:
     payload = request.get_json(silent=True) or {}
-    class_code = str(payload.get("class_code", "")).strip().upper()
+    class_code = str(payload.get("class_code", "")).strip()
     if not class_code:
         return jsonify({"error": "class_code is required."}), 400
     try:

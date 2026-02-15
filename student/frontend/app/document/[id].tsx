@@ -158,7 +158,7 @@ export default function DocumentScreen() {
   const { id, assignmentId: assignmentIdParam, classroomName } = params;
   const assignmentId = assignmentIdParam ?? null;
   const router = useRouter();
-  const accessToken = useAccessToken();
+  const token = useAccessToken() ?? undefined;
   const {
     getDocument,
     loading: docsLoading,
@@ -391,7 +391,7 @@ export default function DocumentScreen() {
     assignmentId: assignmentId ?? undefined,
     problemNum: currentProblem?.num,
     isSample: isDefault,
-    token: accessToken ?? undefined,
+    token,
     debounceMs: config.analysis_debounce_seconds * 1000,
     enabled: isProblemMode && !!canvasDims,
     mode: analysisTrigger,
@@ -492,7 +492,7 @@ export default function DocumentScreen() {
     try {
       const res = await fetch(`${apiUrl.replace(/\/$/, '')}/analyze-solution`, {
         method: 'POST',
-        headers: getAuthHeaders(accessToken ?? undefined),
+        headers: getAuthHeaders(token),
         body: formData,
       });
       const body = await res.json();
@@ -515,7 +515,7 @@ export default function DocumentScreen() {
         showAlert('Submit failed', 'Check that the Flask server is running.');
       }
     }
-  }, [isProblemMode, analysisTrigger, triggerNow, captureScreenshot, isDefault, accessToken]);
+  }, [isProblemMode, analysisTrigger, triggerNow, captureScreenshot, isDefault, token]);
 
   const handleAskAboutMistake = useCallback(
     (_mistake: Mistake) => {

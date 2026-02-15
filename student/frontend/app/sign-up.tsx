@@ -28,6 +28,15 @@ export default function SignUpScreen() {
       setError('Supabase not configured. Set EXPO_PUBLIC_SUPABASE_URL and EXPO_PUBLIC_SUPABASE_ANON_KEY in .env');
       return;
     }
+    const trimmedName = displayName.trim();
+    if (trimmedName.length < 2) {
+      setError('Display name must be at least 2 characters');
+      return;
+    }
+    if (trimmedName.length > 50) {
+      setError('Display name is too long (max 50 characters)');
+      return;
+    }
     setError(null);
     setLoading(true);
     try {

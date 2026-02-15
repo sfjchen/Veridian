@@ -15,7 +15,6 @@ if [[ ! -f "$STUDENT_BACKEND/.env" ]] && [[ ! -f "$REPO_ROOT/environment/.env" ]
   exit 1
 fi
 
-"$REPO_ROOT/scripts/kill-port.sh" 8000 || true
 (cd "$STUDENT_BACKEND" && "$STUDENT_BACKEND/venv/bin/python" get_coords.py) &
 BACKEND_PID=$!
 echo "Backend PID: $BACKEND_PID (will stop on script exit)"

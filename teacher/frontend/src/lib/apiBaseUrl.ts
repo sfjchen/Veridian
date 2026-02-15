@@ -50,5 +50,8 @@ const resolvedApiUrl =
     ? (trimmedConfigured ?? devResolved)
     : (devResolved ?? trimmedConfigured);
 
-export const API_URL_MISSING = !resolvedApiUrl;
-export const API_URL = resolvedApiUrl ?? "";
+if (!resolvedApiUrl) {
+  throw new Error("Unable to resolve API URL. Set EXPO_PUBLIC_API_URL.");
+}
+
+export const API_URL = resolvedApiUrl;

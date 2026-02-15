@@ -15,5 +15,4 @@ if [[ ! -f "$STUDENT_BACKEND/.env" ]]; then
   exit 1
 fi
 
-"$REPO_ROOT/scripts/kill-port.sh" 8000 || true
 cd "$STUDENT_BACKEND" && "$STUDENT_BACKEND/venv/bin/python" get_coords.py

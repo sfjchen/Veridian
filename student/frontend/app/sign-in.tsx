@@ -31,7 +31,6 @@ export default function SignInScreen() {
     try {
       const { error: err } = await supabase.auth.signInWithPassword({ email: email.trim(), password });
       if (err) throw err;
-      router.replace('/(tabs)');
     } catch (e) {
       setError(e instanceof Error ? e.message : 'Sign in failed');
     } finally {
@@ -42,9 +41,9 @@ export default function SignInScreen() {
   return (
     <SafeAreaView style={styles.screen}>
       <View style={styles.content}>
-        <MaterialCommunityIcons name="account-circle-outline" size={64} color={palette.primary} />
-        <Text style={styles.title}>Sign in</Text>
-        <Text style={styles.subtitle}>Use your student account to see classes and assignments.</Text>
+        <MaterialCommunityIcons name="school-outline" size={64} color={palette.primary} />
+        <Text style={styles.title}>Welcome to Veridian!</Text>
+        <Text style={styles.subtitle}>Sign in with your student account to get started.</Text>
         <TextInput
           style={styles.input}
           placeholder="Email"

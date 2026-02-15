@@ -18,10 +18,11 @@ export function useClassrooms() {
   }, []);
 
   const refresh = useCallback(async () => {
+    if (!token) return;
     setLoading(true);
     setError(null);
     try {
-      const data = await fetchClassrooms(token ?? undefined);
+      const data = await fetchClassrooms(token);
       if (mountedRef.current) setClassrooms(data);
     } catch (e) {
       if (mountedRef.current) {
@@ -33,8 +34,12 @@ export function useClassrooms() {
   }, [token]);
 
   useEffect(() => {
+    if (!token) {
+      setLoading(true);
+      return;
+    }
     refresh();
-  }, [refresh]);
+  }, [refresh, token]);
 
   return { classrooms, loading, error, refresh };
 }

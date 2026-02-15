@@ -8,6 +8,7 @@ import ViewShot from 'react-native-view-shot';
 import { InkCanvas, type Stroke } from '@/components/InkCanvas';
 import { SuggestionGhost } from '@/components/SuggestionGhost';
 import { palette } from '@/constants/palette';
+import { useAuth } from '@/hooks/useAuth';
 import { useNotes, strokeKeyForNote } from '@/hooks/useNotes';
 import { useStrokeAutocomplete, type AutocompleteState } from '@/hooks/useStrokeAutocomplete';
 import type { BBox } from '@/lib/line-grouping';
@@ -17,10 +18,11 @@ type AcceptedSuggestion = { text: string; lineBBox: BBox; lineKey: string };
 export default function NoteScreen() {
   const { id } = useLocalSearchParams<{ id: string }>();
   const router = useRouter();
-  const { getNote, loading } = useNotes();
+  const { userId } = useAuth();
+  const { getNote, loading } = useNotes(userId);
   const note = id ? getNote(id) : undefined;
 
-  const STROKES_KEY = id ? strokeKeyForNote(id) : null;
+  const STROKES_KEY = (id && userId) ? strokeKeyForNote(userId, id) : null;
 
   const [strokes, setStrokes] = useState<Stroke[]>([]);
   const [strokesLoaded, setStrokesLoaded] = useState(false);

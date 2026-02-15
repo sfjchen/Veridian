@@ -20,6 +20,22 @@ import type { Classroom } from '@/lib/api';
 import { joinClassroom } from '@/lib/api';
 import { supabase } from '@/lib/supabase';
 
+function SignOutButton() {
+  const handleSignOut = async () => {
+    await supabase?.auth.signOut();
+  };
+
+  return (
+    <Pressable
+      style={({ pressed }) => [styles.signOutButton, pressed && { opacity: 0.7 }]}
+      onPress={handleSignOut}
+      accessibilityRole="button"
+      accessibilityLabel="Sign out">
+      <MaterialCommunityIcons name="logout" size={20} color={palette.textMuted} />
+    </Pressable>
+  );
+}
+
 function ClassroomCard({
   classroom,
   onPress,
@@ -59,7 +75,7 @@ function JoinClassModal({
 }: {
   visible: boolean;
   onClose: () => void;
-  onJoined: () => void;
+  onJoined: (classroom: Classroom) => void;
   token: string | undefined;
 }) {
   const [code, setCode] = useState('');
@@ -74,10 +90,10 @@ function JoinClassModal({
     setError(null);
     setJoining(true);
     try {
-      await joinClassroom(code.trim(), token);
+      const classroom = await joinClassroom(code.trim(), token);
       setCode('');
       onClose();
-      onJoined();
+      onJoined(classroom);
     } catch (e) {
       setError(e instanceof Error ? e.message : 'Failed to join classroom');
     } finally {
@@ -141,6 +157,14 @@ export default function ClassroomsScreen() {
   const { classrooms, loading, error, refresh } = useClassrooms();
   const accessToken = useAccessToken() ?? undefined;
   const [joinModalVisible, setJoinModalVisible] = useState(false);
+  const [welcomeName, setWelcomeName] = useState<string | null>(null);
+
+  const handleJoined = (classroom: Classroom) => {
+    setWelcomeName(classroom.name);
+    refresh();
+  };
+
+  const dismissWelcome = () => setWelcomeName(null);
 
   if (loading) {
     return (
@@ -154,47 +178,33 @@ export default function ClassroomsScreen() {
   }
 
   if (error) {
-    const isMissingToken = /missing bearer token/i.test(error);
-    const canSignIn = !!supabase;
     return (
       <SafeAreaView style={styles.screen}>
         <View style={styles.header}>
           <Text style={styles.title}>Classes</Text>
-          <Pressable
-            style={({ pressed }) => [styles.workspaceButton, pressed && { opacity: 0.7 }]}
-            onPress={() => router.push('/WorkspaceScreen')}
-            accessibilityRole="button"
-            accessibilityLabel="Whiteboard">
-            <MaterialCommunityIcons name="draw" size={20} color={palette.primary} />
-            <Text style={styles.workspaceButtonText}>Workspace</Text>
-          </Pressable>
+          <View style={styles.headerActions}>
+            <Pressable
+              style={({ pressed }) => [styles.workspaceButton, pressed && { opacity: 0.7 }]}
+              onPress={() => router.push('/WorkspaceScreen')}
+              accessibilityRole="button"
+              accessibilityLabel="Whiteboard">
+              <MaterialCommunityIcons name="draw" size={20} color={palette.primary} />
+              <Text style={styles.workspaceButtonText}>Workspace</Text>
+            </Pressable>
+            <SignOutButton />
+          </View>
         </View>
         <View style={styles.centered}>
           <MaterialCommunityIcons name="alert-circle-outline" size={48} color={palette.textMuted} />
-          <Text style={styles.errorText}>{error}</Text>
-          <Text style={styles.emptySubtitle}>
-            {isMissingToken && canSignIn
-              ? 'Sign in with your student account to see your classes.'
-              : isMissingToken && !canSignIn
-                ? 'Set EXPO_PUBLIC_SUPABASE_URL and EXPO_PUBLIC_SUPABASE_ANON_KEY in student/frontend/.env, then sign in. Or set EXPO_PUBLIC_SUPABASE_ACCESS_TOKEN to a valid user JWT.'
-                : 'Sign in or check your connection to see your classes.'}
-          </Text>
-          {isMissingToken && canSignIn ? (
-            <Pressable
-              style={({ pressed }) => [styles.signInButton, pressed && { opacity: 0.8 }]}
-              onPress={() => router.push('/sign-in')}
-              accessibilityRole="button">
-              <Text style={styles.signInButtonText}>Sign in</Text>
-            </Pressable>
-          ) : (
-            <Pressable
-              style={({ pressed }) => [styles.retryButton, pressed && { opacity: 0.7 }]}
-              onPress={refresh}
-              accessibilityRole="button"
-              accessibilityLabel="Retry loading classes">
-              <Text style={styles.retryButtonText}>Retry</Text>
-            </Pressable>
-          )}
+          <Text style={styles.errorText}>Something went wrong loading your classes.</Text>
+          <Text style={styles.emptySubtitle}>Check your connection and try again.</Text>
+          <Pressable
+            style={({ pressed }) => [styles.retryButton, pressed && { opacity: 0.7 }]}
+            onPress={refresh}
+            accessibilityRole="button"
+            accessibilityLabel="Retry loading classes">
+            <Text style={styles.retryButtonText}>Retry</Text>
+          </Pressable>
         </View>
       </SafeAreaView>
     );
@@ -221,13 +231,22 @@ export default function ClassroomsScreen() {
             <MaterialCommunityIcons name="draw" size={20} color={palette.primary} />
             <Text style={styles.workspaceButtonText}>Workspace</Text>
           </Pressable>
+          <SignOutButton />
         </View>
       </View>
+
+      {welcomeName && (
+        <Pressable style={styles.welcomeBanner} onPress={dismissWelcome}>
+          <MaterialCommunityIcons name="party-popper" size={20} color={palette.primary} />
+          <Text style={styles.welcomeText}>Welcome to {welcomeName}!</Text>
+          <MaterialCommunityIcons name="close" size={18} color={palette.textMuted} />
+        </Pressable>
+      )}
 
       {classrooms.length === 0 ? (
         <View style={styles.empty}>
           <MaterialCommunityIcons name="school-outline" size={64} color={palette.borderStrong} />
-          <Text style={styles.emptyTitle}>No classes yet</Text>
+          <Text style={styles.emptyTitle}>You don't have any classes</Text>
           <Text style={styles.emptySubtitle}>Join a class with a code from your teacher.</Text>
           <Pressable
             style={({ pressed }) => [styles.joinCtaButton, pressed && { opacity: 0.8 }]}
@@ -259,7 +278,7 @@ export default function ClassroomsScreen() {
       <JoinClassModal
         visible={joinModalVisible}
         onClose={() => setJoinModalVisible(false)}
-        onJoined={refresh}
+        onJoined={handleJoined}
         token={accessToken}
       />
     </SafeAreaView>
@@ -411,14 +430,26 @@ const styles = StyleSheet.create({
     fontWeight: '600',
     color: palette.white,
   },
-  signInButton: {
-    marginTop: 16,
-    backgroundColor: palette.primary,
+  welcomeBanner: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 8,
     paddingVertical: 12,
-    paddingHorizontal: 24,
+    paddingHorizontal: 16,
+    backgroundColor: palette.card,
+    borderBottomWidth: 1,
+    borderBottomColor: palette.border,
+  },
+  welcomeText: {
+    flex: 1,
+    fontSize: 15,
+    fontWeight: '600',
+    color: palette.primary,
+  },
+  signOutButton: {
+    padding: 10,
     borderRadius: radius.button,
   },
-  signInButtonText: { fontSize: 16, fontWeight: '600', color: palette.white },
   buttonDisabled: { opacity: 0.5 },
   modalOverlay: {
     flex: 1,

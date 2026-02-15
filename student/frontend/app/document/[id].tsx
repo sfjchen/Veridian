@@ -28,7 +28,9 @@ import { palette, radius } from '@/constants/palette';
 import { useAssignment } from '@/hooks/useAssignment';
 import { useAutoAnalysis } from '@/hooks/useAutoAnalysis';
 import { useAccessToken } from '@/hooks/useAccessToken';
+import { useAuth } from '@/hooks/useAuth';
 import { useDocuments, isDefaultDocument } from '@/hooks/useDocuments';
+import { scopedKey } from '@/lib/scoped-storage';
 import { submitAnalysis, type AnalysisResult, type Mistake } from '@/lib/api';
 import type { CaptureResult } from '@/lib/capture-types';
 import { captureStrokesAsDataUri } from '@/lib/capture-web';
@@ -153,6 +155,7 @@ export default function DocumentScreen() {
   const assignmentId = assignmentIdParam ?? null;
   const router = useRouter();
   const token = useAccessToken() ?? undefined;
+  const { userId } = useAuth();
   const {
     getDocument,
     loading: docsLoading,
@@ -160,7 +163,7 @@ export default function DocumentScreen() {
     saveError: docsSaveError,
     clearLoadError: clearDocsLoadError,
     clearSaveError: clearDocsSaveError,
-  } = useDocuments();
+  } = useDocuments(userId);
   const doc = id ? getDocument(id) : undefined;
 
   const assignmentOnly = !!assignmentId;
@@ -214,7 +217,7 @@ export default function DocumentScreen() {
   const viewShotRef = useRef<ViewShot | null>(null);
   const [canvasDims, setCanvasDims] = useState<{ w: number; h: number } | null>(null);
 
-  const STROKES_KEY = id ? `veridian_strokes:${id}` : null;
+  const STROKES_KEY = (id && userId) ? scopedKey(userId, `veridian_strokes:${id}`) : null;
   const pageIndex = currentPage - 1;
   const currentStrokes = useMemo(() => strokesByPage[pageIndex] ?? [], [strokesByPage, pageIndex]);
   const currentProblem = isProblemMode ? problems[pageIndex] : null;

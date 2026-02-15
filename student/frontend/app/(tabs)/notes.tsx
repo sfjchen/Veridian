@@ -12,6 +12,7 @@ import {
 } from 'react-native';
 
 import { palette, radius } from '@/constants/palette';
+import { useAuth } from '@/hooks/useAuth';
 import { useNotes, type NoteMeta } from '@/hooks/useNotes';
 
 function promptForName(callback: (name: string) => void) {
@@ -46,7 +47,8 @@ function NoteRow({ note, onPress, onDelete }: { note: NoteMeta; onPress: () => v
 
 export default function NotesScreen() {
   const router = useRouter();
-  const { notes, loading, addNote, removeNote } = useNotes();
+  const { userId } = useAuth();
+  const { notes, loading, addNote, removeNote } = useNotes(userId);
 
   const handleAdd = () => {
     promptForName(async (name) => {

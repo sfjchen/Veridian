@@ -1542,7 +1542,11 @@ def analyze_solution() -> Any:
 @app.get("/classrooms")
 @require_auth
 def list_classrooms() -> Any:
-    classrooms = list_classrooms_for_student(g.user_id)
+    try:
+        classrooms = list_classrooms_for_student(g.user_id)
+    except Exception as exc:
+        log.error("Failed to list classrooms for %s: %s", g.user_id, exc, exc_info=True)
+        return jsonify({"error": "Failed to load classrooms. Please try again."}), 500
     return jsonify(classrooms)
 
 

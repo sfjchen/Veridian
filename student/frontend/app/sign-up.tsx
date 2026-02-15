@@ -50,7 +50,6 @@ export default function SignUpScreen() {
         setConfirmationSent(true);
         return;
       }
-      router.replace('/(tabs)');
     } catch (e) {
       setError(e instanceof Error ? e.message : 'Sign up failed');
     } finally {

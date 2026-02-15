@@ -15,7 +15,7 @@ function resolveStudentApiUrl(): string {
       const url = new URL(teacherUrl);
       url.port = STUDENT_API_PORT;
       return url.origin;
-    } catch { /* fall through */ }
+    } catch { /* malformed URL in env var, try other resolution methods */ }
   }
 
   if (Platform.OS === 'web' && typeof window !== 'undefined' && window.location?.hostname) {

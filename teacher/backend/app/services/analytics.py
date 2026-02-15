@@ -5,7 +5,6 @@ No LLM calls — keyword matching for topic extraction, pure aggregation
 for mistake heatmaps.
 """
 
-import re
 from collections import Counter, defaultdict
 from typing import Any
 
@@ -16,6 +15,7 @@ ALL_TAGS = [
     "sign-error", "arithmetic-error", "algebra-error", "lost-term",
     "ambiguous-notation", "missing-quantifier", "inconsistent-variables",
 ]
+_ALL_TAGS_SET = frozenset(ALL_TAGS)
 
 TAG_TO_SEVERITY: dict[str, str] = {
     "wrong-theorem": "conceptual", "misunderstood-definition": "conceptual",
@@ -33,65 +33,74 @@ MATH_TOPIC_KEYWORDS: dict[str, list[str]] = {
     "algebra": ["algebra", "algebraic", "variable", "equation", "expression", "polynomial", "factor", "quadratic"],
     "arithmetic": ["arithmetic", "addition", "subtraction", "multiplication", "division", "remainder"],
     "fractions": ["fraction", "numerator", "denominator", "mixed number", "improper fraction"],
-    "decimals": ["decimal", "decimal point", "tenths", "hundredths"],
-    "percentages": ["percent", "percentage", "percent change"],
-    "ratios": ["ratio", "proportion", "rate", "unit rate"],
+    "decimals": ["decimal", "decimal point"],
+    "percentages": ["percent", "percentage"],
+    "ratios": ["ratio", "proportion", "unit rate"],
     "geometry": ["geometry", "angle", "triangle", "circle", "rectangle", "area", "perimeter", "volume"],
-    "trigonometry": ["trigonometry", "sine", "cosine", "tangent", "sin", "cos", "tan"],
-    "calculus": ["calculus", "derivative", "integral", "limit", "differentiation", "integration"],
+    "trigonometry": ["trigonometry", "sine", "cosine", "tangent"],
+    "calculus": ["calculus", "derivative", "integral", "differentiation", "integration"],
     "statistics": ["statistics", "mean", "median", "mode", "standard deviation", "probability"],
     "exponents": ["exponent", "power", "square root", "cube root", "radical"],
-    "logarithms": ["logarithm", "log", "ln", "natural log"],
-    "inequalities": ["inequality", "greater than", "less than"],
+    "logarithms": ["logarithm", "natural log"],
+    "inequalities": ["inequality"],
     "absolute-value": ["absolute value"],
     "functions": ["function", "domain", "range", "inverse", "composition"],
-    "graphing": ["graph", "plot", "coordinate", "x-axis", "y-axis", "slope", "intercept"],
-    "linear-equations": ["linear", "slope", "y-intercept", "point-slope"],
+    "graphing": ["graph", "coordinate", "slope", "intercept"],
+    "linear-equations": ["linear", "y-intercept", "point-slope"],
     "systems-of-equations": ["system of equations", "substitution", "elimination"],
     "matrices": ["matrix", "matrices", "determinant"],
     "sequences": ["sequence", "series", "arithmetic sequence", "geometric sequence"],
     "combinatorics": ["permutation", "combination", "factorial"],
-    "number-theory": ["prime", "factor", "multiple", "divisibility", "gcd", "lcm"],
-    "sign-error": ["sign error", "sign mistake", "negative sign", "positive sign", "sign"],
-    "arithmetic-error": ["arithmetic error", "calculation mistake", "computation error"],
-    "algebra-error": ["algebra error", "simplification error"],
-    "lost-term": ["lost term", "dropped term", "missing term"],
-    "wrong-theorem": ["wrong theorem", "incorrect theorem"],
-    "misunderstood-definition": ["misunderstood", "definition"],
-    "domain-error": ["domain error", "undefined", "division by zero"],
-    "incorrect-assumption": ["incorrect assumption", "wrong assumption"],
-    "flawed-logic": ["flawed logic", "logical error", "invalid reasoning"],
-    "wrong-method": ["wrong method", "incorrect method", "wrong approach"],
-    "skipped-step": ["skipped step", "missing step"],
-    "incorrect-application": ["incorrect application", "misapplied"],
-    "order-of-operations": ["order of operations", "pemdas", "bodmas"],
-    "ambiguous-notation": ["ambiguous notation", "unclear notation"],
-    "missing-quantifier": ["missing quantifier", "quantifier"],
-    "inconsistent-variables": ["inconsistent variable", "variable mismatch"],
+    "number-theory": ["prime", "divisibility", "gcd", "lcm"],
 }
 
-_KEYWORD_PATTERNS: list[tuple[str, re.Pattern[str]]] = [
-    (topic, re.compile(r"\b" + re.escape(kw) + r"\b", re.IGNORECASE))
+# Single lookup table: keyword (lowercase) -> topic. O(1) per word.
+_KEYWORD_TO_TOPIC: dict[str, str] = {
+    kw.lower(): topic
     for topic, keywords in MATH_TOPIC_KEYWORDS.items()
     for kw in keywords
+}
+
+# Multi-word keywords need substring matching — separate them out.
+_MULTIWORD_KEYWORDS: list[tuple[str, str]] = [
+    (kw.lower(), topic)
+    for topic, keywords in MATH_TOPIC_KEYWORDS.items()
+    for kw in keywords if " " in kw
 ]
+_SINGLE_WORDS: dict[str, str] = {
+    kw.lower(): topic
+    for topic, keywords in MATH_TOPIC_KEYWORDS.items()
+    for kw in keywords if " " not in kw
+}
 
 
 def extract_topics(content: str) -> list[str]:
     """Extract up to 3 math topics from a message via keyword matching."""
+    lower = content.lower()
     matched: set[str] = set()
-    for topic, pattern in _KEYWORD_PATTERNS:
+    for phrase, topic in _MULTIWORD_KEYWORDS:
         if len(matched) >= 3:
             break
-        if pattern.search(content):
+        if phrase in lower:
             matched.add(topic)
+    if len(matched) < 3:
+        for word in lower.split():
+            if len(matched) >= 3:
+                break
+            topic = _SINGLE_WORDS.get(word)
+            if topic:
+                matched.add(topic)
     return list(matched)[:3]
+
+
+def _get_classroom_assignment_ids(client: Any, classroom_id: str) -> list[str]:
+    resp = client.table("assignments").select("id").eq("classroom_id", classroom_id).execute()
+    return [r["id"] for r in (resp.data or [])]
 
 
 def fetch_classroom_chat_messages(client: Any, classroom_id: str) -> list[dict[str, Any]]:
     """Get student-role chat messages for all assignments in a classroom."""
-    aids_resp = client.table("assignments").select("id").eq("classroom_id", classroom_id).execute()
-    assignment_ids = [r["id"] for r in (aids_resp.data or [])]
+    assignment_ids = _get_classroom_assignment_ids(client, classroom_id)
     if not assignment_ids:
         return []
     resp = (
@@ -104,41 +113,49 @@ def fetch_classroom_chat_messages(client: Any, classroom_id: str) -> list[dict[s
     return resp.data or []
 
 
-def aggregate_faq(messages: list[dict[str, Any]], student_count: int) -> list[dict[str, Any]]:
-    """Group messages by topic, count unique students, normalize by class size."""
+def _build_topic_groups(messages: list[dict[str, Any]]) -> tuple[dict[str, set[str]], dict[str, list[str]]]:
     topic_students: dict[str, set[str]] = defaultdict(set)
     topic_messages: dict[str, list[str]] = defaultdict(list)
     for msg in messages:
-        topics = extract_topics(msg.get("content", ""))
-        sid = msg.get("student_id", "")
         content = msg.get("content", "")
-        for topic in topics:
+        sid = msg.get("student_id", "")
+        for topic in extract_topics(content):
             topic_students[topic].add(sid)
             topic_messages[topic].append(content)
+    return topic_students, topic_messages
+
+
+def aggregate_faq(messages: list[dict[str, Any]], student_count: int) -> list[dict[str, Any]]:
+    """Group messages by topic, count unique students, normalize by class size."""
+    topic_students, topic_messages = _build_topic_groups(messages)
     divisor = max(student_count, 1)
-    result = []
-    for topic, sids in topic_students.items():
-        samples = topic_messages[topic][:3]
-        result.append({
+    result = [
+        {
             "topic": topic,
             "message_count": len(topic_messages[topic]),
             "unique_students": len(sids),
             "student_percentage": round(len(sids) / divisor * 100, 1),
-            "sample_questions": samples,
-        })
+            "sample_questions": topic_messages[topic][:3],
+        }
+        for topic, sids in topic_students.items()
+    ]
     result.sort(key=lambda x: x["student_percentage"], reverse=True)
     return result
 
 
 def get_student_count(client: Any, classroom_id: str) -> int:
-    resp = client.table("classroom_memberships").select("student_id", count="exact").eq("classroom_id", classroom_id).execute()
+    resp = (
+        client.table("classroom_memberships")
+        .select("student_id", count="exact")
+        .eq("classroom_id", classroom_id)
+        .execute()
+    )
     return resp.count or 0
 
 
 def fetch_classroom_results(client: Any, classroom_id: str) -> list[dict[str, Any]]:
     """Get all problem_results for assignments in a classroom."""
-    aids_resp = client.table("assignments").select("id").eq("classroom_id", classroom_id).execute()
-    assignment_ids = [r["id"] for r in (aids_resp.data or [])]
+    assignment_ids = _get_classroom_assignment_ids(client, classroom_id)
     if not assignment_ids:
         return []
     resp = (
@@ -150,64 +167,41 @@ def fetch_classroom_results(client: Any, classroom_id: str) -> list[dict[str, An
     return resp.data or []
 
 
+def _count_tags_in_results(results: list[dict[str, Any]]) -> Counter[str]:
+    counts: Counter[str] = Counter()
+    for row in results:
+        for m in (row.get("mistakes") or []):
+            tag = m.get("tag") if isinstance(m, dict) else None
+            if tag and tag in _ALL_TAGS_SET:
+                counts[tag] += 1
+    return counts
+
+
+def _format_student_row(sid: str, counts: Counter[str], names: dict[str, str]) -> dict[str, Any]:
+    return {
+        "student_id": sid,
+        "display_name": names.get(sid, ""),
+        "tag_counts": dict(counts),
+        "total": sum(counts.values()),
+    }
+
+
 def build_mistake_heatmap(results: list[dict[str, Any]], student_names: dict[str, str]) -> dict[str, Any]:
     """Build a heatmap of mistake tags per student."""
     per_student: dict[str, Counter[str]] = defaultdict(Counter)
     tag_totals: Counter[str] = Counter()
     for row in results:
         sid = row.get("student_id", "")
-        mistakes = row.get("mistakes") or []
-        for m in mistakes:
+        for m in (row.get("mistakes") or []):
             tag = m.get("tag") if isinstance(m, dict) else None
-            if tag and tag in ALL_TAGS:
+            if tag and tag in _ALL_TAGS_SET:
                 per_student[sid][tag] += 1
                 tag_totals[tag] += 1
-    students = []
-    for sid, counts in sorted(per_student.items(), key=lambda x: sum(x[1].values()), reverse=True):
-        students.append({
-            "student_id": sid,
-            "display_name": student_names.get(sid, ""),
-            "tag_counts": dict(counts),
-            "total": sum(counts.values()),
-        })
-    return {"tags": ALL_TAGS, "students": students, "tag_totals": dict(tag_totals)}
-
-
-def build_student_profile(client: Any, student_id: str, classroom_id: str) -> dict[str, Any]:
-    """Build a single student's mistake profile with temporal breakdown."""
-    results = fetch_classroom_results(client, classroom_id)
-    student_results = [r for r in results if r.get("student_id") == student_id]
-    return _compile_profile(client, student_id, classroom_id, student_results, ALL_TAGS, TAG_TO_SEVERITY)
-
-
-def _compile_profile(
-    client: Any, student_id: str, classroom_id: str,
-    results: list[dict[str, Any]], all_tags: list[str], tag_severity: dict[str, str],
-) -> dict[str, Any]:
-    tag_counts: Counter[str] = Counter()
-    by_assignment: dict[str, list[dict[str, Any]]] = defaultdict(list)
-    for row in results:
-        mistakes = row.get("mistakes") or []
-        aid = row.get("assignment_id", "")
-        for m in mistakes:
-            tag = m.get("tag") if isinstance(m, dict) else None
-            if tag:
-                tag_counts[tag] += 1
-        by_assignment[aid].append(row)
-    names = _fetch_display_name(client, student_id)
-    top_tags = [
-        {"tag": t, "count": c, "severity": tag_severity.get(t, "")}
-        for t, c in tag_counts.most_common(10)
+    students = [
+        _format_student_row(sid, counts, student_names)
+        for sid, counts in sorted(per_student.items(), key=lambda x: sum(x[1].values()), reverse=True)
     ]
-    temporal = _build_temporal(client, by_assignment)
-    return {
-        "student_id": student_id,
-        "display_name": names,
-        "total_mistakes": sum(tag_counts.values()),
-        "problems_attempted": len(results),
-        "top_tags": top_tags,
-        "temporal": temporal,
-    }
+    return {"tags": ALL_TAGS, "students": students, "tag_totals": dict(tag_totals)}
 
 
 def _fetch_display_name(client: Any, student_id: str) -> str:
@@ -216,27 +210,63 @@ def _fetch_display_name(client: Any, student_id: str) -> str:
     return rows[0].get("display_name", "") if rows else ""
 
 
+def _group_by_assignment(results: list[dict[str, Any]]) -> tuple[Counter[str], dict[str, list[dict[str, Any]]]]:
+    tag_counts: Counter[str] = Counter()
+    by_assignment: dict[str, list[dict[str, Any]]] = defaultdict(list)
+    for row in results:
+        aid = row.get("assignment_id", "")
+        for m in (row.get("mistakes") or []):
+            tag = m.get("tag") if isinstance(m, dict) else None
+            if tag:
+                tag_counts[tag] += 1
+        by_assignment[aid].append(row)
+    return tag_counts, by_assignment
+
+
+def _fetch_assignment_info(client: Any, aids: list[str]) -> dict[str, dict[str, Any]]:
+    if not aids:
+        return {}
+    resp = client.table("assignments").select("id,title,created_at").in_("id", aids).execute()
+    return {r["id"]: r for r in (resp.data or [])}
+
+
+def _build_temporal_entry(aid: str, rows: list[dict[str, Any]], info: dict[str, Any]) -> dict[str, Any]:
+    tag_counts = _count_tags_in_results(rows)
+    return {
+        "assignment_id": aid,
+        "assignment_title": info.get("title", ""),
+        "date": info.get("created_at", ""),
+        "mistake_count": sum(tag_counts.values()),
+        "tags": dict(tag_counts),
+    }
+
+
 def _build_temporal(client: Any, by_assignment: dict[str, list[dict[str, Any]]]) -> list[dict[str, Any]]:
     if not by_assignment:
         return []
-    aids = list(by_assignment.keys())
-    resp = client.table("assignments").select("id,title,created_at").in_("id", aids).execute()
-    assignment_info = {r["id"]: r for r in (resp.data or [])}
-    temporal = []
-    for aid, rows in by_assignment.items():
-        info = assignment_info.get(aid, {})
-        tag_counts: Counter[str] = Counter()
-        for row in rows:
-            for m in (row.get("mistakes") or []):
-                tag = m.get("tag") if isinstance(m, dict) else None
-                if tag:
-                    tag_counts[tag] += 1
-        temporal.append({
-            "assignment_id": aid,
-            "assignment_title": info.get("title", ""),
-            "date": info.get("created_at", ""),
-            "mistake_count": sum(tag_counts.values()),
-            "tags": dict(tag_counts),
-        })
+    assignment_info = _fetch_assignment_info(client, list(by_assignment.keys()))
+    temporal = [
+        _build_temporal_entry(aid, rows, assignment_info.get(aid, {}))
+        for aid, rows in by_assignment.items()
+    ]
     temporal.sort(key=lambda x: x["date"])
     return temporal
+
+
+def build_student_profile(client: Any, student_id: str, classroom_id: str) -> dict[str, Any]:
+    """Build a single student's mistake profile with temporal breakdown."""
+    results = fetch_classroom_results(client, classroom_id)
+    student_results = [r for r in results if r.get("student_id") == student_id]
+    tag_counts, by_assignment = _group_by_assignment(student_results)
+    top_tags = [
+        {"tag": t, "count": c, "severity": TAG_TO_SEVERITY.get(t, "")}
+        for t, c in tag_counts.most_common(10)
+    ]
+    return {
+        "student_id": student_id,
+        "display_name": _fetch_display_name(client, student_id),
+        "total_mistakes": sum(tag_counts.values()),
+        "problems_attempted": len(student_results),
+        "top_tags": top_tags,
+        "temporal": _build_temporal(client, by_assignment),
+    }

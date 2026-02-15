@@ -9,35 +9,26 @@ import {
 } from "react-native";
 import { useClassroomFaq } from "../../hooks/useClassroomFaq";
 import { useMistakeHeatmap } from "../../hooks/useMistakeHeatmap";
+import type { MistakeHeatmapResponse } from "../../types";
 
 type SubTab = "faq" | "mistakes";
 
 const TAG_ABBREV: Record<string, string> = {
-  "wrong-theorem": "WThm",
-  "misunderstood-definition": "MDef",
-  "domain-error": "Dom",
-  "incorrect-assumption": "IAsm",
-  "flawed-logic": "FLog",
-  "wrong-method": "WMth",
-  "skipped-step": "Skip",
-  "incorrect-application": "IApp",
-  "order-of-operations": "OoO",
-  "sign-error": "Sign",
-  "arithmetic-error": "Arth",
-  "algebra-error": "Algb",
-  "lost-term": "Lost",
-  "ambiguous-notation": "ANot",
-  "missing-quantifier": "MQnt",
+  "wrong-theorem": "WThm", "misunderstood-definition": "MDef",
+  "domain-error": "Dom", "incorrect-assumption": "IAsm", "flawed-logic": "FLog",
+  "wrong-method": "WMth", "skipped-step": "Skip",
+  "incorrect-application": "IApp", "order-of-operations": "OoO",
+  "sign-error": "Sign", "arithmetic-error": "Arth",
+  "algebra-error": "Algb", "lost-term": "Lost",
+  "ambiguous-notation": "ANot", "missing-quantifier": "MQnt",
   "inconsistent-variables": "IVar",
 };
 
 function cellColor(count: number, maxCount: number): string {
   if (count === 0 || maxCount === 0) return "#F9FAFB";
-  const intensity = Math.min(count / maxCount, 1);
-  const r = 239;
-  const g = Math.round(68 + (250 - 68) * (1 - intensity));
-  const b = Math.round(68 + (250 - 68) * (1 - intensity));
-  return `rgb(${r},${g},${b})`;
+  const t = Math.min(count / maxCount, 1);
+  const channel = Math.round(68 + 182 * (1 - t));
+  return `rgb(239,${channel},${channel})`;
 }
 
 export function InsightsContent({ classroomId, navigation }: { classroomId: string; navigation: any }) {
@@ -47,54 +38,39 @@ export function InsightsContent({ classroomId, navigation }: { classroomId: stri
 
   return (
     <View style={styles.container}>
-      <View style={styles.subTabs}>
-        {(["faq", "mistakes"] as SubTab[]).map((tab) => (
-          <TouchableOpacity
-            key={tab}
-            style={[styles.subTab, subTab === tab && styles.subTabActive]}
-            onPress={() => setSubTab(tab)}
-          >
-            <Text style={[styles.subTabText, subTab === tab && styles.subTabTextActive]}>
-              {tab === "faq" ? "FAQ" : "Mistakes"}
-            </Text>
-          </TouchableOpacity>
-        ))}
-        <TouchableOpacity
-          style={styles.refreshBtn}
-          onPress={subTab === "faq" ? refreshFaq : refreshHeatmap}
-        >
-          <Text style={styles.refreshBtnText}>Refresh</Text>
-        </TouchableOpacity>
-      </View>
-
-      {subTab === "faq" && (
-        <FaqPanel faq={faq} loading={faqLoading} error={faqError} />
-      )}
-
+      <SubTabBar subTab={subTab} setSubTab={setSubTab} onRefresh={subTab === "faq" ? refreshFaq : refreshHeatmap} />
+      {subTab === "faq" && <FaqPanel faq={faq} loading={faqLoading} error={faqError} />}
       {subTab === "mistakes" && (
-        <MistakesPanel
-          heatmap={heatmap}
-          loading={heatmapLoading}
-          error={heatmapError}
-          navigation={navigation}
-          classroomId={classroomId}
-        />
+        <MistakesPanel heatmap={heatmap} loading={heatmapLoading} error={heatmapError}
+          navigation={navigation} classroomId={classroomId} />
       )}
+    </View>
+  );
+}
+
+function SubTabBar({ subTab, setSubTab, onRefresh }: { subTab: SubTab; setSubTab: (t: SubTab) => void; onRefresh: () => void }) {
+  return (
+    <View style={styles.subTabs}>
+      {(["faq", "mistakes"] as SubTab[]).map((tab) => (
+        <TouchableOpacity key={tab} style={[styles.subTab, subTab === tab && styles.subTabActive]} onPress={() => setSubTab(tab)}>
+          <Text style={[styles.subTabText, subTab === tab && styles.subTabTextActive]}>{tab === "faq" ? "FAQ" : "Mistakes"}</Text>
+        </TouchableOpacity>
+      ))}
+      <TouchableOpacity style={styles.refreshBtn} onPress={onRefresh}>
+        <Text style={styles.refreshBtnText}>Refresh</Text>
+      </TouchableOpacity>
     </View>
   );
 }
 
 function FaqPanel({ faq, loading, error }: {
   faq: { topic: string; message_count: number; student_percentage: number }[];
-  loading: boolean;
-  error: string | null;
+  loading: boolean; error: string | null;
 }) {
   if (loading) return <ActivityIndicator style={styles.centered} />;
   if (error) return <Text style={styles.errorText}>{error}</Text>;
   if (faq.length === 0) return <Text style={styles.emptyText}>No chat data yet</Text>;
-
   const maxPct = Math.max(...faq.map((t) => t.student_percentage), 1);
-
   return (
     <ScrollView style={styles.panel}>
       {faq.map((topic) => (
@@ -114,87 +90,75 @@ function FaqPanel({ faq, loading, error }: {
 }
 
 function MistakesPanel({ heatmap, loading, error, navigation, classroomId }: {
-  heatmap: { tags: string[]; students: { student_id: string; display_name: string; tag_counts: Record<string, number>; total: number }[]; tag_totals: Record<string, number> } | null;
-  loading: boolean;
-  error: string | null;
-  navigation: any;
-  classroomId: string;
+  heatmap: MistakeHeatmapResponse | null; loading: boolean; error: string | null;
+  navigation: any; classroomId: string;
 }) {
   if (loading) return <ActivityIndicator style={styles.centered} />;
   if (error) return <Text style={styles.errorText}>{error}</Text>;
   if (!heatmap || heatmap.students.length === 0) return <Text style={styles.emptyText}>No mistake data yet</Text>;
-
-  const tags = heatmap.tags;
-  const maxCount = Math.max(
-    ...heatmap.students.flatMap((s) => tags.map((t) => s.tag_counts[t] ?? 0)),
-    1,
-  );
-
+  const maxCount = Math.max(...heatmap.students.flatMap((s) => heatmap.tags.map((t) => s.tag_counts[t] ?? 0)), 1);
   return (
     <ScrollView style={styles.panel}>
       <ScrollView horizontal showsHorizontalScrollIndicator>
         <View>
-          <View style={styles.heatmapRow}>
-            <View style={styles.nameCell}>
-              <Text style={styles.headerText}>Student</Text>
-            </View>
-            {tags.map((tag) => (
-              <View key={tag} style={styles.tagCell}>
-                <Text style={styles.tagHeader}>{TAG_ABBREV[tag] ?? tag.slice(0, 4)}</Text>
-              </View>
-            ))}
-            <View style={styles.tagCell}>
-              <Text style={styles.tagHeader}>Total</Text>
-            </View>
-          </View>
-
+          <HeatmapHeader tags={heatmap.tags} />
           {heatmap.students.map((student) => (
-            <TouchableOpacity
-              key={student.student_id}
-              style={styles.heatmapRow}
-              onPress={() => navigation.navigate("StudentMistakeDetail", {
-                classroomId,
-                studentId: student.student_id,
-                displayName: student.display_name || "Student",
-              })}
-            >
-              <View style={styles.nameCell}>
-                <Text style={styles.nameText} numberOfLines={1}>
-                  {student.display_name || "Unnamed"}
-                </Text>
-              </View>
-              {tags.map((tag) => {
-                const count = student.tag_counts[tag] ?? 0;
-                return (
-                  <View key={tag} style={[styles.tagCell, { backgroundColor: cellColor(count, maxCount) }]}>
-                    <Text style={styles.cellText}>{count || ""}</Text>
-                  </View>
-                );
-              })}
-              <View style={styles.tagCell}>
-                <Text style={styles.totalText}>{student.total}</Text>
-              </View>
-            </TouchableOpacity>
+            <HeatmapRow key={student.student_id} student={student} tags={heatmap.tags}
+              maxCount={maxCount} classroomId={classroomId} navigation={navigation} />
           ))}
-
-          <View style={[styles.heatmapRow, styles.totalRow]}>
-            <View style={styles.nameCell}>
-              <Text style={styles.totalLabel}>Class Total</Text>
-            </View>
-            {tags.map((tag) => (
-              <View key={tag} style={styles.tagCell}>
-                <Text style={styles.totalText}>{heatmap.tag_totals[tag] ?? 0}</Text>
-              </View>
-            ))}
-            <View style={styles.tagCell}>
-              <Text style={styles.totalText}>
-                {Object.values(heatmap.tag_totals).reduce((a, b) => a + b, 0)}
-              </Text>
-            </View>
-          </View>
+          <HeatmapTotalRow tags={heatmap.tags} tagTotals={heatmap.tag_totals} />
         </View>
       </ScrollView>
     </ScrollView>
+  );
+}
+
+function HeatmapHeader({ tags }: { tags: string[] }) {
+  return (
+    <View style={styles.heatmapRow}>
+      <View style={styles.nameCell}><Text style={styles.headerText}>Student</Text></View>
+      {tags.map((tag) => (
+        <View key={tag} style={styles.tagCell}><Text style={styles.tagHeader}>{TAG_ABBREV[tag] ?? tag.slice(0, 4)}</Text></View>
+      ))}
+      <View style={styles.tagCell}><Text style={styles.tagHeader}>Total</Text></View>
+    </View>
+  );
+}
+
+function HeatmapRow({ student, tags, maxCount, classroomId, navigation }: {
+  student: { student_id: string; display_name: string; tag_counts: Record<string, number>; total: number };
+  tags: string[]; maxCount: number; classroomId: string; navigation: any;
+}) {
+  return (
+    <TouchableOpacity style={styles.heatmapRow} onPress={() => navigation.navigate("StudentMistakeDetail", {
+      classroomId, studentId: student.student_id, displayName: student.display_name || "Student",
+    })}>
+      <View style={styles.nameCell}>
+        <Text style={styles.nameText} numberOfLines={1}>{student.display_name || "Unnamed"}</Text>
+      </View>
+      {tags.map((tag) => {
+        const count = student.tag_counts[tag] ?? 0;
+        return (
+          <View key={tag} style={[styles.tagCell, { backgroundColor: cellColor(count, maxCount) }]}>
+            <Text style={styles.cellText}>{count || ""}</Text>
+          </View>
+        );
+      })}
+      <View style={styles.tagCell}><Text style={styles.totalText}>{student.total}</Text></View>
+    </TouchableOpacity>
+  );
+}
+
+function HeatmapTotalRow({ tags, tagTotals }: { tags: string[]; tagTotals: Record<string, number> }) {
+  const grandTotal = Object.values(tagTotals).reduce((a, b) => a + b, 0);
+  return (
+    <View style={[styles.heatmapRow, styles.totalRow]}>
+      <View style={styles.nameCell}><Text style={styles.totalLabel}>Class Total</Text></View>
+      {tags.map((tag) => (
+        <View key={tag} style={styles.tagCell}><Text style={styles.totalText}>{tagTotals[tag] ?? 0}</Text></View>
+      ))}
+      <View style={styles.tagCell}><Text style={styles.totalText}>{grandTotal}</Text></View>
+    </View>
   );
 }
 

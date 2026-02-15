@@ -1584,7 +1584,7 @@ def get_assignment_endpoint(assignment_id: str) -> Any:
     assignment = get_assignment(assignment_id)
     if assignment is None:
         return jsonify({"error": "Assignment not found."}), 404
-    if not can_student_access_assignment(assignment_id, g.user_id):
+    if not can_student_access_assignment(assignment_id, g.user_id, g.user_role):
         return jsonify({"error": "Access denied"}), 403
     try:
         resolved_config = get_resolved_config(assignment_id)
@@ -1603,7 +1603,7 @@ def get_assignment_problems(assignment_id: str) -> Any:
     assignment = get_assignment(assignment_id)
     if assignment is None:
         return jsonify({"error": "Assignment not found."}), 404
-    if not can_student_access_assignment(assignment_id, g.user_id):
+    if not can_student_access_assignment(assignment_id, g.user_id, g.user_role):
         return jsonify({"error": "Access denied"}), 403
     problems = assignment.get("problems", [])
     if not isinstance(problems, list):

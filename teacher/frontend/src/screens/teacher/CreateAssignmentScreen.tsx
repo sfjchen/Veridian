@@ -3,6 +3,7 @@ import { StyleSheet, Text, TouchableOpacity, View } from "react-native";
 import * as DocumentPicker from "expo-document-picker";
 import { Button, Card, Input, ScreenContainer, Section } from "../../components/ui";
 import { ConfigEditor } from "../../components/ConfigEditor";
+import { ProblemEditor } from "../../components/ProblemEditor";
 import { palette } from "../../constants/palette";
 import { spacing } from "../../constants/spacing";
 import { typography } from "../../constants/typography";
@@ -10,7 +11,7 @@ import { useToast } from "../../contexts/ToastContext";
 import { api } from "../../lib/api";
 import { alert } from "../../lib/alert";
 import { uploadFile } from "../../lib/upload";
-import { AssignmentConfig } from "../../types";
+import { AssignmentConfig, Problem } from "../../types";
 
 const DATE_PATTERN = /^\d{4}-\d{2}-\d{2}$/;
 
@@ -29,6 +30,7 @@ export function CreateAssignmentScreen({ route, navigation }: { route: any; navi
   const [assignmentFile, setAssignmentFile] = useState<PickedFile | null>(null);
   const [answerKeyFile, setAnswerKeyFile] = useState<PickedFile | null>(null);
   const [creating, setCreating] = useState(false);
+  const [problems, setProblems] = useState<Problem[]>([]);
   const [configExpanded, setConfigExpanded] = useState(false);
   const [configDraft, setConfigDraft] = useState<Partial<AssignmentConfig>>({});
   const classroomConfig: AssignmentConfig | undefined = route.params?.classroomConfig;
@@ -71,6 +73,11 @@ export function CreateAssignmentScreen({ route, navigation }: { route: any; navi
     setCreating(true);
     try {
       const body: Record<string, any> = { title: title.trim(), due_date: dueDateValue };
+      if (assignmentFile) body.has_assignment_file = true;
+      if (answerKeyFile) body.has_answer_key = true;
+      if (problems.length > 0) {
+        body.problems = problems;
+      }
       if (Object.keys(configDraft).length > 0) {
         body.config = configDraft;
       }
@@ -149,6 +156,13 @@ export function CreateAssignmentScreen({ route, navigation }: { route: any; navi
           </Card>
         </Section>
 
+        <Section title="Problems">
+          <Text style={styles.hint}>
+            Add problems that students will solve one per page. Use LaTeX for math notation.
+          </Text>
+          <ProblemEditor problems={problems} onChange={setProblems} />
+        </Section>
+
         <TouchableOpacity
           style={styles.expandToggle}
           onPress={() => setConfigExpanded(!configExpanded)}
@@ -187,6 +201,7 @@ const styles = StyleSheet.create({
   title: { ...typography.h1, color: palette.textPrimary, marginBottom: spacing.lg },
   fileCard: { marginBottom: spacing.md },
   filePickerText: { ...typography.body, color: palette.textMuted },
+  hint: { ...typography.caption, color: palette.textMuted, marginBottom: spacing.sm },
   expandToggle: { paddingVertical: spacing.sm, marginBottom: spacing.xs },
   expandToggleText: { ...typography.buttonSmall, color: palette.link },
   configSection: { marginBottom: spacing.md },

@@ -41,6 +41,13 @@ export function TeacherClassroomScreen({ route, navigation }: { route: any; navi
     error: studentsError,
     refresh: refreshStudents,
   } = useClassroomStudents(classroom.id);
+  const [refreshing, setRefreshing] = useState(false);
+
+  const onRefresh = useCallback(async () => {
+    setRefreshing(true);
+    await Promise.all([refreshAssignments(), refreshCorpus(), refreshStudents()]);
+    setRefreshing(false);
+  }, [refreshAssignments, refreshCorpus, refreshStudents]);
 
   useFocusEffect(
     useCallback(() => {
@@ -306,7 +313,7 @@ const styles = StyleSheet.create({
     borderBottomColor: palette.primaryMuted,
   },
   title: { ...typography.h1, color: palette.textPrimary, flex: 1 },
-  tabBar: { flexDirection: "row", marginBottom: spacing.md, gap: spacing.xs },
+  tabs: { flexDirection: "row", marginBottom: spacing.md, gap: spacing.xs },
   tab: {
     flex: 1,
     minHeight: 44,
@@ -350,4 +357,19 @@ const styles = StyleSheet.create({
   empty: { textAlign: "center", color: palette.textDisabled, marginTop: spacing.lg },
   errorText: { textAlign: "center", color: palette.error, marginTop: spacing.lg },
   settingsHint: { ...typography.bodySmall, color: palette.textMuted, marginBottom: spacing.md, lineHeight: 18 },
+  listItem: {
+    flexDirection: "row",
+    alignItems: "center",
+    marginBottom: spacing.sm,
+    minHeight: 56,
+    padding: spacing.md,
+    backgroundColor: palette.surface,
+    borderRadius: radius.card,
+  },
+  addButtonText: {
+    color: palette.white,
+    fontSize: 16,
+    fontWeight: "600",
+    textAlign: "center",
+  },
 });

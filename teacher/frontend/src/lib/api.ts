@@ -35,9 +35,6 @@ export async function api<T = unknown>(
   } catch (e) {
     const msg = e instanceof Error ? e.message : String(e);
     if (msg === "Failed to fetch" || msg.includes("Network request failed") || msg.includes("Load failed")) {
-      // #region agent log
-      fetch('http://127.0.0.1:7243/ingest/b95751e3-13de-4370-a43a-9eeabde26151',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({location:'api.ts:catch',message:'backend-down UX',data:{thrownMessage:"Can't reach server. Start the teacher backend."},timestamp:Date.now(),hypothesisId:'task4'})}).catch(()=>{});
-      // #endregion
       throw new Error("Can't reach server. Start the teacher backend.");
     }
     throw e;

@@ -2,8 +2,11 @@ import AsyncStorage from '@react-native-async-storage/async-storage';
 import * as DocumentPicker from 'expo-document-picker';
 import * as FileSystem from 'expo-file-system/legacy';
 import { useCallback, useEffect, useState } from 'react';
+import { Platform } from 'react-native';
 
-const DOCUMENTS_KEY = 'veridian_documents';
+import { scopedKey } from '@/lib/scoped-storage';
+
+const LEGACY_KEY = 'veridian_documents';
 const PDFS_DIR = 'pdfs';
 
 /** ID and URI prefix for the built-in sample algebra document (no real file). */
@@ -35,36 +38,90 @@ async function ensurePdfsDir(): Promise<string> {
   return dir;
 }
 
-export function useDocuments() {
+async function pruneStaleDocuments(docs: DocumentMeta[]): Promise<DocumentMeta[]> {
+  const results = await Promise.all(
+    docs.map(async (doc) => {
+      if (isDefaultDocument(doc)) return doc;
+      try {
+        const info = await FileSystem.getInfoAsync(doc.uri);
+        return info.exists ? doc : null;
+      } catch {
+        return null;
+      }
+    }),
+  );
+  const valid = results.filter((d): d is DocumentMeta => d !== null);
+  return valid.length > 0 ? valid : [DEFAULT_DOCUMENT];
+}
+
+export function useDocuments(userId: string | null) {
   const [documents, setDocuments] = useState<DocumentMeta[]>([]);
   const [loading, setLoading] = useState(true);
+  const [loadError, setLoadError] = useState<string | null>(null);
+  const [saveError, setSaveError] = useState<string | null>(null);
+  const [addError, setAddError] = useState<string | null>(null);
+  const [removeError, setRemoveError] = useState<string | null>(null);
+
+  const storageKey = userId ? scopedKey(userId, LEGACY_KEY) : null;
 
   const load = useCallback(async () => {
+    if (!storageKey) {
+      setDocuments([DEFAULT_DOCUMENT]);
+      setLoading(false);
+      return;
+    }
+    setLoadError(null);
     try {
-      const raw = await AsyncStorage.getItem(DOCUMENTS_KEY);
+      let raw = await AsyncStorage.getItem(storageKey);
+      // Legacy migration: copy unscoped data to scoped key on first load
+      if (!raw) {
+        const legacy = await AsyncStorage.getItem(LEGACY_KEY);
+        if (legacy) {
+          await AsyncStorage.setItem(storageKey, legacy);
+          await AsyncStorage.removeItem(LEGACY_KEY);
+          raw = legacy;
+        }
+      }
       let list: DocumentMeta[] = raw ? JSON.parse(raw) : [];
       if (list.length === 0) {
         list = [DEFAULT_DOCUMENT];
-        await AsyncStorage.setItem(DOCUMENTS_KEY, JSON.stringify(list));
+        await AsyncStorage.setItem(storageKey, JSON.stringify(list));
+      }
+      if (Platform.OS !== 'web') {
+        const validated = await pruneStaleDocuments(list);
+        const changed = validated.length !== list.length
+          || validated.some((v, i) => v.id !== list[i]?.id);
+        if (changed) {
+          await AsyncStorage.setItem(storageKey, JSON.stringify(validated));
+          list = validated;
+        }
       }
       setDocuments(list);
-    } catch {
+    } catch (e) {
       setDocuments([DEFAULT_DOCUMENT]);
+      setLoadError(e instanceof Error ? e.message : 'Failed to load documents');
     } finally {
       setLoading(false);
     }
-  }, []);
+  }, [storageKey]);
 
   useEffect(() => {
     load();
   }, [load]);
 
   const save = useCallback(async (list: DocumentMeta[]) => {
+    if (!storageKey) return;
+    setSaveError(null);
     setDocuments(list);
-    await AsyncStorage.setItem(DOCUMENTS_KEY, JSON.stringify(list));
-  }, []);
+    try {
+      await AsyncStorage.setItem(storageKey, JSON.stringify(list));
+    } catch (e) {
+      setSaveError(e instanceof Error ? e.message : 'Failed to save document list');
+    }
+  }, [storageKey]);
 
   const addDocument = useCallback(async (): Promise<DocumentMeta | null> => {
+    setAddError(null);
     try {
       const result = await DocumentPicker.getDocumentAsync({
         type: 'application/pdf',
@@ -82,7 +139,9 @@ export function useDocuments() {
       const meta: DocumentMeta = { id, name: name ?? 'Untitled PDF', uri: destUri };
       await save([...documents, meta]);
       return meta;
-    } catch {
+    } catch (e) {
+      const msg = e instanceof Error ? e.message : 'Failed to add document';
+      setAddError(msg);
       return null;
     }
   }, [documents, save]);
@@ -91,11 +150,12 @@ export function useDocuments() {
     async (id: string) => {
       const next = documents.filter((d) => d.id !== id);
       await save(next);
+      setRemoveError(null);
       try {
         const doc = documents.find((d) => d.id === id);
         if (doc?.uri) await FileSystem.deleteAsync(doc.uri, { idempotent: true });
-      } catch {
-        // ignore
+      } catch (e) {
+        setRemoveError(e instanceof Error ? e.message : 'Failed to delete file');
       }
     },
     [documents, save]
@@ -106,5 +166,20 @@ export function useDocuments() {
     [documents]
   );
 
-  return { documents, loading, addDocument, removeDocument, getDocument, refresh: load };
+  return {
+    documents,
+    loading,
+    loadError,
+    saveError,
+    addError,
+    removeError,
+    clearLoadError: () => setLoadError(null),
+    clearSaveError: () => setSaveError(null),
+    clearAddError: () => setAddError(null),
+    clearRemoveError: () => setRemoveError(null),
+    addDocument,
+    removeDocument,
+    getDocument,
+    refresh: load,
+  };
 }

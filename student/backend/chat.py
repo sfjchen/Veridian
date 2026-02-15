@@ -7,6 +7,10 @@ from typing import Any, Dict, List, TypedDict
 
 from anthropic import Anthropic
 
+from anthropic_guard import (
+    build_enabled_thinking,
+    validate_anthropic_thinking_support,
+)
 from assignment_service import get_problem
 from chat_service import (
     ChatMessageInsert,
@@ -16,11 +20,13 @@ from chat_service import (
     get_chat_history,
     save_message,
 )
+from mistake_profile import build_chat_mistake_context
 
 log = logging.getLogger(__name__)
 
 CHAT_MODEL = "claude-sonnet-4-5-20250929"
-BUDGET_TOKENS = 8000  # enough for ~10 back-and-forth exchanges of thinking
+CHAT_MAX_TOKENS = 16000  # room for extended thinking + detailed tutoring response
+BUDGET_TOKENS = CHAT_MAX_TOKENS // 2  # keep thinking budget proportional to output budget
 CHAT_PERSIST_BACKOFF_SECONDS = (0.1, 0.5, 2.0)
 
 SYSTEM_PROMPT = """You are a Socratic math tutor. Your goal is to help students understand and reach the answer themselves.
@@ -45,7 +51,9 @@ def _get_anthropic_client() -> Anthropic:
     api_key = os.getenv("ANTHROPIC_API_KEY")
     if not api_key:
         raise RuntimeError("Missing ANTHROPIC_API_KEY in environment/.env")
-    return Anthropic(api_key=api_key)
+    client = Anthropic(api_key=api_key)
+    validate_anthropic_thinking_support(client)
+    return client
 
 
 def _format_context_block(context: Dict[str, Any]) -> str:
@@ -72,17 +80,18 @@ def _build_messages(history: List[Dict[str, Any]], context: Dict[str, Any], mess
     return messages
 
 
-def _call_claude(messages: List[Dict[str, str]]) -> str:
+def _call_claude(messages: List[Dict[str, str]], extra_context: str = "") -> str:
     client = _get_anthropic_client()
+    system = f"{SYSTEM_PROMPT}\n\n{extra_context}" if extra_context else SYSTEM_PROMPT
     response = client.messages.create(
         model=CHAT_MODEL,
-        max_tokens=16000,  # room for extended thinking + detailed tutoring response
+        max_tokens=CHAT_MAX_TOKENS,
         temperature=1,
-        thinking={
-            "type": "enabled",
-            "budget_tokens": BUDGET_TOKENS,
-        },
-        system=SYSTEM_PROMPT,
+        thinking=build_enabled_thinking(
+            max_tokens=CHAT_MAX_TOKENS,
+            budget_tokens=BUDGET_TOKENS,
+        ),
+        system=system,
         messages=messages,
     )
     text_blocks = [block.text for block in response.content if getattr(block, "type", "") == "text"]
@@ -135,6 +144,14 @@ def _save_message_with_retry(request: ChatMessageInsert) -> None:
             time.sleep(CHAT_PERSIST_BACKOFF_SECONDS[attempt])
 
 
+def _fetch_mistake_context(student_id: str, assignment_id: str) -> str:
+    try:
+        return build_chat_mistake_context(student_id, assignment_id)
+    except Exception:
+        log.exception("Failed to build mistake profile context")
+        return ""
+
+
 def generate_chat_response(student_id: str, assignment_id: str, problem_num: int, message: str) -> str:
     _validate_problem(assignment_id, problem_num)
     history = get_chat_history(student_id, assignment_id, problem_num)
@@ -142,6 +159,7 @@ def generate_chat_response(student_id: str, assignment_id: str, problem_num: int
     chat_context = _chat_context(student_id, assignment_id, problem_num)
     _save_message_with_retry(_chat_persist_request(chat_context, "student", message))
     messages = _build_messages(history, context, message)
-    response_text = _call_claude(messages)
+    mistake_context = _fetch_mistake_context(student_id, assignment_id)
+    response_text = _call_claude(messages, extra_context=mistake_context)
     _save_message_with_retry(_chat_persist_request(chat_context, "assistant", response_text))
     return response_text

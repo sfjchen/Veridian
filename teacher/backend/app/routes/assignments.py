@@ -1,12 +1,13 @@
 import sys
 import uuid
-from typing import Tuple
+from typing import Any, Tuple
 
 from flask import Blueprint, Response, request, jsonify, g
 from postgrest.exceptions import APIError
 from supabase import Client
 
 from app.middleware.auth import require_auth, require_role
+from app.services.config_schema import resolve_config, validate_config
 from app.services.supabase_client import get_supabase_admin_client
 from app.services.storage import delete_object, generate_download_url, generate_upload_url
 
@@ -43,6 +44,43 @@ def _validate_context_file_ids(
     return len(valid_files.data) == len(file_ids)
 
 
+def _build_assignment_insert(
+    assignment_id: str, classroom_id: str, title: str,
+    prompt_path: str, answer_key_path: str,
+    context_file_ids: list[str], due_date: str | None,
+    config: dict[str, Any] | None,
+) -> dict[str, Any]:
+    insert_data: dict[str, Any] = {
+        "id": assignment_id,
+        "classroom_id": classroom_id,
+        "title": title,
+        "prompt_storage_path": prompt_path,
+        "answer_key_storage_path": answer_key_path,
+        "context_file_ids": context_file_ids,
+        "due_date": due_date,
+    }
+    if config:
+        insert_data["config"] = config
+    return insert_data
+
+
+def _generate_upload_urls_or_rollback(
+    client: Client, assignment_id: str,
+    prompt_path: str, answer_key_path: str,
+) -> tuple[str, str] | None:
+    try:
+        prompt_url = generate_upload_url(ASSIGNMENTS_BUCKET, prompt_path)
+        answer_key_url = generate_upload_url(ASSIGNMENTS_BUCKET, answer_key_path)
+        return prompt_url, answer_key_url
+    except Exception as e:
+        print(f"Failed to generate upload URLs for assignment {assignment_id}: {e}", file=sys.stderr)
+        try:
+            client.table("assignments").delete().eq("id", assignment_id).execute()
+        except Exception as cleanup_err:
+            print(f"Failed to clean up orphaned assignment {assignment_id}: {cleanup_err}", file=sys.stderr)
+        return None
+
+
 @assignments_bp.route("/classrooms/<classroom_id>/assignments", methods=["POST"])
 @require_role("teacher")
 def create_assignment(classroom_id: str) -> Tuple[Response, int]:
@@ -65,33 +103,31 @@ def create_assignment(classroom_id: str) -> Tuple[Response, int]:
     if not _validate_context_file_ids(client, classroom_id, context_file_ids):
         return jsonify({"error": "One or more context_file_ids are invalid"}), 400
 
+    config = data.get("config")
+    if config is not None:
+        try:
+            config = validate_config(config)
+        except ValueError as e:
+            return jsonify({"error": str(e)}), 400
+
     assignment_id = str(uuid.uuid4())
-    assignment_file_path = f"{classroom_id}/{assignment_id}/prompt"
+    prompt_path = f"{classroom_id}/{assignment_id}/prompt"
     answer_key_path = f"{classroom_id}/{assignment_id}/answer_key"
 
+    insert_data = _build_assignment_insert(
+        assignment_id, classroom_id, title,
+        prompt_path, answer_key_path,
+        context_file_ids, data.get("due_date"), config,
+    )
+
     try:
-        record = client.table("assignments").insert({
-            "id": assignment_id,
-            "classroom_id": classroom_id,
-            "title": title,
-            "prompt_storage_path": assignment_file_path,
-            "answer_key_storage_path": answer_key_path,
-            "context_file_ids": context_file_ids,
-            "due_date": data.get("due_date"),
-        }).execute()
+        record = client.table("assignments").insert(insert_data).execute()
     except APIError as e:
         print(f"Failed to insert assignment: {e}", file=sys.stderr)
         return jsonify({"error": "Failed to create assignment"}), 500
 
-    try:
-        assignment_file_upload_url = generate_upload_url(ASSIGNMENTS_BUCKET, assignment_file_path)
-        answer_key_upload_url = generate_upload_url(ASSIGNMENTS_BUCKET, answer_key_path)
-    except Exception as e:
-        print(f"Failed to generate upload URLs for assignment {assignment_id}: {e}", file=sys.stderr)
-        try:
-            client.table("assignments").delete().eq("id", assignment_id).execute()
-        except Exception as cleanup_err:
-            print(f"Failed to clean up orphaned assignment {assignment_id}: {cleanup_err}", file=sys.stderr)
+    urls = _generate_upload_urls_or_rollback(client, assignment_id, prompt_path, answer_key_path)
+    if urls is None:
         return jsonify({"error": "Failed to generate upload URLs"}), 500
 
     if not record.data:
@@ -99,8 +135,8 @@ def create_assignment(classroom_id: str) -> Tuple[Response, int]:
 
     return jsonify({
         **record.data[0],
-        "assignment_file_upload_url": assignment_file_upload_url,
-        "answer_key_upload_url": answer_key_upload_url,
+        "assignment_file_upload_url": urls[0],
+        "answer_key_upload_url": urls[1],
     }), 201
 
 
@@ -133,7 +169,7 @@ def get_assignment(assignment_id: str) -> Tuple[Response, int]:
 
     record = assignment.data[0]
 
-    classroom = client.table("classrooms").select("teacher_id").eq(
+    classroom = client.table("classrooms").select("teacher_id, config").eq(
         "id", record["classroom_id"]
     ).execute()
     if not classroom.data:
@@ -148,6 +184,10 @@ def get_assignment(assignment_id: str) -> Tuple[Response, int]:
             return jsonify({"error": "Access denied"}), 403
 
     result = dict(record)
+    classroom_config = classroom.data[0].get("config") or {}
+    assignment_config = record.get("config") or {}
+    result["classroom_config"] = resolve_config(classroom_config, {})
+    result["resolved_config"] = resolve_config(classroom_config, assignment_config)
 
     if record.get("prompt_storage_path"):
         try:
@@ -204,7 +244,7 @@ def update_assignment(assignment_id: str) -> Tuple[Response, int]:
     if not classroom.data or g.user_id != classroom.data[0]["teacher_id"]:
         return jsonify({"error": "Access denied"}), 403
 
-    updates: dict = {}
+    updates: dict[str, Any] = {}
     if "title" in data:
         title = str(data["title"]).strip()
         if not title or len(title) > MAX_TITLE_LENGTH:
@@ -212,6 +252,11 @@ def update_assignment(assignment_id: str) -> Tuple[Response, int]:
         updates["title"] = title
     if "due_date" in data:
         updates["due_date"] = data["due_date"]  # null clears it
+    if "config" in data:
+        try:
+            updates["config"] = validate_config(data["config"])
+        except ValueError as e:
+            return jsonify({"error": str(e)}), 400
 
     if not updates:
         return jsonify({"error": "No valid fields to update"}), 400
@@ -230,7 +275,7 @@ def update_assignment(assignment_id: str) -> Tuple[Response, int]:
     return jsonify(updated.data[0]), 200
 
 
-def _cleanup_storage_paths(record: dict) -> list[str]:
+def _cleanup_storage_paths(record: dict[str, Any]) -> list[str]:
     warnings: list[str] = []
     for path in [record.get("prompt_storage_path"), record.get("answer_key_storage_path")]:
         if not path:
@@ -243,7 +288,7 @@ def _cleanup_storage_paths(record: dict) -> list[str]:
     return warnings
 
 
-def _find_owned_assignment(client: Client, assignment_id: str) -> dict | None:
+def _find_owned_assignment(client: Client, assignment_id: str) -> dict[str, Any] | None:
     assignment = client.table("assignments").select("*").eq(
         "id", assignment_id
     ).limit(1).execute()
@@ -303,7 +348,7 @@ def reupload_assignment_files(assignment_id: str) -> Tuple[Response, int]:
     if not classroom.data or g.user_id != classroom.data[0]["teacher_id"]:
         return jsonify({"error": "Access denied"}), 403
 
-    result: dict = {}
+    result: dict[str, Any] = {}
     try:
         if record.get("prompt_storage_path"):
             result["assignment_file_upload_url"] = generate_upload_url(

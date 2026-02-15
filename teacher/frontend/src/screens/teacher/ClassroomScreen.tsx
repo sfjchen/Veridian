@@ -1,33 +1,25 @@
 import React, { useState, useCallback } from "react";
-import { FlatList, RefreshControl, StyleSheet, Text, TouchableOpacity, View } from "react-native";
+import { View, Text, FlatList, TouchableOpacity, StyleSheet, ActivityIndicator, ScrollView } from "react-native";
 import { useFocusEffect } from "@react-navigation/native";
 import * as Clipboard from "expo-clipboard";
 import * as Linking from "expo-linking";
 import { useCorpus } from "../../hooks/useCorpus";
 import { useAssignments } from "../../hooks/useAssignments";
 import { useClassroomStudents } from "../../hooks/useClassroomStudents";
-import { useToast } from "../../contexts/ToastContext";
-import { Classroom, CorpusFile } from "../../types";
-import {
-  Button,
-  Card,
-  CopyableBadge,
-  EmptyState,
-  ErrorState,
-  ScreenContainer,
-  SkeletonCard,
-} from "../../components/ui";
-import { palette, radius } from "../../constants/palette";
-import { spacing } from "../../constants/spacing";
-import { typography } from "../../constants/typography";
+import { ConfigEditor } from "../../components/ConfigEditor";
+import { api } from "../../lib/api";
+import { alert } from "../../lib/alert";
+import { AssignmentConfig, Classroom, CorpusFile } from "../../types";
+import { InsightsContent } from "./InsightsContent";
 
-type Tab = "assignments" | "corpus" | "students";
+type Tab = "assignments" | "corpus" | "students" | "insights" | "settings";
 
 export function TeacherClassroomScreen({ route, navigation }: { route: any; navigation: any }) {
   const classroom = route.params.classroom;
   const { showToast } = useToast();
   const [activeTab, setActiveTab] = useState<Tab>("assignments");
-  const [refreshing, setRefreshing] = useState(false);
+  const [configDraft, setConfigDraft] = useState<Partial<AssignmentConfig>>(classroom.config ?? {});
+  const [savingConfig, setSavingConfig] = useState(false);
   const { files, loading: corpusLoading, error: corpusError, refresh: refreshCorpus } = useCorpus(classroom.id);
   const { assignments, loading: assignmentsLoading, error: assignmentsError, refresh: refreshAssignments } = useAssignments(classroom.id);
   const {
@@ -45,11 +37,20 @@ export function TeacherClassroomScreen({ route, navigation }: { route: any; navi
     }, [refreshAssignments, refreshCorpus, refreshStudents])
   );
 
-  const onRefresh = useCallback(async () => {
-    setRefreshing(true);
-    await Promise.all([refreshAssignments(), refreshCorpus(), refreshStudents()]);
-    setRefreshing(false);
-  }, [refreshAssignments, refreshCorpus, refreshStudents]);
+  const handleSaveConfig = async () => {
+    setSavingConfig(true);
+    try {
+      await api(`/classrooms/${classroom.id}`, {
+        method: "PATCH",
+        body: { config: configDraft },
+      });
+      alert("Success", "Settings saved");
+    } catch (e: any) {
+      alert("Error", e instanceof Error ? e.message : "Failed to save settings");
+    } finally {
+      setSavingConfig(false);
+    }
+  };
 
   const handleOpenCorpusFile = (file: CorpusFile) => {
     if (file.download_url) Linking.openURL(file.download_url);
@@ -69,8 +70,8 @@ export function TeacherClassroomScreen({ route, navigation }: { route: any; navi
         <CopyableBadge text={classroom.class_code} onCopy={() => showToast("Class code copied")} />
       </View>
 
-      <View style={styles.tabBar}>
-        {tabs.map((tab) => (
+      <View style={styles.tabs}>
+        {(["assignments", "corpus", "students", "insights", "settings"] as Tab[]).map((tab) => (
           <TouchableOpacity
             key={tab}
             style={[styles.tab, activeTab === tab && styles.tabActive]}
@@ -86,11 +87,9 @@ export function TeacherClassroomScreen({ route, navigation }: { route: any; navi
 
       {activeTab === "assignments" && (
         <View style={styles.content}>
-          <Button
-            onPress={() => navigation.navigate("CreateAssignment", { classroomId: classroom.id })}
-            variant="primary"
-            fullWidth
+          <TouchableOpacity
             style={styles.addButton}
+            onPress={() => navigation.navigate("CreateAssignment", { classroomId: classroom.id, classroomConfig: classroom.config })}
           >
             + New Assignment
           </Button>
@@ -212,7 +211,14 @@ export function TeacherClassroomScreen({ route, navigation }: { route: any; navi
                 <RefreshControl refreshing={refreshing} onRefresh={onRefresh} tintColor={palette.primary} />
               }
               renderItem={({ item }) => (
-                <Card style={styles.listCard}>
+                <TouchableOpacity
+                  style={styles.listItem}
+                  onPress={() => navigation.navigate("StudentMistakeDetail", {
+                    classroomId: classroom.id,
+                    studentId: item.student_id,
+                    displayName: item.display_name ?? "Student",
+                  })}
+                >
                   <View style={styles.listItemContent}>
                     <Text style={styles.itemTitle} numberOfLines={1}>{item.display_name ?? "Unnamed Student"}</Text>
                     <Text style={styles.itemSub}>
@@ -225,7 +231,8 @@ export function TeacherClassroomScreen({ route, navigation }: { route: any; navi
                       })}
                     </Text>
                   </View>
-                </Card>
+                  <Text style={styles.chevron}>&gt;</Text>
+                </TouchableOpacity>
               )}
               ListEmptyComponent={
                 <EmptyState
@@ -240,7 +247,36 @@ export function TeacherClassroomScreen({ route, navigation }: { route: any; navi
           )}
         </View>
       )}
-    </ScreenContainer>
+
+      {activeTab === "insights" && (
+        <View style={styles.content}>
+          <InsightsContent classroomId={classroom.id} navigation={navigation} />
+        </View>
+      )}
+
+      {activeTab === "settings" && (
+        <ScrollView style={styles.content}>
+          <Text style={styles.settingsHint}>
+            Default settings for all assignments in this classroom.
+            Individual assignments can override these.
+          </Text>
+          <ConfigEditor
+            config={configDraft}
+            onChange={setConfigDraft}
+            mode="classroom"
+          />
+          <TouchableOpacity
+            style={[styles.addButton, savingConfig && { opacity: 0.7 }]}
+            onPress={handleSaveConfig}
+            disabled={savingConfig}
+          >
+            <Text style={styles.addButtonText}>
+              {savingConfig ? "Saving..." : "Save Settings"}
+            </Text>
+          </TouchableOpacity>
+        </ScrollView>
+      )}
+    </View>
   );
 }
 
@@ -298,4 +334,12 @@ const styles = StyleSheet.create({
     fontSize: 24,
     color: palette.primary,
   },
+  listItemContent: { flex: 1 },
+  itemTitle: { fontSize: 16, fontWeight: "500" },
+  itemSub: { fontSize: 13, color: "#6B7280", marginTop: 4 },
+  chevron: { fontSize: 18, color: "#9CA3AF", marginLeft: 8 },
+  downloadHint: { fontSize: 13, color: "#4F46E5", fontWeight: "600", marginLeft: 8 },
+  empty: { textAlign: "center", color: "#9CA3AF", marginTop: 20 },
+  errorText: { textAlign: "center", color: "#EF4444", marginTop: 20 },
+  settingsHint: { fontSize: 13, color: "#6B7280", marginBottom: 16, lineHeight: 18 },
 });

@@ -47,11 +47,14 @@ Full platform monorepo: teacher side (classrooms, assignments, corpus, submissio
 - Sample worksheet flow, workspace flow
 - require_auth_or_sample for sample-only requests
 - Teacher CRUD: Classrooms, assignments, corpus files (PRs #21-23)
+- PR 2: Student home screen — ClassroomsScreen, AssignmentsScreen, GET /classrooms, GET /classrooms/:id/assignments; assignment-only document entry; back label context-aware
+- No silent failures: stroke load/save and docs load/save/remove errors surfaced in UI (document screen error bar); backend continuation-artifact and coord-pipeline failures logged
 
 ### Backend services
 
 - `get_coords.py` — Main Flask server (refactored: ~20 line functions, max 3 params)
 - `assignment_service.py` — Assignment + problem fetching from Supabase
+- `classroom_service.py` — List classrooms for student, list assignments for classroom (membership check)
 - `result_service.py` — Per-problem result persistence with retry + DLQ
 - `chat.py` — Socratic tutoring with Claude (claude-sonnet-4-5 + extended thinking)
 - `chat_service.py` — Chat history persistence
@@ -60,12 +63,16 @@ Full platform monorepo: teacher side (classrooms, assignments, corpus, submissio
 
 ### Frontend (student/frontend/)
 
-- `app/document/[id].tsx` — Per-problem canvas with auto-analysis
+- `app/(tabs)/index.tsx` — ClassroomsScreen (card grid of joined classrooms)
+- `app/assignments/[classroomId].tsx` — AssignmentsScreen (per-classroom assignment list)
+- `app/document/[id].tsx` — Per-problem canvas with auto-analysis; assignment-only entry when opened from assignment
 - `components/MistakeOverlay.tsx` — Red dots with progressive reveal
 - `components/ChatPanel.tsx` — Socratic chat bottom sheet
 - `components/ProblemHeader.tsx` — KaTeX rendering via WebView
 - `hooks/useAutoAnalysis.ts` — 15s idle debounce with error callbacks
 - `hooks/useAssignment.ts` — Assignment data fetching
+- `hooks/useClassrooms.ts` — Classrooms list (GET /classrooms)
+- `hooks/useAssignments.ts` — Assignments list per classroom (GET /classrooms/:id/assignments)
 - `hooks/useChat.ts` — Chat with optimistic updates
 - `hooks/useWebSocket.ts` — Real-time result push
 - `lib/api.ts` — API client with typed endpoints
@@ -78,24 +85,31 @@ Full platform monorepo: teacher side (classrooms, assignments, corpus, submissio
 
 | PR | Title | Priority | Status | Dependencies |
 |----|-------|----------|--------|--------------|
-| 1 | Fix Anthropic `thinking` SDK parameter | P0 | Not started | Standalone |
-| 2 | Student home screen (classrooms > assignments) | P0 | Not started | Standalone (uses PR 7 tokens if available) |
-| 3 | Teacher config system (classroom defaults + overrides) | P0 | Not started | Standalone |
-| 4 | Student app reads teacher config | P0 | Not started | Depends on PR 3 |
-| 5 | Eliminate all silent failures | P1 | Not started | Standalone |
-| 7 | Shared design system + visual overhaul | P2 | Not started | Standalone |
+| 1 | Fix Anthropic `thinking` SDK parameter | P0 | Completed (2026-02-14) | Standalone |
+| 2 | Student home screen (classrooms > assignments) | P0 | Done (2026-02-14) | Standalone (uses PR 7 tokens if available) |
+| 3 | Teacher config system (classroom defaults + overrides) | P0 | Done | Standalone |
+| 4 | Student app reads teacher config | P0 | Done (2026-02-15) | Depends on PR 3 |
+| 5 | Eliminate all silent failures | P1 | Done | Standalone |
+| 7 | Shared design system + visual overhaul | P2 | Done | Standalone |
 
 ### PR 1: Fix Anthropic `thinking` SDK Parameter
 
-**P0 — blocks both analysis and chat**
+**P0 — Done**
 
 The `thinking` parameter format in `client.py` and `chat.py` causes `Messages.create() got an unexpected keyword argument 'thinking'` errors. Fix the parameter format to match what `anthropic>=0.79.0` expects.
 
 **Files**: `student/backend/mistake_analysis/client.py` (line 112), `student/backend/chat.py` (lines 81-84)
 
+**Status**: Completed on 2026-02-14 via stacked PRs #27 (PR1A), #28 (PR1B), #29 (PR1C).
+
+**Completion rationale**:
+- Enforced Anthropic contract in backend with shared guardrails (`anthropic>=0.79.0` and runtime signature checks for `messages.create(..., thinking=...)`) to fail fast with explicit remediation instead of opaque runtime errors.
+- Canonicalized `thinking` payload construction across chat and mistake-analysis paths so both call sites send validated, consistent payloads (enabled/budgeted chat thinking and adaptive analysis thinking).
+- Added targeted backend regression tests for SDK/version guard behavior, payload shape validation, and error-surface behavior to prevent reintroducing `unexpected keyword argument 'thinking'` failures.
+
 ### PR 2: Student Home Screen — Classrooms > Assignments
 
-**P0**
+**P0 — Done**
 
 Replace the "Library" / "Add PDF" flow with an assignment-driven home screen. Students see their classrooms, tap to see assignments, tap an assignment to open the canvas. No student-initiated PDF uploads.
 
@@ -107,7 +121,7 @@ Replace the "Library" / "Add PDF" flow with an assignment-driven home screen. St
 
 ### PR 3: Teacher Config System (Classroom Defaults + Assignment Overrides)
 
-**P0**
+**P0 — Done**
 
 Add teacher-controlled config that governs student behavior: check button visibility, dot threshold, analysis trigger mode, notification style, chat enabled/disabled. Classroom-level defaults with per-assignment overrides.
 
@@ -117,19 +131,27 @@ Add teacher-controlled config that governs student behavior: check button visibi
 
 ### PR 4: Student App Reads Teacher Config (depends on PR 3)
 
-**P0**
+**P0 — Done (2026-02-15)**
 
 Make the student frontend respect all teacher config fields. Remove the "Analyzing..." spinner, conditionally render Check button, gate chat on `chat_enabled`, apply `dot_threshold` and `max_dots_shown` in `MistakeOverlay`, apply `analysis_trigger` mode in `useAutoAnalysis`.
 
+**Completion rationale**:
+- Added secure student assignment contract: `GET /assignments/:id` now requires auth + classroom membership and returns `assignment.resolved_config`.
+- Extended config schema support for `analysis_trigger=auto_page_change` in both teacher and student schema copies, with sync check passing.
+- Wired frontend to resolved config as source of truth (`check_button_visible`, `analysis_trigger`, `chat_enabled`, `dot_threshold`, `max_dots_shown`, `notification_style`, `analysis_debounce_seconds`).
+- Implemented all trigger modes in `useAutoAnalysis`: `auto_idle`, `auto_page_change`, `manual_only`, and display-only `passive`.
+- Removed the dedicated “Analyzing...” bar, added chat gating, deterministic dot filtering/capping, and reusable toast/badge notification components.
+- Added backend regression tests for assignment config contract (401/403/200 + `resolved_config`) and config enum validation.
+
 ### PR 5: Eliminate All Silent Failures
 
-**P1**
+**P1 — Done**
 
-Fix remaining silent failure patterns. See Tech Debt section below for item-by-item status.
+Surfaced all remaining silent failure patterns: document screen stroke load/save and WebView parse errors show in a dismissible error bar; useDocuments load/save/remove/add errors exposed and shown where used; backend logs errors for continuation-artifact storage, coord pipeline, and coord-run creation (no more bare `except: pass`).
 
 ### PR 7: Shared Design System + Visual Overhaul
 
-**P2**
+**P2 — Done**
 
 Create `packages/design/` with Veridian branding (green-primary #16A34A), shared components (Card, Button, Toast, Skeleton, EmptyState, ErrorState), and apply across both frontends. Notability-like minimal canvas UX. Card grid navigation.
 
@@ -143,10 +165,11 @@ Create `packages/design/` with Veridian branding (green-primary #16A34A), shared
 | 2 | WebSocket emit | STILL PRESENT | Add `is_healthy()` check; no-op when uninitialized |
 | 3 | Status update on analysis | FIXED (retry) | No action |
 | 4 | Dot coordinate computation | PARTIALLY FIXED | Cache `image_dims` from pipeline, pass through |
-| 5 | Mistake coord pipeline | STILL PRESENT | Keep `mistake_count`, return mistakes without coords |
-| 6 | Stroke loading | PARTIALLY FIXED | Add schema validation + toast on corrupt data |
-| 7 | ViewShot capture | IMPROVED | Add `captureReady` gating |
-| 8 | Legacy submit error | IMPROVED | Add 401 handling, show actual error messages |
+| 5 | Mistake coord pipeline | IMPROVED | Failures logged; mistakes fallback to [] |
+| 6 | Stroke loading | FIXED | Error surfaced in banner; document list load/save/add/remove errors surfaced |
+| 7 | ViewShot capture | FIXED | Gate on canvasDims; CaptureResult (unavailable/failed); status banner; no swallowed errors |
+| 8 | Legacy submit error | FIXED | showAlert for all failure paths |
+| 9 | Continuation artifact / coord run | FIXED | Backend logs errors instead of silent pass |
 
 ---
 
@@ -154,7 +177,7 @@ Create `packages/design/` with Veridian branding (green-primary #16A34A), shared
 
 - **Chat intelligent context**: Teacher selects corpus files per assignment; chat uses them as tutoring context
 - **Enhanced note-taking**: Grid/lined backgrounds, color palette, stroke width, pinch-to-zoom
-- **Analytics**: Daily aggregation — struggle heatmap, engagement metrics, AI-synthesized concept gaps
+- **Analytics**: ~~Classroom overview + severity breakdown~~ DONE, ~~per-assignment trends~~ DONE, ~~FAQ sample questions~~ DONE, ~~heatmap severity grouping~~ DONE, ~~production polish (refresh UX, temporal sort, severity labels, tag dedup, stemming)~~ DONE — remaining: AI-synthesized concept gaps
 
 ---
 
@@ -167,7 +190,8 @@ Create `packages/design/` with Veridian branding (green-primary #16A34A), shared
 | Assignment-driven student flow | Teacher uploads everything, students just solve |
 | Invisible analysis | No spinners; teacher config controls triggers and visibility |
 | One problem per screen (student) | Clear UX, per-problem result history |
-| Configurable analysis trigger | Default 15s idle debounce; teacher can set auto/manual/passive |
+| Configurable analysis trigger | Default 15s idle debounce; teacher can set auto/manual/passive/page-change |
+| Student assignment config contract | Student backend returns `resolved_config` behind auth + classroom membership |
 | WebSocket for real-time | Push results without polling |
 | threading for SocketIO | eventlet caused startup hangs |
 | Signed URLs via admin client | User JWTs rejected by Storage API |

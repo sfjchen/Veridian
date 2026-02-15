@@ -11,7 +11,8 @@ import { createPdfPreviewDataUri, looksLikeImage, looksLikePdf, looksLikeText } 
 import { useSubmissions } from "../../hooks/useSubmissions";
 import { LatexRenderer } from "../../components/LatexRenderer";
 import { FileUploader } from "../../components/FileUploader";
-import { AssignmentDetail, Submission } from "../../types";
+import { ConfigEditor } from "../../components/ConfigEditor";
+import { AssignmentConfig, AssignmentDetail, Submission } from "../../types";
 import { alert } from "../../lib/alert";
 import {
   Button,
@@ -63,6 +64,7 @@ export function TeacherAssignmentScreen({ route, navigation }: { route: any; nav
   const [editing, setEditing] = useState(false);
   const [editTitle, setEditTitle] = useState("");
   const [editDueDate, setEditDueDate] = useState("");
+  const [editConfig, setEditConfig] = useState<Partial<AssignmentConfig>>({});
   const [saving, setSaving] = useState(false);
 
   const [reuploadUrls, setReuploadUrls] = useState<{
@@ -83,9 +85,23 @@ export function TeacherAssignmentScreen({ route, navigation }: { route: any; nav
     try {
       const data = await api<AssignmentDetail>(`/assignments/${assignmentId}`);
       if (!mountedRef.current) return;
+      if (!data) {
+        setAssignment(null);
+        setEditTitle("");
+        setEditDueDate("");
+        setAssignmentContent(null);
+        setIsPdf(false);
+        setPdfPreviewUri(null);
+        setImagePreviewUrl(null);
+        setBinaryDownloadUrl(null);
+        setReuploadUrls(null);
+        if (mountedRef.current) setLoading(false);
+        return;
+      }
       setAssignment(data);
       setEditTitle(data.title);
       setEditDueDate(data.due_date ? data.due_date.split("T")[0] : "");
+      setEditConfig(data.config ?? {});
       setAssignmentContent(null);
       setIsPdf(false);
       setPdfPreviewUri(null);
@@ -108,8 +124,10 @@ export function TeacherAssignmentScreen({ route, navigation }: { route: any; nav
               const previewUri = await createPdfPreviewDataUri(blob);
               if (mountedRef.current) setPdfPreviewUri(previewUri);
             } catch (previewError) {
-              console.error("Failed to generate PDF preview image:", previewError);
-              if (mountedRef.current) setPdfPreviewUri(null);
+              if (mountedRef.current) {
+                setPdfPreviewUri(null);
+                alert("Warning", "Could not generate PDF preview image");
+              }
             }
           } else if (looksLikeImage(contentType, bytes)) {
             setIsPdf(false);
@@ -142,7 +160,8 @@ export function TeacherAssignmentScreen({ route, navigation }: { route: any; nav
       if (!pdfResp.ok) throw new Error("Failed to download PDF");
       const blob = await pdfResp.blob();
 
-      const { data: { session } } = await supabase.auth.getSession();
+      const { data: sessionData } = await supabase.auth.getSession();
+      const session = sessionData?.session ?? null;
       const formData = new FormData();
       formData.append("file", blob as any, "assignment.pdf");
 
@@ -194,6 +213,7 @@ export function TeacherAssignmentScreen({ route, navigation }: { route: any; nav
         body: {
           title: editTitle.trim(),
           due_date: editDueDate.trim() || null,
+          config: editConfig,
         },
       });
       setAssignment((prev) => prev ? { ...prev, ...updated } : updated);
@@ -260,21 +280,94 @@ export function TeacherAssignmentScreen({ route, navigation }: { route: any; nav
             <Text style={[styles.modeText, viewMode === "teacher" && styles.modeTextActive]}>
               Teacher View
             </Text>
-          </TouchableOpacity>
+          )}
+          {assignmentContent ? (
+            <View style={styles.contentPreview}>
+              <Text style={styles.sectionTitle}>Problem</Text>
+              <LatexRenderer latex={assignmentContent} />
+            </View>
+          ) : imagePreviewUrl ? (
+            <View style={styles.contentPreview}>
+              <Text style={styles.sectionTitle}>Problem</Text>
+              <Image source={{ uri: imagePreviewUrl }} style={styles.assignmentImage} resizeMode="contain" />
+            </View>
+          ) : isPdf ? (
+            <View>
+              {pdfPreviewUri && (
+                <Image source={{ uri: pdfPreviewUri }} style={styles.pdfPreview} resizeMode="contain" />
+              )}
+              <Text style={styles.noContent}>PDF uploaded — convert to LaTeX in Teacher View to preview</Text>
+            </View>
+          ) : binaryDownloadUrl ? (
+            <View style={styles.binaryNotice}>
+              <Text style={styles.binaryNoticeText}>This file type cannot be previewed in-app.</Text>
+              <TouchableOpacity style={styles.downloadButton} onPress={() => handleOpenFile(binaryDownloadUrl)}>
+                <Text style={styles.downloadButtonText}>Download File</Text>
+              </TouchableOpacity>
+            </View>
+          ) : (
+            <Text style={styles.noContent}>No assignment file uploaded</Text>
+          )}
+          <View style={styles.disabledButton}>
+            <Text style={styles.disabledButtonText}>Submit Solution (disabled in preview)</Text>
+          </View>
           <TouchableOpacity
-            style={[styles.modeButton, viewMode === "student" && styles.modeButtonActive]}
-            onPress={() => setViewMode("student")}
+            style={styles.tryStudentButton}
+            onPress={() => navigation.navigate("StudentExperience", { assignmentId })}
           >
-            <Text style={[styles.modeText, viewMode === "student" && styles.modeTextActive]}>
-              Student View
-            </Text>
+            <Text style={styles.tryStudentButtonText}>Try Full Student Experience</Text>
           </TouchableOpacity>
         </View>
-
-        {viewMode === "student" ? (
-          <View>
-            <View style={styles.previewBanner}>
-              <Text style={styles.previewBannerText}>Student Preview</Text>
+      ) : (
+        /* Teacher View */
+        <View>
+          {editing ? (
+            <View>
+              <Text style={styles.sectionTitle}>Edit Assignment</Text>
+              <TextInput
+                style={styles.input}
+                placeholder="Assignment title"
+                value={editTitle}
+                onChangeText={setEditTitle}
+              />
+              <TextInput
+                style={styles.input}
+                placeholder="Due date (YYYY-MM-DD, optional)"
+                value={editDueDate}
+                onChangeText={setEditDueDate}
+              />
+              <Text style={styles.sectionTitle}>Config Overrides</Text>
+              {!assignment.classroom_config && (
+                <Text style={styles.configFallbackHint}>
+                  Classroom config unavailable; showing platform defaults.
+                </Text>
+              )}
+              <ConfigEditor
+                config={editConfig}
+                inheritedConfig={assignment.classroom_config}
+                onChange={setEditConfig}
+                mode="assignment"
+              />
+              <View style={[styles.editActions, { marginTop: 16 }]}>
+                <TouchableOpacity
+                  style={[styles.actionButton, styles.saveButton]}
+                  onPress={handleSave}
+                  disabled={saving}
+                >
+                  <Text style={styles.actionButtonText}>{saving ? "Saving..." : "Save"}</Text>
+                </TouchableOpacity>
+                <TouchableOpacity
+                  style={[styles.actionButton, styles.cancelButton]}
+                  onPress={() => {
+                    setEditing(false);
+                    setEditTitle(assignment.title);
+                    setEditDueDate(assignment.due_date ? assignment.due_date.split("T")[0] : "");
+                    setEditConfig(assignment.config ?? {});
+                  }}
+                >
+                  <Text style={styles.cancelButtonText}>Cancel</Text>
+                </TouchableOpacity>
+              </View>
             </View>
             <Text style={styles.title}>{assignment.title}</Text>
             {assignment.due_date && (
@@ -289,23 +382,45 @@ export function TeacherAssignmentScreen({ route, navigation }: { route: any; nav
                 <Text style={styles.sectionTitle}>Problem</Text>
                 <LatexRenderer latex={assignmentContent} />
               </View>
-            ) : imagePreviewUrl ? (
-              <View style={styles.contentPreview}>
-                <Text style={styles.sectionTitle}>Problem</Text>
-                <Image source={{ uri: imagePreviewUrl }} style={styles.assignmentImage} resizeMode="contain" />
-              </View>
-            ) : isPdf ? (
-              <View>
-                {pdfPreviewUri && (
-                  <Image source={{ uri: pdfPreviewUri }} style={styles.pdfPreview} resizeMode="contain" />
-                )}
-                <Text style={styles.noContent}>PDF uploaded — convert to LaTeX in Teacher View to preview</Text>
-              </View>
-            ) : binaryDownloadUrl ? (
-              <Card style={styles.binaryNotice}>
-                <Text style={styles.binaryNoticeText}>This file type cannot be previewed in-app.</Text>
-                <Button onPress={() => handleOpenFile(binaryDownloadUrl)} size="sm">Download File</Button>
-              </Card>
+              {assignment.due_date && (
+                <Text style={styles.due}>
+                  Due: {new Date(assignment.due_date).toLocaleDateString("en-US", {
+                    year: "numeric", month: "short", day: "numeric", timeZone: "UTC",
+                  })}
+                </Text>
+              )}
+
+              {assignment.resolved_config && (
+                <View style={styles.configSummary}>
+                  <Text style={styles.sectionTitle}>Active Config</Text>
+                  {Object.entries(assignment.resolved_config).map(([key, value]) => {
+                    const isOverridden = key in (assignment.config ?? {});
+                    return (
+                      <View key={key} style={styles.configRow}>
+                        <Text style={[styles.configKey, isOverridden && styles.configKeyOverridden]}>
+                          {key.replace(/_/g, " ")}
+                        </Text>
+                        <Text style={styles.configValue}>{String(value)}</Text>
+                      </View>
+                    );
+                  })}
+                </View>
+              )}
+            </View>
+          )}
+
+          {/* Files Section */}
+          <Text style={[styles.sectionTitle, { marginTop: 24 }]}>Files</Text>
+
+          <View style={styles.fileCard}>
+            <Text style={styles.fileLabel}>Assignment File</Text>
+            {assignment.assignment_file_download_url ? (
+              <TouchableOpacity
+                style={styles.downloadButton}
+                onPress={() => handleOpenFile(assignment.assignment_file_download_url!)}
+              >
+                <Text style={styles.downloadButtonText}>View / Download</Text>
+              </TouchableOpacity>
             ) : (
               <Text style={styles.noContent}>No assignment file uploaded</Text>
             )}
@@ -588,6 +703,21 @@ const styles = StyleSheet.create({
   noContent: { ...typography.body, color: palette.textMuted, textAlign: "center", marginTop: spacing.md },
   errorText: { ...typography.body, color: palette.error, textAlign: "center", marginTop: spacing.xs },
 
+  configFallbackHint: {
+    fontSize: 12, color: "#92400E", backgroundColor: "#FEF3C7",
+    padding: 8, borderRadius: 6, marginBottom: 8,
+  },
+  configSummary: {
+    backgroundColor: "#F9FAFB", borderRadius: 8, padding: 14, marginBottom: 16,
+  },
+  configRow: {
+    flexDirection: "row", justifyContent: "space-between",
+    paddingVertical: 4,
+  },
+  configKey: { fontSize: 13, color: "#6B7280", textTransform: "capitalize" },
+  configKeyOverridden: { color: "#4F46E5", fontWeight: "600" },
+  configValue: { fontSize: 13, fontWeight: "500", color: "#374151" },
+
   disabledButton: {
     backgroundColor: palette.border,
     borderRadius: radius.button,
@@ -595,5 +725,10 @@ const styles = StyleSheet.create({
     alignItems: "center",
     marginTop: spacing.lg,
   },
-  disabledButtonText: { ...typography.body, fontWeight: "600", color: palette.textMuted },
+  disabledButtonText: { color: "#6B7280", fontSize: 16, fontWeight: "600" },
+  tryStudentButton: {
+    backgroundColor: "#4F46E5", borderRadius: 8, padding: 16,
+    alignItems: "center", marginTop: 12,
+  },
+  tryStudentButtonText: { color: "#fff", fontSize: 16, fontWeight: "600" },
 });

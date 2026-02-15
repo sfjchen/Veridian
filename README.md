@@ -2,6 +2,16 @@
 
 Full EdTech platform: teacher side (classrooms, assignments, corpus, submissions) and student side (canvas, AI mistake analysis, Socratic chat). Shared Supabase.
 
+## Student Runtime Config (PR #4)
+
+- Student assignment behavior is now controlled by teacher `resolved_config` values returned by student backend `GET /assignments/:id`.
+- Endpoint contract is auth-protected and membership-gated (`401` unauthenticated, `403` non-member).
+- Student app honors:
+  - `analysis_trigger`: `auto_idle`, `auto_page_change`, `manual_only`, `passive`
+  - `check_button_visible`, `chat_enabled`
+  - `dot_threshold`, `max_dots_shown`
+  - `notification_style`: `silent`, `toast`, `badge`
+
 ## Repo Structure
 
 | Path | Purpose |
@@ -31,10 +41,16 @@ See `scripts/README.md` for all script options.
 
 ## Setup
 
-1. Copy env: `teacher/backend/.env.example` → `teacher/backend/.env`, `teacher/frontend/.env.example` → `teacher/frontend/.env`, `student/backend/.env.example` → `student/backend/.env`, `student/frontend/.env.example` → `student/frontend/.env`
-2. Install deps: `pip install -r requirements.txt` in `teacher/backend/` and `student/backend/`; `npm install` in `teacher/frontend/` and `student/frontend/`
+1. **Copy env** (4 apps, 4 `.env` files — each app loads from its own dir):
+   - `teacher/backend/.env.example` → `teacher/backend/.env`
+   - `teacher/frontend/.env.example` → `teacher/frontend/.env` (set `EXPO_PUBLIC_API_URL=http://localhost:5001` for teacher backend)
+   - `student/backend/.env.example` → `student/backend/.env`
+   - `student/frontend/.env.example` → `student/frontend/.env` (set `EXPO_PUBLIC_BACKEND_URL` for student backend, e.g. `http://localhost:8000`)
+2. **Install deps**: `pip install -r requirements.txt` in `teacher/backend/` and `student/backend/`; `npm install` in `teacher/frontend/` and `student/frontend/`
 
 (Migrations: run once per project via `./scripts/apply_migrations.sh` if needed.)
+
+**Convention**: When adding packages or env vars, update `requirements.txt` (or `package.json`), the relevant `.env.example`, and running docs in the same PR.
 
 ## Supabase Migrations
 

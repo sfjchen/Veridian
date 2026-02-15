@@ -1,13 +1,11 @@
 import React, { useState } from "react";
 import { ScrollView, StyleSheet, Text, View } from "react-native";
 import * as DocumentPicker from "expo-document-picker";
+import { ConfigEditor } from "../../components/ConfigEditor";
 import { api } from "../../lib/api";
 import { alert } from "../../lib/alert";
 import { uploadFile } from "../../lib/upload";
-import { Button, Card, Input, ScreenContainer, Section } from "../../components/ui";
-import { palette } from "../../constants/palette";
-import { spacing } from "../../constants/spacing";
-import { typography } from "../../constants/typography";
+import { AssignmentConfig } from "../../types";
 
 const DATE_PATTERN = /^\d{4}-\d{2}-\d{2}$/;
 
@@ -25,6 +23,9 @@ export function CreateAssignmentScreen({ route, navigation }: { route: any; navi
   const [assignmentFile, setAssignmentFile] = useState<PickedFile | null>(null);
   const [answerKeyFile, setAnswerKeyFile] = useState<PickedFile | null>(null);
   const [creating, setCreating] = useState(false);
+  const [configExpanded, setConfigExpanded] = useState(false);
+  const [configDraft, setConfigDraft] = useState<Partial<AssignmentConfig>>({});
+  const classroomConfig: AssignmentConfig | undefined = route.params?.classroomConfig;
 
   const pickFile = async (setter: (f: PickedFile) => void) => {
     const result = await DocumentPicker.getDocumentAsync({
@@ -63,12 +64,16 @@ export function CreateAssignmentScreen({ route, navigation }: { route: any; navi
 
     setCreating(true);
     try {
+      const body: Record<string, any> = { title: title.trim(), due_date: dueDateValue };
+      if (Object.keys(configDraft).length > 0) {
+        body.config = configDraft;
+      }
       const result = await api<{
         assignment_file_upload_url: string;
         answer_key_upload_url: string;
       }>(`/classrooms/${classroomId}/assignments`, {
         method: "POST",
-        body: { title: title.trim(), due_date: dueDateValue },
+        body,
       });
 
       const uploads: Promise<void>[] = [];
@@ -106,47 +111,92 @@ export function CreateAssignmentScreen({ route, navigation }: { route: any; navi
   };
 
   return (
-    <ScreenContainer maxWidth="form">
-      <ScrollView contentContainerStyle={styles.scroll} showsVerticalScrollIndicator={false}>
-        <Section title="New Assignment">
-          <Input
-            placeholder="Assignment title"
-            value={title}
-            onChangeText={setTitle}
+    <ScrollView style={styles.container}>
+      <Text style={styles.title}>New Assignment</Text>
+
+      <TextInput
+        style={styles.input}
+        placeholder="Assignment title"
+        value={title}
+        onChangeText={setTitle}
+      />
+      <TextInput
+        style={styles.input}
+        placeholder="Due date (YYYY-MM-DD, optional)"
+        value={dueDate}
+        onChangeText={setDueDate}
+      />
+
+      <Text style={styles.sectionTitle}>Assignment File (optional)</Text>
+      <TouchableOpacity style={styles.filePicker} onPress={() => pickFile(setAssignmentFile)}>
+        <Text style={styles.filePickerText}>
+          {assignmentFile ? assignmentFile.name : "Select Assignment File"}
+        </Text>
+      </TouchableOpacity>
+
+      <Text style={styles.sectionTitle}>Answer Key (optional)</Text>
+      <TouchableOpacity style={styles.filePicker} onPress={() => pickFile(setAnswerKeyFile)}>
+        <Text style={styles.filePickerText}>
+          {answerKeyFile ? answerKeyFile.name : "Select Answer Key"}
+        </Text>
+      </TouchableOpacity>
+
+      <TouchableOpacity
+        style={styles.expandToggle}
+        onPress={() => setConfigExpanded(!configExpanded)}
+      >
+        <Text style={styles.expandToggleText}>
+          {configExpanded ? "- Hide Settings" : "+ Assignment Settings"}
+        </Text>
+      </TouchableOpacity>
+      {configExpanded && (
+        <View style={styles.configSection}>
+          <ConfigEditor
+            config={configDraft}
+            inheritedConfig={classroomConfig}
+            onChange={setConfigDraft}
+            mode="assignment"
           />
-          <Input
-            placeholder="Due date (YYYY-MM-DD, optional)"
-            value={dueDate}
-            onChangeText={setDueDate}
-          />
-        </Section>
+        </View>
+      )}
 
-        <Section title="Assignment File (optional)">
-          <Card onPress={() => pickFile(setAssignmentFile)} style={styles.fileCard}>
-            <Text style={styles.filePickerText}>
-              {assignmentFile ? assignmentFile.name : "Select Assignment File"}
-            </Text>
-          </Card>
-        </Section>
-
-        <Section title="Answer Key (optional)">
-          <Card onPress={() => pickFile(setAnswerKeyFile)} style={styles.fileCard}>
-            <Text style={styles.filePickerText}>
-              {answerKeyFile ? answerKeyFile.name : "Select Answer Key"}
-            </Text>
-          </Card>
-        </Section>
-
-        <Button onPress={handleCreate} loading={creating} disabled={creating} fullWidth>
-          Create Assignment
-        </Button>
-      </ScrollView>
-    </ScreenContainer>
+      <TouchableOpacity
+        style={[styles.button, creating && styles.buttonDisabled]}
+        onPress={handleCreate}
+        disabled={creating}
+      >
+        {creating ? (
+          <ActivityIndicator color="#fff" />
+        ) : (
+          <Text style={styles.buttonText}>Create Assignment</Text>
+        )}
+      </TouchableOpacity>
+    </ScrollView>
   );
 }
 
 const styles = StyleSheet.create({
-  scroll: { paddingVertical: spacing.lg, paddingBottom: spacing.xxl },
-  fileCard: { marginBottom: spacing.md },
-  filePickerText: { ...typography.body, color: palette.textMuted },
+  container: { flex: 1, padding: 24, backgroundColor: "#fff" },
+  title: { fontSize: 22, fontWeight: "bold", marginBottom: 24 },
+  sectionTitle: { fontSize: 14, fontWeight: "600", color: "#374151", marginBottom: 8, marginTop: 8 },
+  input: {
+    borderWidth: 1, borderColor: "#ddd", borderRadius: 8,
+    padding: 14, marginBottom: 16, fontSize: 16,
+  },
+  filePicker: {
+    borderWidth: 1, borderColor: "#ddd", borderRadius: 8,
+    padding: 14, marginBottom: 16, backgroundColor: "#F9FAFB",
+  },
+  filePickerText: { fontSize: 15, color: "#6B7280" },
+  expandToggle: {
+    paddingVertical: 12, marginBottom: 8,
+  },
+  expandToggleText: { fontSize: 14, fontWeight: "600", color: "#4F46E5" },
+  configSection: { marginBottom: 16 },
+  button: {
+    backgroundColor: "#4F46E5", borderRadius: 8, padding: 16,
+    alignItems: "center", marginTop: 8,
+  },
+  buttonDisabled: { opacity: 0.7 },
+  buttonText: { color: "#fff", fontSize: 16, fontWeight: "600" },
 });

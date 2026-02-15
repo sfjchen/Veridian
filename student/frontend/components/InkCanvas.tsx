@@ -6,12 +6,14 @@ import {
   Text,
   View,
   type GestureResponderEvent,
+  type ViewStyle,
 } from 'react-native';
 import { MaterialCommunityIcons } from '@expo/vector-icons';
 import Svg, { Path } from 'react-native-svg';
 import ViewShot from 'react-native-view-shot';
 
 import { ShortcutHint } from '@/components/ShortcutHint';
+import { DOT_CURSOR } from '@/constants/cursor';
 import { palette, radius } from '@/constants/palette';
 
 export type Point = { x: number; y: number };
@@ -48,10 +50,23 @@ function deepCopyStrokes(strokes: Stroke[]): Stroke[] {
 export type InkCanvasProps = {
   strokes: Stroke[];
   onStrokesChange: (strokes: Stroke[]) => void;
+  onStrokeComplete?: (strokes: Stroke[], completedStrokeId: string) => void;
   style?: object;
   showToolbar?: boolean;
+  showAcceptButton?: boolean;
+  onAccept?: () => void;
   viewShotRef?: React.RefObject<ViewShot | null>;
   onCanvasLayout?: (width: number, height: number) => void;
+  /** Called when a new undoable stroke/erase action is recorded. */
+  onStrokeAction?: () => void;
+  /** Return true to intercept undo (parent handled it). */
+  beforeUndo?: () => boolean;
+  /** Return true to intercept redo (parent handled it). */
+  beforeRedo?: () => boolean;
+  /** External undoable state exists (keeps undo button enabled). */
+  hasExternalUndo?: boolean;
+  /** External redoable state exists (keeps redo button enabled). */
+  hasExternalRedo?: boolean;
 };
 
 export type ViewShotRef = React.RefObject<ViewShot | null>;
@@ -59,10 +74,18 @@ export type ViewShotRef = React.RefObject<ViewShot | null>;
 export function InkCanvas({
   strokes,
   onStrokesChange,
+  onStrokeComplete,
   style,
   showToolbar = true,
+  showAcceptButton,
+  onAccept,
   viewShotRef: externalViewShotRef,
   onCanvasLayout,
+  onStrokeAction,
+  beforeUndo,
+  beforeRedo,
+  hasExternalUndo,
+  hasExternalRedo,
 }: InkCanvasProps) {
   const [tool, setTool] = useState<Tool>('pen');
   const [markedForErase, setMarkedForErase] = useState<Set<string>>(new Set());
@@ -71,6 +94,8 @@ export function InkCanvas({
   const activeStrokeIdRef = useRef<string | null>(null);
   const shiftHeldRef = useRef(false);
   const handlersRef = useRef({ handleUndo: () => {}, handleRedo: () => {}, commitErase: () => {} });
+  const externalRef = useRef({ onStrokeAction, beforeUndo, beforeRedo });
+  externalRef.current = { onStrokeAction, beforeUndo, beforeRedo };
   const internalViewShotRef = useRef<ViewShot | null>(null);
   const viewShotRef = externalViewShotRef ?? internalViewShotRef;
   const strokesRef = useRef<Stroke[]>(strokes);
@@ -83,9 +108,11 @@ export function InkCanvas({
     redoRef.current = [];
     setCanUndo(true);
     setCanRedo(false);
+    externalRef.current.onStrokeAction?.();
   };
 
   const handleUndo = () => {
+    if (externalRef.current.beforeUndo?.()) return;
     if (historyRef.current.length === 0) return;
     redoRef.current = [...redoRef.current, deepCopyStrokes(strokesRef.current)];
     const previous = historyRef.current[historyRef.current.length - 1];
@@ -96,6 +123,7 @@ export function InkCanvas({
   };
 
   const handleRedo = () => {
+    if (externalRef.current.beforeRedo?.()) return;
     if (redoRef.current.length === 0) return;
     historyRef.current = [...historyRef.current, deepCopyStrokes(strokesRef.current)];
     const next = redoRef.current[redoRef.current.length - 1];
@@ -167,8 +195,13 @@ export function InkCanvas({
   const handleTouchEnd = () => {
     if (tool === 'eraser') {
       commitErase();
+      return;
     }
+    const completedId = activeStrokeIdRef.current;
     activeStrokeIdRef.current = null;
+    if (completedId) {
+      onStrokeComplete?.(strokesRef.current, completedId);
+    }
   };
 
   const handleClear = () => {
@@ -198,8 +231,13 @@ export function InkCanvas({
     const onKeyUp = (e: KeyboardEvent) => {
       if (e.key === 'Shift') {
         shiftHeldRef.current = false;
-        if (tool === 'eraser') handlersRef.current.commitErase();
-        else if (activeStrokeIdRef.current) activeStrokeIdRef.current = null;
+        if (tool === 'eraser') {
+          handlersRef.current.commitErase();
+        } else if (activeStrokeIdRef.current) {
+          const completedId = activeStrokeIdRef.current;
+          activeStrokeIdRef.current = null;
+          onStrokeComplete?.(strokesRef.current, completedId);
+        }
       }
     };
     window.addEventListener('keydown', onKeyDown);
@@ -239,8 +277,13 @@ export function InkCanvas({
 
   const handleWebMouseLeave = () => {
     if (Platform.OS !== 'web' || !shiftHeldRef.current) return;
-    if (tool === 'eraser') handlersRef.current.commitErase();
-    else if (activeStrokeIdRef.current) activeStrokeIdRef.current = null;
+    if (tool === 'eraser') {
+      handlersRef.current.commitErase();
+    } else if (activeStrokeIdRef.current) {
+      const completedId = activeStrokeIdRef.current;
+      activeStrokeIdRef.current = null;
+      onStrokeComplete?.(strokesRef.current, completedId);
+    }
   };
 
   return (
@@ -281,36 +324,46 @@ export function InkCanvas({
           <Pressable
             style={({ pressed }) => [
               styles.toolIconButton,
-              !canUndo && styles.toolIconButtonDisabled,
-              pressed && canUndo && { opacity: 0.7 },
+              !(canUndo || hasExternalUndo) && styles.toolIconButtonDisabled,
+              pressed && (canUndo || hasExternalUndo) && { opacity: 0.7 },
             ]}
             onPress={handleUndo}
-            disabled={!canUndo}
+            disabled={!(canUndo || hasExternalUndo)}
             accessibilityRole="button"
             accessibilityLabel="Undo">
             <MaterialCommunityIcons
               name="undo"
               size={20}
-              color={canUndo ? palette.primary : palette.textDisabled}
+              color={(canUndo || hasExternalUndo) ? palette.primary : palette.textDisabled}
             />
           </Pressable>
           <Pressable
             style={({ pressed }) => [
               styles.toolIconButton,
-              !canRedo && styles.toolIconButtonDisabled,
-              pressed && canRedo && { opacity: 0.7 },
+              !(canRedo || hasExternalRedo) && styles.toolIconButtonDisabled,
+              pressed && (canRedo || hasExternalRedo) && { opacity: 0.7 },
             ]}
             onPress={handleRedo}
-            disabled={!canRedo}
+            disabled={!(canRedo || hasExternalRedo)}
             accessibilityRole="button"
             accessibilityLabel="Redo">
             <MaterialCommunityIcons
               name="redo"
               size={20}
-              color={canRedo ? palette.primary : palette.textDisabled}
+              color={(canRedo || hasExternalRedo) ? palette.primary : palette.textDisabled}
             />
           </Pressable>
           <View style={styles.toolbarSpacer} />
+          {showAcceptButton && onAccept && (
+            <Pressable
+              style={({ pressed }) => [styles.acceptButton, pressed && { opacity: 0.7 }]}
+              onPress={onAccept}
+              accessibilityRole="button"
+              accessibilityLabel="Accept suggestion">
+              <MaterialCommunityIcons name="check" size={16} color={palette.white} />
+              <Text style={styles.acceptButtonText}>Accept</Text>
+            </Pressable>
+          )}
           <Pressable
             style={({ pressed }) => [styles.clearButton, pressed && { opacity: 0.7 }]}
             onPress={handleClear}
@@ -392,6 +445,21 @@ const styles = StyleSheet.create({
     opacity: 0.5,
   },
   toolbarSpacer: { flex: 1 },
+  acceptButton: {
+    backgroundColor: '#16a34a',
+    borderRadius: radius.button,
+    paddingVertical: 10,
+    paddingHorizontal: 12,
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 4,
+    marginRight: 8,
+  },
+  acceptButtonText: {
+    color: palette.white,
+    fontSize: 13,
+    fontWeight: '600',
+  },
   clearButton: {
     backgroundColor: palette.card,
     borderRadius: radius.button,
@@ -413,8 +481,6 @@ const styles = StyleSheet.create({
   touchLayer: {
     flex: 1,
   },
-  touchLayerWeb: {
-    // Small dot cursor for the drawing area on desktop web.
-    cursor: 'url("data:image/svg+xml,%3Csvg xmlns=%27http://www.w3.org/2000/svg%27 width=%278%27 height=%278%27%3E%3Ccircle cx=%274%27 cy=%274%27 r=%273%27 fill=%27%23333%27/%3E%3C/svg%3E") 4 4, crosshair',
-  } as any,
+  // RN ViewStyle.CursorValue omits custom url(); valid on web
+  touchLayerWeb: { cursor: DOT_CURSOR } as unknown as ViewStyle,
 });

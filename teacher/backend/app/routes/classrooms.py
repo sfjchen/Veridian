@@ -1,6 +1,6 @@
 import sys
 import uuid
-from typing import Tuple
+from typing import Any, Tuple
 
 from flask import Blueprint, Response, g, jsonify, request
 from postgrest.exceptions import APIError
@@ -8,6 +8,7 @@ from supabase import Client
 
 from app.middleware.auth import require_auth, require_role
 from app.services.code_generator import generate_class_code
+from app.services.config_schema import validate_config
 from app.services.storage import delete_object
 from app.services.supabase_client import get_supabase_admin_client
 
@@ -51,15 +52,25 @@ def create_classroom() -> Response | Tuple[Response, int]:
     if len(name) > MAX_CLASSROOM_NAME_LENGTH:
         return jsonify({"error": f"name must be <= {MAX_CLASSROOM_NAME_LENGTH} characters"}), 400
 
+    config = data.get("config") if data else None
+    if config is not None:
+        try:
+            config = validate_config(config)
+        except ValueError as e:
+            return jsonify({"error": str(e)}), 400
+
     client = get_supabase_admin_client()
     for attempt in range(CODE_GENERATION_MAX_ATTEMPTS):
         code = generate_class_code()
         try:
-            result = client.table("classrooms").insert({
+            insert_data: dict[str, Any] = {
                 "teacher_id": g.user_id,
                 "name": name,
                 "class_code": code,
-            }).execute()
+            }
+            if config:
+                insert_data["config"] = config
+            result = client.table("classrooms").insert(insert_data).execute()
             if not result.data:
                 return jsonify({"error": "Insert returned no data"}), 500
             return jsonify(result.data[0]), 201
@@ -136,18 +147,30 @@ def update_classroom(classroom_id: str) -> Response | Tuple[Response, int]:
     if not data:
         return jsonify({"error": "No data provided"}), 400
 
+    updates: dict[str, Any] = {}
     name = data.get("name")
-    if not isinstance(name, str):
-        return jsonify({"error": "name must be a string"}), 400
-    name = name.strip()
-    if not name:
-        return jsonify({"error": "name required"}), 400
-    if len(name) > MAX_CLASSROOM_NAME_LENGTH:
-        return jsonify({"error": f"name must be <= {MAX_CLASSROOM_NAME_LENGTH} characters"}), 400
+    if name is not None:
+        if not isinstance(name, str):
+            return jsonify({"error": "name must be a string"}), 400
+        name = name.strip()
+        if not name:
+            return jsonify({"error": "name cannot be empty"}), 400
+        if len(name) > MAX_CLASSROOM_NAME_LENGTH:
+            return jsonify({"error": f"name must be <= {MAX_CLASSROOM_NAME_LENGTH} characters"}), 400
+        updates["name"] = name
+
+    if "config" in data:
+        try:
+            updates["config"] = validate_config(data["config"])
+        except ValueError as e:
+            return jsonify({"error": str(e)}), 400
+
+    if not updates:
+        return jsonify({"error": "No valid fields to update"}), 400
 
     client = get_supabase_admin_client()
     try:
-        updated = client.table("classrooms").update({"name": name}).eq(
+        updated = client.table("classrooms").update(updates).eq(
             "id", classroom_id
         ).eq("teacher_id", g.user_id).execute()
     except APIError as e:

@@ -44,6 +44,7 @@ RECOMMENDATION_MAP = {
     "inactive": "Re-engage the student with a time-bound mini task.",
     "repeated_error_pattern": "Review one worked example targeting the repeated error pattern.",
     "high_error_volume": "Reduce scope temporarily and validate understanding after each step.",
+    "progress_marked_stuck": "Check in with the student directly to identify the specific blocker.",
     "dominant_complexity_issue": "Reinforce algorithmic complexity tradeoffs with simpler benchmarks.",
     "dominant_logic_issue": "Use trace tables to verify branch logic and edge cases.",
     "dominant_syntax_issue": "Assign a syntax-focused linting drill before the next attempt.",
@@ -78,6 +79,12 @@ class InsightContext:
     enrolled_students: list[str]
     display_names: dict[str, str]
     settings: InsightSettings
+
+
+@dataclass(frozen=True)
+class InsightData:
+    error_logs: list[dict[str, Any]]
+    progress_map: dict[str, dict[str, Any]]
 
 
 @dataclass(frozen=True)
@@ -204,14 +211,16 @@ def _latest_error_ts(logs: list[dict[str, Any]]) -> dict[str, datetime]:
 
 def _count_matching(sorted_logs: list[dict[str, Any]], key: str) -> tuple[int, datetime | None, datetime | None]:
     count = 0
-    oldest = parse_record_timestamp(sorted_logs[0], "occurred_at")
-    latest = oldest
+    latest: datetime | None = None
+    oldest: datetime | None = None
     for row in sorted_logs:
         if _group_key(row) != key:
             break
         count += 1
         ts = parse_record_timestamp(row, "occurred_at")
         if ts is not None:
+            if latest is None:
+                latest = ts
             oldest = ts
     return count, oldest, latest
 
@@ -258,8 +267,7 @@ def _empty_insights(aid: str, now: datetime) -> dict[str, Any]:
 def build_teacher_insights(
     assignment_id: str,
     roster: dict[str, str],
-    error_logs: list[dict[str, Any]],
-    latest_progress_by_student_id: dict[str, dict[str, Any]],
+    data: InsightData,
     settings: InsightSettings,
 ) -> dict[str, Any]:
     now = datetime.now(timezone.utc)
@@ -267,14 +275,14 @@ def build_teacher_insights(
     if not enrolled:
         return _empty_insights(assignment_id, now)
     ctx = InsightContext(enrolled, roster, settings)
-    agg = _agg_errors(error_logs, set(enrolled))
+    agg = _agg_errors(data.error_logs, set(enrolled))
     n = len(enrolled)
     return {
         "assignment_id": assignment_id,
         "generated_at": now.isoformat(),
         "student_count": n,
         "common_stumbling_blocks": _stumbling_blocks(agg, n, settings),
-        "engagement_metrics": _engagement(ctx, latest_progress_by_student_id, agg, _latest_error_ts(error_logs), now),
+        "engagement_metrics": _engagement(ctx, data.progress_map, agg, _latest_error_ts(data.error_logs), now),
         "concept_mastery": _concept_mastery(agg, n, settings),
     }
 
@@ -312,8 +320,12 @@ def _engagement(
     stuck: list[dict[str, Any]] = []
     for sid in ctx.enrolled_students:
         prog = pmap.get(sid, {})
-        _check_inactive(sid, prog, ets, ctx, now, inactive)
-        _check_stuck(sid, prog, agg.by_student, ctx, stuck)
+        entry = _check_inactive(sid, prog, ets, ctx, now)
+        if entry:
+            inactive.append(entry)
+        entry = _check_stuck(sid, prog, agg.by_student, ctx)
+        if entry:
+            stuck.append(entry)
     return {
         "inactive_students": sorted(inactive, key=_inactive_key, reverse=True),
         "stuck_students": sorted(stuck, key=_stuck_key, reverse=True),
@@ -322,32 +334,32 @@ def _engagement(
 
 def _check_inactive(
     sid: str, prog: dict[str, Any], ets: dict[str, datetime],
-    ctx: InsightContext, now: datetime, out: list[dict[str, Any]],
-) -> None:
+    ctx: InsightContext, now: datetime,
+) -> dict[str, Any] | None:
     last = parse_record_timestamp(prog, "last_active_at") or ets.get(sid)
     mins = _mins_since(now, last)
     if mins is not None and mins < ctx.settings.inactivity_minutes:
-        return
-    out.append({
+        return None
+    return {
         "student_id": sid, "display_name": ctx.display_names.get(sid, ""),
         "minutes_inactive": mins, "last_active_at": last.isoformat() if last else None,
-    })
+    }
 
 
 def _check_stuck(
     sid: str, prog: dict[str, Any],
     by_student: dict[str, list[dict[str, Any]]],
-    ctx: InsightContext, out: list[dict[str, Any]],
-) -> None:
+    ctx: InsightContext,
+) -> dict[str, Any] | None:
     reps, smins = _consec_error_window(by_student.get(sid, []))
     state = _norm(prog.get("state"), "unknown")
     stuck = reps >= ctx.settings.stuck_repeat_threshold and smins >= ctx.settings.stuck_minutes
     if not stuck and state != "stuck":
-        return
-    out.append({
+        return None
+    return {
         "student_id": sid, "display_name": ctx.display_names.get(sid, ""),
         "repeated_error_count": reps, "stuck_minutes": smins,
-    })
+    }
 
 
 def _concept_mastery(agg: ErrorAgg, n: int, s: InsightSettings) -> dict[str, list[dict[str, Any]]]:
@@ -432,10 +444,15 @@ def _failure_evidence(errs: list[dict[str, Any]], prog: dict[str, Any], now: dat
     )
 
 
+@dataclass(frozen=True)
+class FailureSummaryInput:
+    assignment_id: str
+    student_id: str
+    display_name: str
+
+
 def build_student_failure_summary(
-    assignment_id: str,
-    student_id: str,
-    display_name: str,
+    who: FailureSummaryInput,
     error_logs: list[dict[str, Any]],
     latest_progress: dict[str, Any] | None,
     settings: InsightSettings,
@@ -446,16 +463,17 @@ def build_student_failure_summary(
     ev = _failure_evidence(errs, prog, now)
     reasons = list(dict.fromkeys(_failure_reasons(ev, settings)))
     la = _last_active(prog, errs)
-    return _fmt_summary(assignment_id, student_id, display_name, now, reasons, ev, errs, la)
+    return _fmt_summary(who, now, reasons, ev, errs, la)
 
 
 def _fmt_summary(
-    aid: str, sid: str, name: str, now: datetime,
+    who: FailureSummaryInput, now: datetime,
     reasons: list[str], ev: FailureEvidence,
     errs: list[dict[str, Any]], la: datetime | None,
 ) -> dict[str, Any]:
     return {
-        "assignment_id": aid, "student_id": sid, "display_name": name,
+        "assignment_id": who.assignment_id, "student_id": who.student_id,
+        "display_name": who.display_name,
         "generated_at": now.isoformat(), "is_failing": bool(reasons),
         "failure_reasons": reasons, "recommended_actions": _recommendations(reasons),
         "evidence": {

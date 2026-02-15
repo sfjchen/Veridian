@@ -14,18 +14,27 @@ export function useAssignments(classroomId: string) {
   }, []);
 
   const refresh = useCallback(async () => {
-    if (!classroomId) return;
+    if (!classroomId) {
+      if (mountedRef.current) {
+        setAssignments([]);
+        setLoading(false);
+        setError(null);
+      }
+      return;
+    }
     setLoading(true);
     setError(null);
     try {
       const data = await api<Assignment[]>(`/classrooms/${classroomId}/assignments`);
-      if (mountedRef.current) setAssignments(data);
+      if (mountedRef.current) {
+        setAssignments(data ?? []);
+        setLoading(false);
+      }
     } catch (e) {
       if (mountedRef.current) {
         setError(e instanceof Error ? e.message : "Failed to fetch assignments");
+        setLoading(false);
       }
-    } finally {
-      if (mountedRef.current) setLoading(false);
     }
   }, [classroomId]);
 

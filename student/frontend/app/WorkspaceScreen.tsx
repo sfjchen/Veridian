@@ -2,9 +2,8 @@ import { useCallback, useEffect, useRef, useState } from 'react';
 import { ActivityIndicator, Alert, Platform, Pressable, SafeAreaView, StyleSheet, Text, View } from 'react-native';
 
 import { DrawingCanvas, type DrawingCanvasRef } from '@/components/DrawingCanvas';
+import { MistakeOverlay } from '@/components/MistakeOverlay';
 import { submitAnalysis, type Mistake } from '@/lib/api';
-import { BACKEND_URL } from '@/lib/backendBaseUrl';
-import { BoxOverlay } from '@/components/MistakeOverlay';
 import { ProblemHeader } from '@/components/ProblemHeader';
 import { ToolBar, type Tool } from '@/components/ToolBar';
 
@@ -66,11 +65,7 @@ export default function WorkspaceScreen() {
       }
       const body = await submitAnalysis(uri, { isSample: true });
       const raw = body.mistakes ?? [];
-      const ms = raw.filter((m): m is Mistake & { x_min: number; y_min: number; x_max: number; y_max: number } =>
-        typeof m.x_min === 'number' && typeof m.y_min === 'number' &&
-        typeof m.x_max === 'number' && typeof m.y_max === 'number' &&
-        m.x_max > m.x_min && m.y_max > m.y_min
-      );
+      const ms = raw.filter((m): m is Mistake => typeof m?.dot?.x === 'number' && typeof m?.dot?.y === 'number');
       if (__DEV__ && ms.length !== raw.length) {
         console.warn('[Analysis] Filtered invalid mistake coords:', raw);
       }
@@ -142,7 +137,7 @@ export default function WorkspaceScreen() {
             captureSize={captureSize}
           />
           {mistakes.length > 0 && captureSize && (
-            <BoxOverlay mistakes={mistakes} layoutWidth={captureSize.w} layoutHeight={captureSize.h} />
+            <MistakeOverlay mistakes={mistakes} revealMode="single-tap" />
           )}
         </View>
       </View>

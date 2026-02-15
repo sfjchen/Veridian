@@ -1,4 +1,4 @@
-import { useCallback, useState } from 'react';
+import { useCallback, useMemo, useState } from 'react';
 import {
   PixelRatio,
   Pressable,
@@ -9,6 +9,7 @@ import {
 } from 'react-native';
 
 import type { Mistake } from '@/lib/api';
+import type { DotThreshold } from '@/lib/teacherConfig';
 
 // Re-export Mistake from the canonical api module so existing imports from
 // MistakeOverlay continue to work after the PR #20 merge.
@@ -62,6 +63,12 @@ export function BoxOverlay({ mistakes, layoutWidth, layoutHeight }: BoxOverlayPr
 // ---------------------------------------------------------------------------
 
 const DOT_RADIUS = 8;
+const SEVERITY_RANK: Record<DotThreshold, number> = {
+  notational: 0,
+  mechanical: 1,
+  procedural: 2,
+  conceptual: 3,
+};
 
 type TapState = { id: string; taps: number };
 
@@ -69,11 +76,53 @@ type MistakeOverlayProps = {
   mistakes: Mistake[];
   revealMode?: 'single-tap' | 'progressive';
   onAskAboutMistake?: (mistake: Mistake) => void;
+  dotThreshold?: DotThreshold;
+  maxDotsShown?: number;
 };
 
-export function MistakeOverlay({ mistakes, revealMode = 'single-tap', onAskAboutMistake }: MistakeOverlayProps) {
+function severityRank(severity: string): number {
+  if (severity === 'notational') return SEVERITY_RANK.notational;
+  if (severity === 'mechanical') return SEVERITY_RANK.mechanical;
+  if (severity === 'procedural') return SEVERITY_RANK.procedural;
+  if (severity === 'conceptual') return SEVERITY_RANK.conceptual;
+  return -1;
+}
+
+function filterVisibleMistakes(
+  mistakes: Mistake[],
+  dotThreshold: DotThreshold,
+  maxDotsShown: number,
+): Mistake[] {
+  const minRank = SEVERITY_RANK[dotThreshold];
+  const filtered = mistakes.filter((m) => m.dot != null && severityRank(m.severity) >= minRank);
+  if (maxDotsShown <= 0 || filtered.length <= maxDotsShown) return filtered;
+
+  const prioritized = filtered
+    .map((mistake, index) => ({ mistake, index }))
+    .sort((a, b) => {
+      const rankDiff = severityRank(b.mistake.severity) - severityRank(a.mistake.severity);
+      if (rankDiff !== 0) return rankDiff;
+      return a.index - b.index;
+    })
+    .slice(0, maxDotsShown)
+    .map((item) => item.mistake);
+  return prioritized;
+}
+
+export function MistakeOverlay({
+  mistakes,
+  revealMode = 'single-tap',
+  onAskAboutMistake,
+  dotThreshold = 'mechanical',
+  maxDotsShown = 0,
+}: MistakeOverlayProps) {
   const [containerSize, setContainerSize] = useState({ width: 0, height: 0 });
   const [activeDot, setActiveDot] = useState<TapState | null>(null);
+
+  const visibleMistakes = useMemo(
+    () => filterVisibleMistakes(mistakes, dotThreshold, maxDotsShown),
+    [mistakes, dotThreshold, maxDotsShown],
+  );
 
   const handleLayout = useCallback((e: LayoutChangeEvent) => {
     const { width, height } = e.nativeEvent.layout;
@@ -97,7 +146,7 @@ export function MistakeOverlay({ mistakes, revealMode = 'single-tap', onAskAbout
 
   const dismissBubble = useCallback(() => setActiveDot(null), []);
 
-  if (!containerSize.width || !containerSize.height || mistakes.length === 0) {
+  if (!containerSize.width || !containerSize.height || visibleMistakes.length === 0) {
     return <View style={styles.overlay} pointerEvents="box-none" onLayout={handleLayout} />;
   }
 
@@ -106,7 +155,7 @@ export function MistakeOverlay({ mistakes, revealMode = 'single-tap', onAskAbout
       {activeDot && (
         <Pressable style={StyleSheet.absoluteFill} onPress={dismissBubble} />
       )}
-      {mistakes.map((m) => {
+      {visibleMistakes.map((m) => {
         if (!m.dot) return null;
         const left = m.dot.x * containerSize.width - DOT_RADIUS;
         // Backend uses bottom-left origin (math convention), frontend uses

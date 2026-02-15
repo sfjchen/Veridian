@@ -1,6 +1,6 @@
 # CLAUDE.md
 
-**Running docs**: `AGENTS.md`, `CLAUDE.md`, `README.md`, `PLAN.md`. Update when features, architecture, or conventions change.
+**Running docs**: `AGENTS.md`, `CLAUDE.md`, `README.md`, `PLAN.md`. Update when features, architecture, or conventions change. When adding packages or env vars: update `requirements.txt` (or `package.json`), `.env.example`, and running docs in the same PR.
 
 ## Project Overview
 
@@ -8,6 +8,7 @@ Math Mistake Analysis Platform — full monorepo (teacher + student). Shared Sup
 
 - **Teacher**: `teacher/backend/`, `teacher/frontend/` — Flask + React. Classrooms, assignments, corpus, submissions.
 - **Student**: `student/backend/`, `student/frontend/` — Flask + Expo. Canvas, mistake analysis, Socratic chat.
+- **Student assignment contract**: `GET /assignments/<id>` on student backend is auth + classroom-membership protected and returns merged `resolved_config` used by the student frontend runtime.
 
 ## Code Review Process
 
@@ -31,9 +32,32 @@ Address both reviewers' feedback before merging. **Always tag @codex and @claude
 | `student/frontend/` | Student Expo app (canvas, document, workspace) |
 | `supabase/` | Shared migrations |
 
+## Mistake analysis pipeline
+
+End-to-end flow (image → annotated result with coordinates):
+
+1. **Image → LaTeX**: OCR via OpenAI math OCR (`_image_bytes_to_latex` in get_coords; may downscale).
+2. **LLM analysis**: `mistake_analysis/client.py` — `MistakeAnalyzer._analyze`: compare student LaTeX to reference + context; tag bank in `constants.py`; JSON mistakes (tag, severity, explanation, erroneous_latex, location_hint). Retry once on parse failure.
+3. **Verification**: `_verify`: grader model checks analysis; returns verified_mistakes (original_index, verdict: correct | false_positive | mistagged, optional corrected_tag/severity), missed_mistakes.
+4. **Reconciliation**: `_reconcile`: drop FPs, apply mistagged corrections, append missed; normalize tag/severity against `ALL_TAGS`, `SEVERITIES`, `TAG_TO_SEVERITY`.
+5. **Annotate**: `_annotate`: find_snippet(erroneous_latex, location_hint); sort (start, -width); dedupe overlapping (keep outermost); reverse; insert `\mistake{...}` / `\mistaketext{...}`; ensure `\input{mistake_preamble}`. See `helpers.py` (find_snippet, in_math_mode).
+6. **Continuation**: Optional, in parallel with annotate when `include_solution`; `_continue` returns plain LaTeX continuation.
+7. **Coordinate pipeline**: If annotated LaTeX has `\mistake`/`\mistaketext`, get_coords runs vision: original image + annotated LaTeX → Claude; one bbox per annotation id (image pixels, bottom-left origin); parse and validate; merge with annotation fields; add normalized dot (center 0–1) in `_add_dot_coords`.
+8. **Postprocess**: `_postprocess_mistakes`: dot coords + hint_level (detailed | minimal | guided per spec).
+9. **API**: POST `/analyze-solution` — multipart image; optional assignment_id, problem_num, reference_tex, context_tex, include_solution; context from assignment/problem or form; persist result when assignment_id + problem_num set.
+
+Constants: `mistake_analysis/constants.py` — SEVERITIES, TAG_BANK, ALL_TAGS, TAG_TO_SEVERITY. LaTeX extraction/validation: get_coords `extract_mistake_annotations`, `validate_annotations`.
+
+### Speedups (implemented)
+
+- **OCR image downscaling**: Before math OCR, image is resized so longest side ≤ `MATH_OCR_MAX_IMAGE_SIDE` (default **1024**). LANCZOS resize; smaller images unchanged. Env: `MATH_OCR_MAX_IMAGE_SIDE`. Code: get_coords `_downscale_image_for_ocr`, used in `_image_bytes_to_latex`.
+- **Math OCR model and detail**: Screenshot→LaTeX uses OpenAI vision. Default **model** `gpt-4o-mini`, default **image detail** `low`. Env: `MATH_OCR_MODEL`, `MATH_OCR_IMAGE_DETAIL` (e.g. `high` for better quality). Code: `student/backend/src/math_screenshot_to_latex/models.py`, client passes to API.
+- **Parallel continuation and annotate**: When `include_solution` is true, continuation LLM call and annotate step run **in parallel** via `ThreadPoolExecutor(max_workers=2)` in `MistakeAnalyzer.run`. Wall time ≈ max(continuation_time, annotate_time).
+- **Optional (not done)**: Cache `image_dims` from the coord pipeline and pass into postprocess so `_add_dot_coords` does not open the image again with PIL.
+
 ## Conventions (from AGENTS.md)
 
-- Follow best industry standards: streamlined, efficient code; no comprehensive testing/docs required
+- Lean development: streamlined, efficient code. Skip comprehensive test suites — tests only for tricky regression-prone logic. No extensive documentation beyond running docs.
 - Type hints on all Python function signatures
 - ~20 line max per function
 - Flat over nested — early returns, guard clauses
@@ -41,3 +65,7 @@ Address both reviewers' feedback before merging. **Always tag @codex and @claude
 - No premature abstraction
 - Minimal comments — code should be self-documenting
 - **NEVER silently swallow exceptions** — always surface errors to the user or implement proper retry/recovery. No bare `except: pass`, no `catch { /* ignore */ }`. If an operation can fail, handle the failure visibly (toast, error state, retry) rather than hiding it.
+
+## Env layout (dev)
+
+Four `.env` files — one per app — is intentional. Each app loads from its own directory when run (`cd teacher/backend && python run.py`). Shared vars (Supabase) are duplicated; app-specific vars (e.g. `ANTHROPIC_API_KEY` for teacher, `OPENAI_API_KEY` for student) stay isolated. Copy from `.env.example` per app; see README Setup.

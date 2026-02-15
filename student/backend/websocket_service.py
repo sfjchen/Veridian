@@ -13,8 +13,10 @@ log = logging.getLogger(__name__)
 socketio: SocketIO | None = None
 
 
-def _cors_origins() -> list[str]:
-    raw = os.getenv("WS_CORS_ORIGINS", "http://localhost:3000")
+def _cors_origins() -> list[str] | str:
+    raw = os.getenv("WS_CORS_ORIGINS", "")
+    if not raw.strip():
+        return "*"
     return [o.strip() for o in raw.split(",") if o.strip()]
 
 
@@ -38,7 +40,8 @@ def _verify_token(token: str) -> str | None:
             if data is not None:
                 user = getattr(data, "user", None)
         return str(getattr(user, "id", None) or user.get("id", "")) or None
-    except Exception:
+    except Exception as exc:
+        log.warning("WebSocket token verification failed: %s", exc)
         return None
 
 

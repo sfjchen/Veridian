@@ -1,11 +1,11 @@
-from flask import Flask
+from flask import Flask, Response, jsonify
 from flask_cors import CORS
 from .config import Config
 
 
 def create_app() -> Flask:
     app = Flask(__name__)
-    CORS(app, origins="*", supports_credentials=True)
+    CORS(app, origins="*")
     config = Config.from_env()
     app.config.from_mapping(
         SECRET_KEY=config.flask_secret_key,
@@ -33,5 +33,20 @@ def create_app() -> Flask:
 
     from .routes.api_docs import api_docs_bp
     app.register_blueprint(api_docs_bp)
+
+    from .routes.analytics import analytics_bp
+    app.register_blueprint(analytics_bp)
+
+    @app.errorhandler(404)
+    def not_found(e: Exception) -> tuple[Response, int]:
+        return jsonify(error="Not found"), 404
+
+    @app.errorhandler(405)
+    def method_not_allowed(e: Exception) -> tuple[Response, int]:
+        return jsonify(error="Method not allowed"), 405
+
+    @app.errorhandler(500)
+    def internal_error(e: Exception) -> tuple[Response, int]:
+        return jsonify(error="Internal server error"), 500
 
     return app

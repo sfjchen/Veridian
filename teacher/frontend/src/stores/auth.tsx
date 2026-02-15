@@ -51,13 +51,14 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
 
     supabase.auth
       .getSession()
-      .then(async ({ data: { session }, error }) => {
+      .then(async ({ data, error }) => {
         if (stale) return;
         if (error) {
           console.error("Failed to load session:", error);
           setLoading(false);
           return;
         }
+        const session = data?.session ?? null;
         setSession(session);
         try {
           const resolved = await resolveRole(session?.user ?? null);
@@ -77,13 +78,14 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     const {
       data: { subscription },
     } = supabase.auth.onAuthStateChange(async (_event, newSession) => {
+      if (stale) return;
       setSession(newSession);
       try {
         const resolved = await resolveRole(newSession?.user ?? null);
-        setRole(resolved);
+        if (!stale) setRole(resolved);
       } catch (err) {
         console.error("Failed to resolve role on auth state change:", err);
-        setRole(null);
+        if (!stale) setRole(null);
       }
     });
 

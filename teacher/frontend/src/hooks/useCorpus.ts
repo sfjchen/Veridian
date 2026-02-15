@@ -14,18 +14,27 @@ export function useCorpus(classroomId: string) {
   }, []);
 
   const refresh = useCallback(async () => {
-    if (!classroomId) return;
+    if (!classroomId) {
+      if (mountedRef.current) {
+        setFiles([]);
+        setLoading(false);
+        setError(null);
+      }
+      return;
+    }
     setLoading(true);
     setError(null);
     try {
       const data = await api<CorpusFile[]>(`/classrooms/${classroomId}/corpus`);
-      if (mountedRef.current) setFiles(data);
+      if (mountedRef.current) {
+        setFiles(data ?? []);
+        setLoading(false);
+      }
     } catch (e) {
       if (mountedRef.current) {
         setError(e instanceof Error ? e.message : "Failed to fetch corpus");
+        setLoading(false);
       }
-    } finally {
-      if (mountedRef.current) setLoading(false);
     }
   }, [classroomId]);
 

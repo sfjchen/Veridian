@@ -14,18 +14,27 @@ export function useClassroomStudents(classroomId: string) {
   }, []);
 
   const refresh = useCallback(async () => {
-    if (!classroomId) return;
+    if (!classroomId) {
+      if (mountedRef.current) {
+        setStudents([]);
+        setLoading(false);
+        setError(null);
+      }
+      return;
+    }
     setLoading(true);
     setError(null);
     try {
       const data = await api<ClassroomStudent[]>(`/classrooms/${classroomId}/students`);
-      if (mountedRef.current) setStudents(data);
+      if (mountedRef.current) {
+        setStudents(data ?? []);
+        setLoading(false);
+      }
     } catch (e) {
       if (mountedRef.current) {
         setError(e instanceof Error ? e.message : "Failed to fetch students");
+        setLoading(false);
       }
-    } finally {
-      if (mountedRef.current) setLoading(false);
     }
   }, [classroomId]);
 

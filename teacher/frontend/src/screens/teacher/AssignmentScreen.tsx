@@ -25,6 +25,8 @@ import { AssignmentDetail, Submission } from "../../types";
 import { alert } from "../../lib/alert";
 import { ScreenContainer } from "../../components/ui/ScreenContainer";
 import { Skeleton, SkeletonCard } from "../../components/ui/Skeleton";
+import { ErrorState } from "../../components/ui/ErrorState";
+import { EmptyState } from "../../components/ui/EmptyState";
 
 const MAX_CONTENT_LENGTH = 100_000;
 const DATE_PATTERN = /^\d{4}-\d{2}-\d{2}$/;
@@ -522,46 +524,61 @@ export function TeacherAssignmentScreen({ route, navigation }: { route: any; nav
               <SkeletonCard />
             </View>
           ) : submissionsError ? (
-            <Text style={styles.errorText}>{submissionsError}</Text>
+            <ErrorState message={submissionsError} onRetry={refreshSubmissions} />
           ) : submissions.length === 0 ? (
-            <View style={styles.emptySubmissions}>
-              <Text style={styles.emptySubmissionsTitle}>No submissions yet</Text>
-              <Text style={styles.emptySubmissionsSubtitle}>
-                Students’ work will appear here after they submit.
-              </Text>
-            </View>
+            <EmptyState
+              title="No submissions yet"
+              description="Students’ work will appear here after they submit."
+            />
           ) : (
-            submissions.map((submission: Submission) => (
-              <View key={submission.id} style={styles.submissionCard}>
-                <View style={styles.listItemContent}>
-                  <Text style={styles.itemTitle}>
-                    {submission.student_display_name ?? `Student ${submission.student_id.slice(0, 8)}`}
-                  </Text>
-                  <Text style={styles.itemSub}>
-                    Submitted {new Date(submission.submitted_at).toLocaleString("en-US", {
-                      year: "numeric",
-                      month: "short",
-                      day: "numeric",
-                      hour: "numeric",
-                      minute: "2-digit",
-                      timeZone: "UTC",
-                    })}
-                  </Text>
+            submissions.map((submission: Submission) => {
+              const displayName = submission.student_display_name ?? `Student ${submission.student_id.slice(0, 8)}`;
+              return (
+                <View key={submission.id} style={styles.submissionCard}>
+                  <View style={styles.listItemContent}>
+                    <Text style={styles.itemTitle}>{displayName}</Text>
+                    <Text style={styles.itemSub}>
+                      Submitted {new Date(submission.submitted_at).toLocaleString("en-US", {
+                        year: "numeric",
+                        month: "short",
+                        day: "numeric",
+                        hour: "numeric",
+                        minute: "2-digit",
+                        timeZone: "UTC",
+                      })}
+                    </Text>
+                  </View>
+                  <View style={styles.submissionActions}>
+                    {assignment.classroom_id && (
+                      <TouchableOpacity
+                        style={styles.analysisLink}
+                        onPress={() => navigation.navigate("StudentMistakeDetail", {
+                          classroomId: assignment.classroom_id,
+                          studentId: submission.student_id,
+                          displayName,
+                        })}
+                        accessibilityRole="button"
+                        accessibilityLabel={`View analysis for ${displayName}`}
+                      >
+                        <Text style={styles.analysisLinkText}>View analysis</Text>
+                      </TouchableOpacity>
+                    )}
+                    {submission.download_url ? (
+                      <TouchableOpacity
+                        style={styles.downloadButton}
+                        onPress={() => handleOpenFile(submission.download_url!)}
+                        accessibilityRole="button"
+                        accessibilityLabel={`Open submission by ${displayName}`}
+                      >
+                        <Text style={styles.downloadButtonText}>Open</Text>
+                      </TouchableOpacity>
+                    ) : (
+                      <Text style={styles.noFile}>Unavailable</Text>
+                    )}
+                  </View>
                 </View>
-                {submission.download_url ? (
-                  <TouchableOpacity
-                    style={styles.downloadButton}
-                    onPress={() => handleOpenFile(submission.download_url!)}
-                    accessibilityRole="button"
-                    accessibilityLabel={`Open submission by ${submission.student_display_name ?? "student"}`}
-                  >
-                    <Text style={styles.downloadButtonText}>Open</Text>
-                  </TouchableOpacity>
-                ) : (
-                  <Text style={styles.noFile}>Unavailable</Text>
-                )}
-              </View>
-            ))
+              );
+            })
           )}
 
           {/* Content Preview */}
@@ -718,17 +735,16 @@ const styles = StyleSheet.create({
     borderRadius: radius.button,
     padding: 14,
     marginBottom: 8,
-    flexDirection: "row",
-    alignItems: "center",
-    justifyContent: "space-between",
+    flexDirection: "row" as const,
+    alignItems: "center" as const,
+    justifyContent: "space-between" as const,
   },
-  listItemContent: { flex: 1 },
-  itemTitle: { fontSize: 16, fontWeight: "500", color: palette.textPrimary },
+  listItemContent: { flex: 1, marginRight: spacing.sm },
+  itemTitle: { fontSize: 16, fontWeight: "500" as const, color: palette.textPrimary },
   itemSub: { ...typography.caption, color: palette.textMuted, marginTop: 4 },
-
-  emptySubmissions: { paddingVertical: 24, paddingHorizontal: 16 },
-  emptySubmissionsTitle: { fontSize: 16, fontWeight: "600", color: palette.textSecondary, marginBottom: 8 },
-  emptySubmissionsSubtitle: { fontSize: 14, color: palette.textMuted },
+  submissionActions: { flexDirection: "row" as const, alignItems: "center" as const, gap: spacing.sm },
+  analysisLink: { paddingVertical: 6, paddingHorizontal: 10 },
+  analysisLinkText: { ...typography.caption, fontWeight: "600" as const, color: palette.primary },
 
   contentPreview: { marginTop: 24, flex: 1, minHeight: 300 },
   noContent: { color: palette.textDisabled, textAlign: "center", marginTop: 16 },

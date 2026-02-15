@@ -1,19 +1,35 @@
+import Constants from 'expo-constants';
+import { Platform } from 'react-native';
 import { supabase } from '../../lib/supabase';
 import type { ResolvedConfig } from './teacherConfig';
 
-const STUDENT_API_URL = (() => {
+const STUDENT_API_PORT = '8000';
+
+function resolveStudentApiUrl(): string {
   const explicit = process.env.EXPO_PUBLIC_STUDENT_API_URL;
   if (explicit) return explicit.replace(/\/+$/, '');
+
   const teacherUrl = process.env.EXPO_PUBLIC_API_URL ?? '';
   if (teacherUrl) {
     try {
       const url = new URL(teacherUrl);
-      url.port = '8000';
+      url.port = STUDENT_API_PORT;
       return url.origin;
     } catch { /* fall through */ }
   }
-  return 'http://localhost:8000';
-})();
+
+  if (Platform.OS === 'web' && typeof window !== 'undefined' && window.location?.hostname) {
+    return `http://${window.location.hostname}:${STUDENT_API_PORT}`;
+  }
+  const hostUri = (Constants as any).expoConfig?.hostUri;
+  if (hostUri) return `http://${hostUri.split(':')[0]}:${STUDENT_API_PORT}`;
+  const debuggerHost = (Constants as any).expoGoConfig?.debuggerHost;
+  if (debuggerHost) return `http://${debuggerHost.split(':')[0]}:${STUDENT_API_PORT}`;
+
+  return `http://localhost:${STUDENT_API_PORT}`;
+}
+
+const STUDENT_API_URL = resolveStudentApiUrl();
 
 async function getToken(): Promise<string | undefined> {
   const { data } = await supabase.auth.getSession();

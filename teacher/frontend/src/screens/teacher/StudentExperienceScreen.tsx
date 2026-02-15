@@ -136,8 +136,15 @@ export function StudentExperienceScreen({ route, navigation }: { route: any; nav
         return { error: 'failed' };
       }
     }
-    return { error: 'unavailable' };
-  }, [canvasDims, currentStrokes]);
+    try {
+      const ref = viewShotRef.current as any;
+      if (!ref?.capture) return { error: 'unavailable' };
+      const uri: string = await ref.capture();
+      return { uri };
+    } catch {
+      return { error: 'failed' };
+    }
+  }, [canvasDims, currentStrokes, viewShotRef]);
 
   const onStaleResult = useCallback((result: AnalysisResult) => {
     if (result.problem_num == null) return;

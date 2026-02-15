@@ -15,7 +15,8 @@ import { useCorpus } from "../../hooks/useCorpus";
 import { useAssignments } from "../../hooks/useAssignments";
 import { useClassroomStudents } from "../../hooks/useClassroomStudents";
 import { Classroom, CorpusFile } from "../../types";
-import { palette, radius, typography } from "../../constants/palette";
+import { palette, radius } from "../../constants/palette";
+import { typography } from "../../constants/typography";
 import { alert } from "../../lib/alert";
 import { SkeletonCard } from "../../components/ui/Skeleton";
 

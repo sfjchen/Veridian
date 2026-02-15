@@ -37,4 +37,16 @@ describe("useSubmissions", () => {
     });
     expect(result.current.submissions).toEqual([]);
   });
+
+  it("sets error when api rejects", async () => {
+    mockApi.mockRejectedValue(new Error("Network failure"));
+
+    const { result } = renderHook(() => useSubmissions("a1"));
+
+    await waitFor(() => {
+      expect(result.current.loading).toBe(false);
+    });
+    expect(result.current.error).toBe("Network failure");
+    expect(result.current.submissions).toEqual([]);
+  });
 });

@@ -107,14 +107,18 @@ describe("api", () => {
     await expect(api("/test")).resolves.toEqual({});
   });
 
-  it("propagates error when response is 200 but response.json() throws (invalid JSON)", async () => {
-    const jsonError = new SyntaxError("Unexpected token");
+  it("throws user-friendly error when response is 200 but response.json() throws (invalid JSON)", async () => {
     mockFetch.mockResolvedValueOnce({
       ok: true,
       status: 200,
       headers: new Headers({ "content-length": "10" }),
-      json: () => Promise.reject(jsonError),
+      json: () => Promise.reject(new SyntaxError("Unexpected token")),
     });
-    await expect(api("/test")).rejects.toThrow(jsonError);
+    await expect(api("/test")).rejects.toThrow("Invalid response from server");
+  });
+
+  it("propagates error when getSession rejects", async () => {
+    mockGetSession.mockRejectedValue(new Error("Session error"));
+    await expect(api("/test")).rejects.toThrow("Session error");
   });
 });

@@ -46,5 +46,9 @@ export async function api<T = unknown>(
     return null as T;
   }
 
-  return response.json();
+  try {
+    return await response.json();
+  } catch {
+    throw new Error("Invalid response from server");
+  }
 }

@@ -55,7 +55,8 @@ veridian.fyi and s.veridian.fyi are added. At your DNS registrar, add CNAME reco
 - Build: `pip install -r requirements.txt`
 - Start: `gunicorn --worker-class eventlet -w 1 -b 0.0.0.0:${PORT:-5001} run:app`
 - Env: SUPABASE_URL, SUPABASE_SERVICE_ROLE_KEY, SUPABASE_ANON_KEY, SUPABASE_JWT_SECRET, ANTHROPIC_API_KEY, FLASK_SECRET_KEY
-- CORS_ALLOWED_ORIGINS: https://veridian.fyi,https://veridian-teacher.vercel.app,https://s.veridian.fyi,https://veridian-student.vercel.app
+- CORS_ALLOWED_ORIGINS: https://veridian.fyi,https://veridian-teacher.vercel.app,https://s.veridian.fyi,https://veridian-student.vercel.app,https://veridianteach.info,https://www.veridianteach.info
+# *.vercel.app preview URLs are allowed automatically via regex.
 
 ### Student Backend
 

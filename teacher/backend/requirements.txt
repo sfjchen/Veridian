@@ -4,8 +4,10 @@ python-socketio==5.12.0
 supabase==2.13.0
 anthropic>=0.79.0
 certifi>=2024.0.0
+eventlet>=0.36.0
+gunicorn>=23.0.0
 python-dotenv==1.0.1
 PyJWT==2.10.1
-cryptography==44.0.0
+gcryptography==44.0.0
 flask-cors==6.0.2
 PyMuPDF==1.26.4

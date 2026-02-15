@@ -15,8 +15,10 @@ import { useFocusEffect } from "@react-navigation/native";
 import { useCorpus } from "../../hooks/useCorpus";
 import { useAssignments } from "../../hooks/useAssignments";
 import { useClassroomStudents } from "../../hooks/useClassroomStudents";
+import { ScreenContainer } from "../../components/ui";
 import { Classroom, CorpusFile } from "../../types";
 import { palette, radius, typography } from "../../constants/palette";
+import { spacing } from "../../constants/spacing";
 import { alert } from "../../lib/alert";
 
 type Tab = "assignments" | "corpus" | "students";
@@ -89,7 +91,7 @@ export function TeacherClassroomScreen({ route, navigation }: { route: any; navi
   );
 
   return (
-    <View style={styles.container}>
+    <ScreenContainer maxWidth="dashboard">
       <Text style={styles.title}>{classroom.name}</Text>
       <View style={styles.codeRow}>
         <Text style={styles.code}>Class Code: {classroom.class_code}</Text>
@@ -273,18 +275,17 @@ export function TeacherClassroomScreen({ route, navigation }: { route: any; navi
           )}
         </View>
       )}
-    </View>
+    </ScreenContainer>
   );
 }
 
 const styles = StyleSheet.create({
-  container: { flex: 1, padding: 16, backgroundColor: palette.surface },
-  title: { ...typography.h1, color: palette.textPrimary, marginBottom: 4 },
-  codeRow: { flexDirection: "row", alignItems: "center", marginBottom: 16, gap: 8 },
+  title: { ...typography.h1, color: palette.textPrimary, marginBottom: spacing.xxs },
+  codeRow: { flexDirection: "row", alignItems: "center", marginBottom: spacing.md, gap: spacing.xs },
   code: { ...typography.bodySmall, color: palette.textMuted },
   copyButton: { paddingHorizontal: 10, paddingVertical: 4, borderRadius: radius.button, backgroundColor: palette.tabInactive },
   copyButtonText: { fontSize: 13, fontWeight: "600", color: palette.primary },
-  tabs: { flexDirection: "row", marginBottom: 16, gap: 8 },
+  tabs: { flexDirection: "row", marginBottom: spacing.md, gap: spacing.xs },
   tab: { flex: 1, padding: 10, borderRadius: radius.button, backgroundColor: palette.tabInactive, alignItems: "center" },
   tabActive: { backgroundColor: palette.primary },
   tabText: { fontWeight: "600", color: palette.textSecondary },
@@ -293,32 +294,32 @@ const styles = StyleSheet.create({
   addButton: {
     backgroundColor: palette.success,
     borderRadius: radius.button,
-    padding: 12,
+    padding: spacing.sm,
     alignItems: "center",
-    marginBottom: 12,
+    marginBottom: spacing.sm,
   },
   addButtonText: { color: palette.white, fontSize: 16, fontWeight: "600" },
-  loader: { marginTop: 16 },
+  loader: { marginTop: spacing.md },
   listItem: {
     backgroundColor: palette.card,
     borderRadius: radius.button,
     padding: 14,
-    marginBottom: 8,
+    marginBottom: spacing.xs,
     flexDirection: "row",
     alignItems: "center",
   },
   listItemContent: { flex: 1 },
   itemTitle: { fontSize: 16, fontWeight: "500", color: palette.textPrimary },
-  dueRow: { flexDirection: "row", alignItems: "center", gap: 8, marginTop: 4 },
+  dueRow: { flexDirection: "row", alignItems: "center", gap: spacing.xs, marginTop: spacing.xxs },
   itemSub: { ...typography.caption, color: palette.textMuted },
   dueOverdue: { color: palette.error },
   dueSoon: { color: palette.warning },
   badgeOverdue: { fontSize: 11, fontWeight: "600", color: palette.error },
   badgeSoon: { fontSize: 11, fontWeight: "600", color: palette.warning },
-  chevron: { fontSize: 18, color: palette.textDisabled, marginLeft: 8 },
-  downloadHint: { fontSize: 13, color: palette.primary, fontWeight: "600", marginLeft: 8 },
-  emptyWrap: { paddingVertical: 40, paddingHorizontal: 24, alignItems: "center" },
-  emptyTitle: { fontSize: 18, fontWeight: "600", color: palette.textSecondary, marginBottom: 8 },
+  chevron: { fontSize: 18, color: palette.textDisabled, marginLeft: spacing.xs },
+  downloadHint: { fontSize: 13, color: palette.primary, fontWeight: "600", marginLeft: spacing.xs },
+  emptyWrap: { paddingVertical: spacing.xxl, paddingHorizontal: spacing.lg, alignItems: "center" },
+  emptyTitle: { fontSize: 18, fontWeight: "600", color: palette.textSecondary, marginBottom: spacing.xs },
   emptySubtitle: { fontSize: 15, color: palette.textMuted, textAlign: "center", marginBottom: 20 },
   emptyButton: {
     backgroundColor: palette.primary,

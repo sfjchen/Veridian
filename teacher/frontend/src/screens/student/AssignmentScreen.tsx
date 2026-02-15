@@ -14,9 +14,11 @@ import { createPdfPreviewDataUri, looksLikeImage, looksLikePdf, looksLikeText } 
 import { useSubmissions } from "../../hooks/useSubmissions";
 import { LatexRenderer } from "../../components/LatexRenderer";
 import { FileUploader } from "../../components/FileUploader";
+import { ScreenContainer } from "../../components/ui";
 import { AssignmentDetail, Submission } from "../../types";
 import { alert } from "../../lib/alert";
 import { palette, radius, typography } from "../../constants/palette";
+import { spacing } from "../../constants/spacing";
 
 const MAX_ASSIGNMENT_FILE_LENGTH = 100_000;
 
@@ -126,7 +128,8 @@ export function AssignmentScreen({ route }: { route: any }) {
   const hasIncompleteSubmission = submissions.some((submission) => !submission.download_url);
 
   return (
-    <ScrollView style={styles.container}>
+    <ScreenContainer>
+      <ScrollView style={styles.scrollContent}>
       <Text style={styles.title}>{assignment.title}</Text>
       {assignment.due_date && (
         <Text style={styles.due}>
@@ -238,15 +241,16 @@ export function AssignmentScreen({ route }: { route: any }) {
         )}
       </View>
     </ScrollView>
+    </ScreenContainer>
   );
 }
 
 const styles = StyleSheet.create({
-  container: { flex: 1, padding: 16, backgroundColor: palette.card },
+  scrollContent: { flex: 1 },
   title: { ...typography.h1, color: palette.textPrimary },
-  due: { ...typography.bodySmall, color: palette.textMuted, marginTop: 4, marginBottom: 16 },
-  sectionTitle: { fontSize: 16, fontWeight: "600", marginBottom: 8, color: palette.textPrimary },
-  assignmentContainer: { flex: 1, marginBottom: 16 },
+  due: { ...typography.bodySmall, color: palette.textMuted, marginTop: spacing.xxs, marginBottom: spacing.md },
+  sectionTitle: { fontSize: 16, fontWeight: "600", marginBottom: spacing.xs, color: palette.textPrimary },
+  assignmentContainer: { flex: 1, marginBottom: spacing.md },
   assignmentImage: {
     width: "100%",
     minHeight: 220,
@@ -257,33 +261,33 @@ const styles = StyleSheet.create({
   submitButton: {
     backgroundColor: palette.primary,
     borderRadius: radius.button,
-    padding: 16,
+    padding: spacing.md,
     alignItems: "center",
-    marginTop: 16,
+    marginTop: spacing.md,
   },
   submitButtonText: { color: palette.white, fontSize: 16, fontWeight: "600" },
-  error: { textAlign: "center", color: palette.error, marginTop: 40 },
-  errorText: { color: palette.error, marginTop: 8 },
+  error: { textAlign: "center", color: palette.error, marginTop: spacing.xxl },
+  errorText: { color: palette.error, marginTop: spacing.xs },
   pdfNotice: {
     backgroundColor: palette.warningBg,
     borderRadius: radius.button,
-    padding: 16,
-    marginBottom: 16,
+    padding: spacing.md,
+    marginBottom: spacing.md,
   },
-  pdfNoticeText: { fontSize: 14, color: "#92400E", marginBottom: 8 },
+  pdfNoticeText: { fontSize: 14, color: "#92400E", marginBottom: spacing.xs },
   pdfPreview: {
     width: "100%",
     minHeight: 220,
     height: 300,
     borderRadius: radius.button,
     backgroundColor: palette.surface,
-    marginBottom: 8,
+    marginBottom: spacing.xs,
   },
   binaryNotice: {
     backgroundColor: "#EFF6FF",
     borderRadius: radius.button,
-    padding: 16,
-    marginBottom: 16,
+    padding: spacing.md,
+    marginBottom: spacing.md,
   },
   binaryNoticeText: { fontSize: 14, color: "#1E3A8A", marginBottom: 8 },
   downloadLink: {
@@ -298,16 +302,16 @@ const styles = StyleSheet.create({
     backgroundColor: palette.successBg,
     borderRadius: radius.button,
     padding: 14,
-    marginTop: 16,
+    marginTop: spacing.md,
   },
   alreadySubmittedText: { color: "#065F46", fontSize: 14, fontWeight: "500" },
-  historySection: { marginTop: 24, marginBottom: 32 },
-  emptyText: { color: palette.textDisabled, marginTop: 8 },
+  historySection: { marginTop: spacing.lg, marginBottom: spacing.xl },
+  emptyText: { color: palette.textDisabled, marginTop: spacing.xs },
   submissionCard: {
     backgroundColor: palette.surface,
     borderRadius: radius.button,
-    padding: 12,
-    marginTop: 8,
+    padding: spacing.sm,
+    marginTop: spacing.xs,
     flexDirection: "row",
     alignItems: "center",
     justifyContent: "space-between",
@@ -317,10 +321,10 @@ const styles = StyleSheet.create({
   historyDownloadButton: {
     backgroundColor: palette.primary,
     borderRadius: 6,
-    paddingVertical: 8,
-    paddingHorizontal: 12,
-    marginLeft: 12,
+    paddingVertical: spacing.xs,
+    paddingHorizontal: spacing.sm,
+    marginLeft: spacing.sm,
   },
   historyDownloadText: { color: palette.white, fontSize: 13, fontWeight: "600" },
-  unavailableText: { fontSize: 13, color: palette.textDisabled, marginLeft: 12 },
+  unavailableText: { fontSize: 13, color: palette.textDisabled, marginLeft: spacing.sm },
 });

@@ -19,7 +19,9 @@ import { useSubmissions } from "../../hooks/useSubmissions";
 import { LatexRenderer } from "../../components/LatexRenderer";
 import { FileUploader } from "../../components/FileUploader";
 import { DateField } from "../../components/DateField";
+import { ScreenContainer } from "../../components/ui";
 import { palette, radius, typography } from "../../constants/palette";
+import { spacing } from "../../constants/spacing";
 import { AssignmentDetail, Submission } from "../../types";
 import { alert } from "../../lib/alert";
 
@@ -224,16 +226,25 @@ export function TeacherAssignmentScreen({ route, navigation }: { route: any; nav
     Linking.openURL(url);
   };
 
-  if (loading && !refreshing) return <ActivityIndicator size="large" style={{ marginTop: 40 }} color={palette.primary} />;
-  if (!assignment) return <Text style={styles.error}>Assignment not found</Text>;
+  if (loading && !refreshing) return (
+    <ScreenContainer>
+      <ActivityIndicator size="large" style={{ marginTop: spacing.xxl }} color={palette.primary} />
+    </ScreenContainer>
+  );
+  if (!assignment) return (
+    <ScreenContainer>
+      <Text style={styles.error}>Assignment not found</Text>
+    </ScreenContainer>
+  );
 
   return (
-    <ScrollView
-      style={styles.container}
-      refreshControl={
-        <RefreshControl refreshing={refreshing} onRefresh={onRefresh} colors={[palette.primary]} />
-      }
-    >
+    <ScreenContainer maxWidth="dashboard">
+      <ScrollView
+        showsVerticalScrollIndicator={false}
+        refreshControl={
+          <RefreshControl refreshing={refreshing} onRefresh={onRefresh} colors={[palette.primary]} />
+        }
+      >
       <View style={styles.modeToggle}>
         <TouchableOpacity
           style={[styles.modeButton, viewMode === "teacher" && styles.modeButtonActive]}
@@ -545,18 +556,18 @@ export function TeacherAssignmentScreen({ route, navigation }: { route: any; nav
         </View>
       )}
     </ScrollView>
+    </ScreenContainer>
   );
 }
 
 const styles = StyleSheet.create({
-  container: { flex: 1, padding: 16, backgroundColor: palette.card },
   title: { ...typography.h1, flex: 1, color: palette.textPrimary },
-  due: { ...typography.bodySmall, color: palette.textMuted, marginTop: 4, marginBottom: 16 },
-  sectionTitle: { fontSize: 16, fontWeight: "600", marginBottom: 8, color: palette.textPrimary },
-  error: { textAlign: "center", color: palette.error, marginTop: 40 },
-  errorText: { textAlign: "center", color: palette.error, marginTop: 8 },
+  due: { ...typography.bodySmall, color: palette.textMuted, marginTop: spacing.xxs, marginBottom: spacing.md },
+  sectionTitle: { fontSize: 16, fontWeight: "600", marginBottom: spacing.xs, color: palette.textPrimary },
+  error: { textAlign: "center", color: palette.error, marginTop: spacing.xxl },
+  errorText: { textAlign: "center", color: palette.error, marginTop: spacing.xs },
 
-  modeToggle: { flexDirection: "row", marginBottom: 16, gap: 8 },
+  modeToggle: { flexDirection: "row", marginBottom: spacing.md, gap: spacing.xs },
   modeButton: {
     flex: 1,
     padding: 10,
@@ -578,7 +589,7 @@ const styles = StyleSheet.create({
     marginBottom: 16,
   },
 
-  headerRow: { flexDirection: "row", alignItems: "center", gap: 12 },
+  headerRow: { flexDirection: "row", alignItems: "center", gap: spacing.sm },
   editChip: {
     backgroundColor: palette.tabInactive,
     paddingHorizontal: 12,
@@ -592,10 +603,10 @@ const styles = StyleSheet.create({
     borderColor: palette.inputBorder,
     borderRadius: radius.input,
     padding: 14,
-    marginBottom: 12,
+    marginBottom: spacing.sm,
     fontSize: 16,
   },
-  editActions: { flexDirection: "row", gap: 12, marginBottom: 16 },
+  editActions: { flexDirection: "row", gap: spacing.sm, marginBottom: spacing.md },
   actionButton: { flex: 1, padding: 12, borderRadius: radius.button, alignItems: "center" },
   saveButton: { backgroundColor: palette.primary },
   cancelButton: { backgroundColor: palette.tabInactive },

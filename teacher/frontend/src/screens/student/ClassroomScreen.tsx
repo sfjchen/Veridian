@@ -1,6 +1,5 @@
 import React from "react";
 import {
-  View,
   Text,
   FlatList,
   TouchableOpacity,
@@ -8,15 +7,17 @@ import {
   ActivityIndicator,
 } from "react-native";
 import { useAssignments } from "../../hooks/useAssignments";
+import { ScreenContainer } from "../../components/ui";
 import { Classroom } from "../../types";
 import { palette, radius, typography } from "../../constants/palette";
+import { spacing } from "../../constants/spacing";
 
 export function StudentClassroomScreen({ route, navigation }: { route: any; navigation: any }) {
   const classroom: Classroom = route.params.classroom;
   const { assignments, loading, error } = useAssignments(classroom.id);
 
   return (
-    <View style={styles.container}>
+    <ScreenContainer>
       <Text style={styles.title}>{classroom.name}</Text>
       {loading ? (
         <ActivityIndicator size="large" color={palette.primary} />
@@ -54,27 +55,26 @@ export function StudentClassroomScreen({ route, navigation }: { route: any; navi
           }
         />
       )}
-    </View>
+    </ScreenContainer>
   );
 }
 
 const styles = StyleSheet.create({
-  container: { flex: 1, padding: 16, backgroundColor: palette.surface },
-  title: { ...typography.h1, marginBottom: 16, color: palette.textPrimary },
+  title: { ...typography.h1, marginBottom: spacing.md, color: palette.textPrimary },
   card: {
     backgroundColor: palette.card,
     borderRadius: radius.card,
-    padding: 16,
-    marginBottom: 12,
+    padding: spacing.md,
+    marginBottom: spacing.sm,
     shadowColor: "#000",
     shadowOpacity: 0.05,
     shadowRadius: 4,
     elevation: 2,
   },
   cardTitle: { fontSize: 18, fontWeight: "600", color: palette.textPrimary },
-  cardSub: { ...typography.caption, color: palette.textMuted, marginTop: 4 },
-  emptyWrap: { paddingVertical: 48, paddingHorizontal: 24, alignItems: "center" },
-  emptyTitle: { fontSize: 18, fontWeight: "600", color: palette.textSecondary, marginBottom: 8 },
+  cardSub: { ...typography.caption, color: palette.textMuted, marginTop: spacing.xxs },
+  emptyWrap: { paddingVertical: spacing.xxl, paddingHorizontal: spacing.lg, alignItems: "center" },
+  emptyTitle: { fontSize: 18, fontWeight: "600", color: palette.textSecondary, marginBottom: spacing.xs },
   emptySubtitle: { fontSize: 15, color: palette.textMuted, textAlign: "center" },
-  errorText: { textAlign: "center", color: palette.error, marginTop: 40 },
+  errorText: { textAlign: "center", color: palette.error, marginTop: spacing.xxl },
 });

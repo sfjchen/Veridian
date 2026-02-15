@@ -1,5 +1,5 @@
 import React, { useState } from "react";
-import { StyleSheet, Text, TouchableOpacity, View } from "react-native";
+import { Modal, StyleSheet, Text, TouchableOpacity, View } from "react-native";
 import * as DocumentPicker from "expo-document-picker";
 import { Button, Card, Input, ScreenContainer, Section } from "../../components/ui";
 import { ConfigEditor } from "../../components/ConfigEditor";
@@ -10,7 +10,7 @@ import { palette } from "../../constants/palette";
 import { spacing } from "../../constants/spacing";
 import { typography } from "../../constants/typography";
 import { useToast } from "../../contexts/ToastContext";
-import { api } from "../../lib/api";
+import { api, apiMultipart } from "../../lib/api";
 import { alert } from "../../lib/alert";
 import {
   ConversionProgressEvent,
@@ -104,7 +104,8 @@ export function CreateAssignmentScreen({ route, navigation }: { route: any; navi
   const [detectedProblems, setDetectedProblems] = useState<DetectedProblem[] | null>(null);
   const [convertedAssignmentId, setConvertedAssignmentId] = useState<string | null>(null);
   const [publishing, setPublishing] = useState(false);
-  const [quickUploadTitle, setQuickUploadTitle] = useState("");
+  const [quickTitleModalVisible, setQuickTitleModalVisible] = useState(false);
+  const [quickTitleDraft, setQuickTitleDraft] = useState("");
 
   const pickFile = async (setter: (f: PickedFile) => void) => {
     const result = await DocumentPicker.getDocumentAsync({
@@ -121,7 +122,19 @@ export function CreateAssignmentScreen({ route, navigation }: { route: any; navi
     });
   };
 
-  const handleQuickUpload = async () => {
+  const handleQuickUploadTap = () => {
+    setQuickTitleDraft("");
+    setQuickTitleModalVisible(true);
+  };
+
+  const handleQuickUploadSubmit = async () => {
+    const assignmentTitle = quickTitleDraft.trim();
+    if (!assignmentTitle) {
+      alert("Error", "Title is required");
+      return;
+    }
+    setQuickTitleModalVisible(false);
+
     const result = await DocumentPicker.getDocumentAsync({
       type: ["application/pdf", "text/plain"],
       copyToCacheDirectory: true,
@@ -137,15 +150,8 @@ export function CreateAssignmentScreen({ route, navigation }: { route: any; navi
     };
     const fileName = picked.name.toLowerCase();
 
-    // Validate file type
     if (!fileName.endsWith(".pdf") && !fileName.endsWith(".tex")) {
       alert("Error", "Please select a PDF or TEX file");
-      return;
-    }
-
-    const assignmentTitle = quickUploadTitle.trim();
-    if (!assignmentTitle) {
-      alert("Error", "Title is required");
       return;
     }
 
@@ -186,29 +192,11 @@ export function CreateAssignmentScreen({ route, navigation }: { route: any; navi
       formData.append("file", toMultipartFile(picked) as any);
       formData.append("title", assignmentTitle);
       formData.append("job_id", jobId);
-      const token = await api.getToken();
-      if (!token) {
-        throw new Error("Authentication required");
-      }
 
-      // Call auto-conversion endpoint
-      const response = await fetch(
-        `${api.baseUrl}/classrooms/${classroomId}/assignments/from-file`,
-        {
-          method: "POST",
-          headers: {
-            Authorization: `Bearer ${token}`,
-          },
-          body: formData,
-        }
+      const data = await apiMultipart<{ id: string; problems?: DetectedProblem[] }>(
+        `/classrooms/${classroomId}/assignments/from-file`,
+        formData
       );
-
-      if (!response.ok) {
-        const error = await response.json();
-        throw new Error(error.detail || error.error || "Conversion failed");
-      }
-
-      const data = await response.json();
 
       setDetectedProblems(data.problems || []);
       setConvertedAssignmentId(data.id);
@@ -225,6 +213,11 @@ export function CreateAssignmentScreen({ route, navigation }: { route: any; navi
       setConversionFileName("");
       setConversionStatus(INITIAL_CONVERSION_STATUS);
     }
+  };
+
+  const handleQuickUploadCancel = () => {
+    setQuickTitleModalVisible(false);
+    setQuickTitleDraft("");
   };
 
   const handlePublish = async () => {
@@ -351,17 +344,38 @@ export function CreateAssignmentScreen({ route, navigation }: { route: any; navi
         connected={conversionStatus.connected}
       />
 
+      <Modal visible={quickTitleModalVisible} transparent animationType="fade">
+        <TouchableOpacity
+          style={styles.modalOverlay}
+          activeOpacity={1}
+          onPress={handleQuickUploadCancel}
+        >
+          <TouchableOpacity activeOpacity={1} onPress={() => {}} style={styles.modalContent}>
+            <Text style={styles.modalTitle}>Assignment title</Text>
+            <Input
+              placeholder="Enter title"
+              value={quickTitleDraft}
+              onChangeText={setQuickTitleDraft}
+              autoFocus
+            />
+            <View style={styles.modalActions}>
+              <Button variant="ghost" onPress={handleQuickUploadCancel}>
+                Cancel
+              </Button>
+              <Button onPress={handleQuickUploadSubmit} disabled={!quickTitleDraft.trim()}>
+                Continue
+              </Button>
+            </View>
+          </TouchableOpacity>
+        </TouchableOpacity>
+      </Modal>
+
       <View style={styles.content}>
         <Text style={styles.title}>New Assignment</Text>
 
         {/* Quick Upload Section */}
         <Section title="Quick Create from PDF/TEX">
-          <Input
-            placeholder="Assignment title for quick upload"
-            value={quickUploadTitle}
-            onChangeText={setQuickUploadTitle}
-          />
-          <Card onPress={handleQuickUpload} style={styles.quickUploadCard}>
+          <Card onPress={handleQuickUploadTap} style={styles.quickUploadCard}>
             <Text style={styles.quickUploadTitle}>📄 Upload PDF or TEX File</Text>
             <Text style={styles.quickUploadSubtitle}>
               Automatically detect problems and create assignment
@@ -487,4 +501,29 @@ const styles = StyleSheet.create({
   expandToggleText: { ...typography.buttonSmall, color: palette.link },
   configSection: { marginBottom: spacing.md },
   submitButton: { marginTop: spacing.xs },
+  modalOverlay: {
+    flex: 1,
+    backgroundColor: "rgba(0,0,0,0.5)",
+    justifyContent: "center",
+    alignItems: "center",
+    padding: spacing.lg,
+  },
+  modalContent: {
+    width: "100%",
+    maxWidth: 400,
+    backgroundColor: palette.card,
+    borderRadius: 8,
+    padding: spacing.lg,
+  },
+  modalTitle: {
+    ...typography.heading2,
+    color: palette.textPrimary,
+    marginBottom: spacing.md,
+  },
+  modalActions: {
+    flexDirection: "row",
+    justifyContent: "flex-end",
+    gap: spacing.sm,
+    marginTop: spacing.md,
+  },
 });

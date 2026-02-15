@@ -1,8 +1,8 @@
 import React, { useState } from "react";
-import { StyleSheet, Text, View } from "react-native";
+import { Platform, StyleSheet, Text, View } from "react-native";
 import * as DocumentPicker from "expo-document-picker";
 import { useToast } from "../../contexts/ToastContext";
-import { api } from "../../lib/api";
+import { api, apiMultipart } from "../../lib/api";
 import { alert } from "../../lib/alert";
 import {
   ConversionProgressEvent,
@@ -169,33 +169,12 @@ export function CorpusUploadScreen({ route, navigation }: { route: any; navigati
           });
         }
 
-        // Create FormData for PDF upload with conversion
         const formData = new FormData();
         formData.append("file", toMultipartFile(file) as any);
         formData.append("display_name", displayName.trim());
         formData.append("job_id", jobId);
-        const token = await api.getToken();
-        if (!token) {
-          throw new Error("Authentication required");
-        }
 
-        // Call PDF auto-conversion endpoint
-        const response = await fetch(
-          `${api.baseUrl}/classrooms/${classroomId}/corpus/upload-pdf`,
-          {
-            method: "POST",
-            headers: {
-              Authorization: `Bearer ${token}`,
-            },
-            body: formData,
-          }
-        );
-
-        if (!response.ok) {
-          const error = await response.json();
-          throw new Error(error.detail || error.error || "PDF conversion failed");
-        }
-
+        await apiMultipart(`/classrooms/${classroomId}/corpus/upload-pdf`, formData);
         showToast("PDF converted and added to corpus!");
         navigation.goBack();
       } catch (e: unknown) {

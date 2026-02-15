@@ -193,6 +193,9 @@ class ConversionOrchestrator:
 
         Returns:
             List of chunks, where each chunk is a list of PNG image bytes
+
+        Raises:
+            ConversionError: If PDF parsing or rendering fails
         """
         try:
             document = fitz.open(stream=pdf_bytes, filetype="pdf")
@@ -209,9 +212,6 @@ class ConversionOrchestrator:
             for page_num in range(total_pages):
                 try:
                     page = document.load_page(page_num)
-
-                    # Render page to PNG
-                    # Use 2x scale for better OCR quality
                     matrix = fitz.Matrix(2.0, 2.0)
                     pixmap = page.get_pixmap(matrix=matrix, alpha=False)
                     png_bytes = pixmap.tobytes("png")
@@ -219,22 +219,13 @@ class ConversionOrchestrator:
                     raise ConversionError(f"Failed to render PDF page {page_num + 1}") from e
 
                 current_chunk.append(png_bytes)
-
-                # Start new chunk after CONVERSION_PAGES_PER_CHUNK pages.
                 if len(current_chunk) == CONVERSION_PAGES_PER_CHUNK:
                     chunks.append(current_chunk)
                     current_chunk = []
 
-            # Add remaining pages as final chunk
             if current_chunk:
                 chunks.append(current_chunk)
-
             return chunks
-        except ConversionError:
-            raise
-        except Exception as e:
-            raise ConversionError("Failed to parse PDF file") from e
-
         finally:
             document.close()
 

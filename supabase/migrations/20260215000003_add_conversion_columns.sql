@@ -10,6 +10,9 @@ ALTER TABLE assignments
 ALTER TABLE assignments
   ALTER COLUMN published SET DEFAULT false;
 
+-- Backfill: existing assignments were visible to students, set published=true
+UPDATE assignments SET published = true;
+
 -- Add index for efficient querying of published assignments
 CREATE INDEX idx_assignments_published ON assignments(published);
 

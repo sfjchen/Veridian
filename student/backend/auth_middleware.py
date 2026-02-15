@@ -1,27 +1,52 @@
+import os
 from functools import wraps
 from typing import Any, Callable, Optional
 
+import jwt
+from jwt import PyJWKClient
 from flask import g, jsonify, request
 
-from supabase_service import get_supabase_auth_client
+_jwks_client: PyJWKClient | None = None
 
 
-def get_field(value: Any, field: str, default: Any = None) -> Any:
-    if value is None:
-        return default
-    if isinstance(value, dict):
-        return value.get(field, default)
-    return getattr(value, field, default)
+def _get_jwks_client() -> PyJWKClient:
+    global _jwks_client
+    if _jwks_client is None:
+        base_url = os.getenv("SUPABASE_URL", "").rstrip("/")
+        jwks_url = base_url + "/auth/v1/.well-known/jwks.json"
+        _jwks_client = PyJWKClient(jwks_url)
+    return _jwks_client
 
 
-def extract_user_from_auth_response(response: Any) -> Any:
-    user = get_field(response, "user")
-    if user is not None:
-        return user
-    data = get_field(response, "data")
-    if data is not None:
-        return get_field(data, "user")
-    return None
+def _decode_token(token: str) -> dict[str, Any]:
+    """Decode a Supabase JWT.
+
+    Tries HS256 with the configured JWT secret first (standard for most
+    Supabase projects), then falls back to JWKS (RS256/ES256) for newer
+    projects that use asymmetric signing.
+    """
+    jwt_secret = os.getenv("SUPABASE_JWT_SECRET")
+
+    if jwt_secret:
+        try:
+            return jwt.decode(
+                token,
+                jwt_secret,
+                algorithms=["HS256"],
+                audience="authenticated",
+            )
+        except jwt.ExpiredSignatureError:
+            raise
+        except jwt.InvalidTokenError:
+            pass  # Fall through to JWKS
+
+    signing_key = _get_jwks_client().get_signing_key_from_jwt(token)
+    return jwt.decode(
+        token,
+        signing_key.key,
+        algorithms=["RS256", "ES256"],
+        audience="authenticated",
+    )
 
 
 def _try_bearer_auth() -> tuple[str, str] | None:
@@ -33,16 +58,19 @@ def _try_bearer_auth() -> tuple[str, str] | None:
     if not token:
         return None
     try:
-        auth_response = get_supabase_auth_client().auth.get_user(token)
-        user = extract_user_from_auth_response(auth_response)
+        payload = _decode_token(token)
+    except jwt.ExpiredSignatureError:
+        raise ValueError("Token expired")
+    except jwt.InvalidTokenError:
+        raise ValueError("Invalid token")
     except Exception as exc:
         raise ValueError(f"Invalid auth token: {exc}") from exc
-    user_id = get_field(user, "id")
+    user_id = payload.get("sub")
     if not user_id:
         raise ValueError("Invalid auth token.")
-    user_metadata = get_field(user, "user_metadata", {}) or {}
-    app_metadata = get_field(user, "app_metadata", {}) or {}
-    user_role = user_metadata.get("role") or app_metadata.get("role") or "unknown"
+    user_metadata = payload.get("user_metadata", {}) or {}
+    app_metadata = payload.get("app_metadata", {}) or {}
+    user_role = user_metadata.get("role") or app_metadata.get("role") or "student"
     return (str(user_id), str(user_role))
 
 

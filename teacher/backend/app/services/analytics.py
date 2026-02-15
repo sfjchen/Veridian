@@ -70,6 +70,14 @@ _SINGLE_WORDS: dict[str, str] = {
 }
 
 
+def _strip_suffix(word: str) -> str:
+    """Strip common English suffixes for basic stemming."""
+    for suffix in ("ing", "tion", "sion", "ment", "ness", "ies", "es", "ed", "ly", "s"):
+        if len(word) > len(suffix) + 2 and word.endswith(suffix):
+            return word[: -len(suffix)]
+    return word
+
+
 def extract_topics(content: str) -> list[str]:
     """Extract up to 3 math topics from a message via keyword matching."""
     lower = content.lower()
@@ -80,10 +88,15 @@ def extract_topics(content: str) -> list[str]:
         if phrase in lower:
             matched.add(topic)
     if len(matched) < 3:
-        for word in lower.split():
+        words = lower.split()
+        for word in words:
             if len(matched) >= 3:
                 break
-            topic = _SINGLE_WORDS.get(word)
+            cleaned = word.strip(".,!?;:'\"()[]{}").rstrip("s")
+            topic = _SINGLE_WORDS.get(word) or _SINGLE_WORDS.get(cleaned)
+            if not topic:
+                stemmed = _strip_suffix(word.strip(".,!?;:'\"()[]{}"))
+                topic = _SINGLE_WORDS.get(stemmed)
             if topic:
                 matched.add(topic)
     return list(matched)[:3]
@@ -203,7 +216,10 @@ def build_mistake_heatmap(results: list[dict[str, Any]], student_names: dict[str
 def _fetch_display_name(client: Any, student_id: str) -> str:
     resp = client.table("profiles").select("display_name").eq("id", student_id).limit(1).execute()
     rows = resp.data or []
-    return rows[0].get("display_name", "") if rows else ""
+    if not rows:
+        log.warning("No profile found for student %s", student_id)
+        return ""
+    return rows[0].get("display_name", "")
 
 
 def _group_by_assignment(results: list[dict[str, Any]]) -> tuple[Counter[str], dict[str, list[dict[str, Any]]]]:
@@ -245,7 +261,7 @@ def _build_temporal(client: Any, by_assignment: dict[str, list[dict[str, Any]]])
         _build_temporal_entry(aid, rows, assignment_info.get(aid, {}))
         for aid, rows in by_assignment.items()
     ]
-    temporal.sort(key=lambda x: x["date"])
+    temporal.sort(key=lambda x: x["date"], reverse=True)
     return temporal
 
 
@@ -323,5 +339,5 @@ def build_classroom_trends(client: Any, results: list[dict[str, Any]]) -> list[d
             "total_mistakes": sum(tag_counts.values()),
             "severity_distribution": _severity_distribution(tag_counts),
         })
-    trends.sort(key=lambda x: x["date"])
+    trends.sort(key=lambda x: x["date"], reverse=True)
     return trends

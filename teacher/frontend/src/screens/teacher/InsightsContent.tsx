@@ -1,4 +1,4 @@
-import React, { useState } from "react";
+import React, { useState, useCallback } from "react";
 import {
   View,
   Text,
@@ -19,6 +19,7 @@ import type {
   SeverityDistribution,
 } from "../../types";
 import { SEVERITY_ORDER, SEVERITY_COLORS } from "../../constants/severity";
+import { TAG_ABBREV, TAG_TO_SEVERITY } from "../../constants/tags";
 
 type SubTab = "overview" | "faq" | "mistakes" | "trends";
 const SUB_TABS: { key: SubTab; label: string }[] = [
@@ -28,28 +29,6 @@ const SUB_TABS: { key: SubTab; label: string }[] = [
   { key: "trends", label: "Trends" },
 ];
 
-const TAG_ABBREV: Record<string, string> = {
-  "wrong-theorem": "WThm", "misunderstood-definition": "MDef",
-  "domain-error": "Dom", "incorrect-assumption": "IAsm", "flawed-logic": "FLog",
-  "wrong-method": "WMth", "skipped-step": "Skip",
-  "incorrect-application": "IApp", "order-of-operations": "OoO",
-  "sign-error": "Sign", "arithmetic-error": "Arth",
-  "algebra-error": "Algb", "lost-term": "Lost",
-  "ambiguous-notation": "ANot", "missing-quantifier": "MQnt",
-  "inconsistent-variables": "IVar",
-};
-
-const TAG_TO_SEVERITY: Record<string, string> = {
-  "wrong-theorem": "conceptual", "misunderstood-definition": "conceptual",
-  "domain-error": "conceptual", "incorrect-assumption": "conceptual", "flawed-logic": "conceptual",
-  "wrong-method": "procedural", "skipped-step": "procedural",
-  "incorrect-application": "procedural", "order-of-operations": "procedural",
-  "sign-error": "mechanical", "arithmetic-error": "mechanical",
-  "algebra-error": "mechanical", "lost-term": "mechanical",
-  "ambiguous-notation": "notational", "missing-quantifier": "notational",
-  "inconsistent-variables": "notational",
-};
-
 function cellColor(count: number, maxCount: number): string {
   if (count === 0 || maxCount === 0) return "#F9FAFB";
   const t = Math.min(count / maxCount, 1);
@@ -57,28 +36,42 @@ function cellColor(count: number, maxCount: number): string {
   return `rgb(239,${channel},${channel})`;
 }
 
+type Severity = (typeof SEVERITY_ORDER)[number];
+
 function sortTagsBySeverity(tags: string[]): string[] {
   return [...tags].sort((a, b) => {
-    const ai = SEVERITY_ORDER.indexOf(TAG_TO_SEVERITY[a] ?? "");
-    const bi = SEVERITY_ORDER.indexOf(TAG_TO_SEVERITY[b] ?? "");
+    const ai = SEVERITY_ORDER.indexOf((TAG_TO_SEVERITY[a] ?? "") as Severity);
+    const bi = SEVERITY_ORDER.indexOf((TAG_TO_SEVERITY[b] ?? "") as Severity);
     return ai - bi;
   });
 }
 
 export function InsightsContent({ classroomId, navigation }: { classroomId: string; navigation: any }) {
   const [subTab, setSubTab] = useState<SubTab>("overview");
+  const [refreshing, setRefreshing] = useState(false);
   const { faq, loading: faqLoading, error: faqError, refresh: refreshFaq } = useClassroomFaq(classroomId);
   const { heatmap, loading: heatmapLoading, error: heatmapError, refresh: refreshHeatmap } = useMistakeHeatmap(classroomId);
   const { overview, loading: overviewLoading, error: overviewError, refresh: refreshOverview } = useClassroomOverview(classroomId);
   const { trends, loading: trendsLoading, error: trendsError, refresh: refreshTrends } = useClassroomTrends(classroomId);
 
-  const refreshMap: Record<SubTab, () => void> = {
+  const refreshMap: Record<SubTab, () => Promise<void>> = {
     overview: refreshOverview, faq: refreshFaq, mistakes: refreshHeatmap, trends: refreshTrends,
   };
 
+  const handleRefresh = useCallback(async () => {
+    setRefreshing(true);
+    try { await refreshMap[subTab](); } finally { setRefreshing(false); }
+  }, [subTab, refreshMap]);
+
+  const isLoading = subTab === "overview" ? overviewLoading
+    : subTab === "faq" ? faqLoading
+    : subTab === "mistakes" ? heatmapLoading
+    : trendsLoading;
+
   return (
     <View style={styles.container}>
-      <SubTabBar subTab={subTab} setSubTab={setSubTab} onRefresh={refreshMap[subTab]} />
+      <SubTabBar subTab={subTab} setSubTab={setSubTab} onRefresh={handleRefresh}
+        refreshing={refreshing} disabled={isLoading} />
       {subTab === "overview" && <OverviewPanel overview={overview} loading={overviewLoading} error={overviewError} />}
       {subTab === "faq" && <FaqPanel faq={faq} loading={faqLoading} error={faqError} />}
       {subTab === "mistakes" && (
@@ -90,7 +83,10 @@ export function InsightsContent({ classroomId, navigation }: { classroomId: stri
   );
 }
 
-function SubTabBar({ subTab, setSubTab, onRefresh }: { subTab: SubTab; setSubTab: (t: SubTab) => void; onRefresh: () => void }) {
+function SubTabBar({ subTab, setSubTab, onRefresh, refreshing, disabled }: {
+  subTab: SubTab; setSubTab: (t: SubTab) => void; onRefresh: () => void;
+  refreshing: boolean; disabled: boolean;
+}) {
   return (
     <View style={styles.subTabs}>
       {SUB_TABS.map(({ key, label }) => (
@@ -98,8 +94,11 @@ function SubTabBar({ subTab, setSubTab, onRefresh }: { subTab: SubTab; setSubTab
           <Text style={[styles.subTabText, subTab === key && styles.subTabTextActive]}>{label}</Text>
         </TouchableOpacity>
       ))}
-      <TouchableOpacity style={styles.refreshBtn} onPress={onRefresh}>
-        <Text style={styles.refreshBtnText}>Refresh</Text>
+      <TouchableOpacity style={[styles.refreshBtn, disabled && styles.refreshBtnDisabled]}
+        onPress={onRefresh} disabled={disabled}>
+        {refreshing
+          ? <ActivityIndicator size="small" color="#fff" />
+          : <Text style={styles.refreshBtnText}>Refresh</Text>}
       </TouchableOpacity>
     </View>
   );
@@ -112,20 +111,26 @@ function OverviewPanel({ overview, loading, error }: {
 }) {
   if (loading) return <ActivityIndicator style={styles.centered} />;
   if (error) return <Text style={styles.errorText}>{error}</Text>;
-  if (!overview) return <Text style={styles.emptyText}>No data yet</Text>;
+  if (!overview) return <Text style={styles.emptyText}>No student submissions yet. Data will appear once students begin working on assignments.</Text>;
   return (
     <ScrollView style={styles.panel}>
       <View style={styles.statsGrid}>
         <StatCard label="Students" value={overview.active_students} sub={`of ${overview.student_count} enrolled`} />
         <StatCard label="Problems" value={overview.total_problems} />
         <StatCard label="Mistakes" value={overview.total_mistakes} />
-        <StatCard label="Avg / Student" value={overview.avg_mistakes_per_student} />
+        <StatCard label="Per Student" value={overview.avg_mistakes_per_student} />
+        <StatCard label="Per Problem" value={overview.avg_mistakes_per_problem} />
       </View>
       {overview.most_common_tag && (
         <View style={styles.highlightCard}>
           <Text style={styles.highlightLabel}>Most Common Mistake</Text>
           <Text style={styles.highlightValue}>{overview.most_common_tag}</Text>
-          <Text style={styles.highlightSub}>{overview.most_common_tag_count} occurrences</Text>
+          <View style={styles.highlightMeta}>
+            <View style={[styles.highlightSevDot, { backgroundColor: SEVERITY_COLORS[TAG_TO_SEVERITY[overview.most_common_tag] ?? ""] ?? "#9CA3AF" }]} />
+            <Text style={styles.highlightSub}>
+              {TAG_TO_SEVERITY[overview.most_common_tag] ?? ""} &middot; {overview.most_common_tag_count} occurrences
+            </Text>
+          </View>
         </View>
       )}
       <SeverityBar dist={overview.severity_distribution} />
@@ -183,7 +188,7 @@ function FaqPanel({ faq, loading, error }: {
   const [expanded, setExpanded] = useState<string | null>(null);
   if (loading) return <ActivityIndicator style={styles.centered} />;
   if (error) return <Text style={styles.errorText}>{error}</Text>;
-  if (faq.length === 0) return <Text style={styles.emptyText}>No chat data yet</Text>;
+  if (faq.length === 0) return <Text style={styles.emptyText}>No student chat messages yet. Topics will appear as students ask questions.</Text>;
   const maxPct = Math.max(...faq.map((t) => t.student_percentage), 1);
   return (
     <ScrollView style={styles.panel}>
@@ -222,7 +227,7 @@ function MistakesPanel({ heatmap, loading, error, navigation, classroomId }: {
 }) {
   if (loading) return <ActivityIndicator style={styles.centered} />;
   if (error) return <Text style={styles.errorText}>{error}</Text>;
-  if (!heatmap || heatmap.students.length === 0) return <Text style={styles.emptyText}>No mistake data yet</Text>;
+  if (!heatmap || heatmap.students.length === 0) return <Text style={styles.emptyText}>No mistake data yet. The heatmap will populate as students work through problems.</Text>;
   const sortedTags = sortTagsBySeverity(heatmap.tags);
   const maxCount = Math.max(...heatmap.students.flatMap((s) => sortedTags.map((t) => s.tag_counts[t] ?? 0)), 1);
   return (
@@ -332,29 +337,47 @@ function TrendsPanel({ trends, loading, error }: {
 }) {
   if (loading) return <ActivityIndicator style={styles.centered} />;
   if (error) return <Text style={styles.errorText}>{error}</Text>;
-  if (trends.length === 0) return <Text style={styles.emptyText}>No assignment data yet</Text>;
+  if (trends.length === 0) return <Text style={styles.emptyText}>No assignment data yet. Trends will appear as students submit work on assignments.</Text>;
   const maxMistakes = Math.max(...trends.map((t) => t.total_mistakes), 1);
   return (
     <ScrollView style={styles.panel}>
-      {trends.map((t) => (
-        <View key={t.assignment_id} style={styles.trendRow}>
-          <View style={styles.trendHeader}>
-            <Text style={styles.trendTitle} numberOfLines={1}>{t.assignment_title || "Untitled"}</Text>
-            <Text style={styles.trendDate}>
-              {t.date ? new Date(t.date).toLocaleDateString("en-US", { month: "short", day: "numeric", timeZone: "UTC" }) : ""}
-            </Text>
+      <Text style={styles.trendSectionLabel}>Newest first</Text>
+      {trends.map((t) => {
+        const total = t.severity_distribution.conceptual + t.severity_distribution.procedural
+          + t.severity_distribution.mechanical + t.severity_distribution.notational;
+        return (
+          <View key={t.assignment_id} style={styles.trendRow}>
+            <View style={styles.trendHeader}>
+              <Text style={styles.trendTitle} numberOfLines={1}>{t.assignment_title || "Untitled"}</Text>
+              <Text style={styles.trendDate}>
+                {t.date ? new Date(t.date).toLocaleDateString("en-US", { month: "short", day: "numeric", timeZone: "UTC" }) : ""}
+              </Text>
+            </View>
+            <View style={styles.trendBarBg}>
+              <View style={[styles.trendBarFill, { width: `${(t.total_mistakes / maxMistakes) * 100}%` }]} />
+            </View>
+            <View style={styles.trendStats}>
+              <Text style={styles.trendStat}>{t.total_mistakes} mistake{t.total_mistakes !== 1 ? "s" : ""}</Text>
+              <Text style={styles.trendStatSub}>{t.student_count} student{t.student_count !== 1 ? "s" : ""}</Text>
+              <Text style={styles.trendStatSub}>{t.problem_count} problem{t.problem_count !== 1 ? "s" : ""}</Text>
+            </View>
+            <MiniSeverityBar dist={t.severity_distribution} />
+            {total > 0 && (
+              <View style={styles.trendSeverityLabels}>
+                {SEVERITY_ORDER.map((sev) => {
+                  const count = t.severity_distribution[sev as keyof SeverityDistribution];
+                  if (count === 0) return null;
+                  return (
+                    <Text key={sev} style={[styles.trendSeverityLabel, { color: SEVERITY_COLORS[sev] }]}>
+                      {sev.slice(0, 4)} {count}
+                    </Text>
+                  );
+                })}
+              </View>
+            )}
           </View>
-          <View style={styles.trendBarBg}>
-            <View style={[styles.trendBarFill, { width: `${(t.total_mistakes / maxMistakes) * 100}%` }]} />
-          </View>
-          <View style={styles.trendStats}>
-            <Text style={styles.trendStat}>{t.total_mistakes} mistake{t.total_mistakes !== 1 ? "s" : ""}</Text>
-            <Text style={styles.trendStatSub}>{t.student_count} student{t.student_count !== 1 ? "s" : ""}</Text>
-            <Text style={styles.trendStatSub}>{t.problem_count} problem{t.problem_count !== 1 ? "s" : ""}</Text>
-          </View>
-          <MiniSeverityBar dist={t.severity_distribution} />
-        </View>
-      ))}
+        );
+      })}
     </ScrollView>
   );
 }
@@ -386,7 +409,8 @@ const styles = StyleSheet.create({
   subTabActive: { backgroundColor: "#4F46E5" },
   subTabText: { fontWeight: "600", color: "#374151", fontSize: 13 },
   subTabTextActive: { color: "#fff" },
-  refreshBtn: { marginLeft: "auto", paddingHorizontal: 12, paddingVertical: 8, borderRadius: 8, backgroundColor: "#10B981" },
+  refreshBtn: { marginLeft: "auto", paddingHorizontal: 12, paddingVertical: 8, borderRadius: 8, backgroundColor: "#10B981", minWidth: 70, alignItems: "center" },
+  refreshBtnDisabled: { opacity: 0.6 },
   refreshBtnText: { color: "#fff", fontWeight: "600", fontSize: 13 },
   panel: { flex: 1 },
   centered: { marginTop: 40 },
@@ -402,7 +426,9 @@ const styles = StyleSheet.create({
   highlightCard: { backgroundColor: "#FEF3C7", borderRadius: 10, padding: 14, marginBottom: 16, alignItems: "center" },
   highlightLabel: { fontSize: 12, color: "#92400E", fontWeight: "600" },
   highlightValue: { fontSize: 18, fontWeight: "bold", color: "#B45309", marginTop: 4 },
-  highlightSub: { fontSize: 12, color: "#92400E", marginTop: 2 },
+  highlightMeta: { flexDirection: "row", alignItems: "center", gap: 4, marginTop: 4 },
+  highlightSevDot: { width: 8, height: 8, borderRadius: 4 },
+  highlightSub: { fontSize: 12, color: "#92400E" },
 
   // Severity bar
   severitySection: { marginBottom: 16 },
@@ -450,6 +476,9 @@ const styles = StyleSheet.create({
   trendStats: { flexDirection: "row", gap: 12, marginBottom: 4 },
   trendStat: { fontSize: 13, color: "#4F46E5", fontWeight: "600" },
   trendStatSub: { fontSize: 12, color: "#9CA3AF" },
+  trendSectionLabel: { fontSize: 11, color: "#9CA3AF", marginBottom: 6, fontStyle: "italic" },
+  trendSeverityLabels: { flexDirection: "row", gap: 10, marginTop: 4 },
+  trendSeverityLabel: { fontSize: 11, fontWeight: "600" },
   miniSeverityBar: { flexDirection: "row", height: 4, borderRadius: 2, overflow: "hidden", marginTop: 4 },
   miniSeveritySegment: { height: 4 },
 });

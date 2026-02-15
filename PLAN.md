@@ -176,7 +176,7 @@ Create `packages/design/` with Veridian branding (green-primary #16A34A), shared
 
 - **Chat intelligent context**: Teacher selects corpus files per assignment; chat uses them as tutoring context
 - **Enhanced note-taking**: Grid/lined backgrounds, color palette, stroke width, pinch-to-zoom
-- **Analytics**: ~~Classroom overview + severity breakdown~~ DONE, ~~per-assignment trends~~ DONE, ~~FAQ sample questions~~ DONE, ~~heatmap severity grouping~~ DONE — remaining: AI-synthesized concept gaps
+- **Analytics**: ~~Classroom overview + severity breakdown~~ DONE, ~~per-assignment trends~~ DONE, ~~FAQ sample questions~~ DONE, ~~heatmap severity grouping~~ DONE, ~~production polish (refresh UX, temporal sort, severity labels, tag dedup, stemming)~~ DONE — remaining: AI-synthesized concept gaps
 
 ---
 

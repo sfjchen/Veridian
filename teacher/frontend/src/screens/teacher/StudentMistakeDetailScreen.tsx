@@ -9,6 +9,7 @@ import {
 import { api } from "../../lib/api";
 import { StudentMistakeProfile, SeverityDistribution } from "../../types";
 import { SEVERITY_ORDER, SEVERITY_COLORS } from "../../constants/severity";
+import { TAG_TO_SEVERITY } from "../../constants/tags";
 
 export function StudentMistakeDetailScreen({ route }: { route: any }) {
   const { classroomId, studentId, displayName } = route.params as {
@@ -55,6 +56,9 @@ export function StudentMistakeDetailScreen({ route }: { route: any }) {
 }
 
 function StatsRow({ profile }: { profile: StudentMistakeProfile }) {
+  const rateDisplay = profile.problems_attempted > 0
+    ? profile.mistake_rate.toFixed(1)
+    : "N/A";
   return (
     <View style={styles.statsRow}>
       <View style={styles.statCard}>
@@ -66,7 +70,7 @@ function StatsRow({ profile }: { profile: StudentMistakeProfile }) {
         <Text style={styles.statLabel}>Problems</Text>
       </View>
       <View style={styles.statCard}>
-        <Text style={styles.statValue}>{profile.mistake_rate.toFixed(1)}</Text>
+        <Text style={styles.statValue}>{rateDisplay}</Text>
         <Text style={styles.statLabel}>Per Problem</Text>
       </View>
     </View>
@@ -144,33 +148,46 @@ function TemporalChart({ entries }: { entries: StudentMistakeProfile["temporal"]
   return (
     <View>
       <Text style={styles.sectionTitle}>Progress Over Time</Text>
-      {entries.map((entry) => (
-        <View key={entry.assignment_id} style={styles.temporalRow}>
-          <View style={styles.temporalHeader}>
-            <Text style={styles.temporalTitle} numberOfLines={1}>
-              {entry.assignment_title || "Untitled"}
+      {entries.map((entry) => {
+        const tagEntries = Object.entries(entry.tags)
+          .sort(([, a], [, b]) => b - a)
+          .slice(0, 5);
+        return (
+          <View key={entry.assignment_id} style={styles.temporalRow}>
+            <View style={styles.temporalHeader}>
+              <Text style={styles.temporalTitle} numberOfLines={1}>
+                {entry.assignment_title || "Untitled"}
+              </Text>
+              <Text style={styles.temporalDate}>
+                {entry.date ? new Date(entry.date).toLocaleDateString("en-US", {
+                  month: "short", day: "numeric", timeZone: "UTC",
+                }) : ""}
+              </Text>
+            </View>
+            <View style={styles.temporalBarBg}>
+              <View style={[styles.temporalBarFill, {
+                width: `${(entry.mistake_count / maxMistakes) * 100}%`,
+              }]} />
+            </View>
+            <Text style={styles.temporalCount}>
+              {entry.mistake_count} mistake{entry.mistake_count !== 1 ? "s" : ""}
             </Text>
-            <Text style={styles.temporalDate}>
-              {entry.date ? new Date(entry.date).toLocaleDateString("en-US", {
-                month: "short", day: "numeric", timeZone: "UTC",
-              }) : ""}
-            </Text>
+            {tagEntries.length > 0 && (
+              <View style={styles.temporalTagsRow}>
+                {tagEntries.map(([tag, count]) => {
+                  const sev = TAG_TO_SEVERITY[tag] ?? "";
+                  return (
+                    <View key={tag} style={styles.temporalTagChip}>
+                      <View style={[styles.temporalTagDot, { backgroundColor: SEVERITY_COLORS[sev] ?? "#9CA3AF" }]} />
+                      <Text style={styles.temporalTagText}>{tag} ({count})</Text>
+                    </View>
+                  );
+                })}
+              </View>
+            )}
           </View>
-          <View style={styles.temporalBarBg}>
-            <View style={[styles.temporalBarFill, {
-              width: `${(entry.mistake_count / maxMistakes) * 100}%`,
-            }]} />
-          </View>
-          <Text style={styles.temporalCount}>
-            {entry.mistake_count} mistake{entry.mistake_count !== 1 ? "s" : ""}
-          </Text>
-          {Object.entries(entry.tags).length > 0 && (
-            <Text style={styles.temporalTags}>
-              {Object.entries(entry.tags).map(([tag, count]) => `${tag} (${count})`).join(", ")}
-            </Text>
-          )}
-        </View>
-      ))}
+        );
+      })}
     </View>
   );
 }
@@ -214,5 +231,8 @@ const styles = StyleSheet.create({
   temporalBarBg: { height: 8, backgroundColor: "#E5E7EB", borderRadius: 4, marginBottom: 6 },
   temporalBarFill: { height: 8, backgroundColor: "#4F46E5", borderRadius: 4 },
   temporalCount: { fontSize: 13, color: "#4F46E5", fontWeight: "600" },
-  temporalTags: { fontSize: 11, color: "#6B7280", marginTop: 4 },
+  temporalTagsRow: { flexDirection: "row", flexWrap: "wrap", gap: 6, marginTop: 6 },
+  temporalTagChip: { flexDirection: "row", alignItems: "center", gap: 3, backgroundColor: "#F3F4F6", borderRadius: 4, paddingHorizontal: 6, paddingVertical: 2 },
+  temporalTagDot: { width: 6, height: 6, borderRadius: 3 },
+  temporalTagText: { fontSize: 11, color: "#6B7280" },
 });

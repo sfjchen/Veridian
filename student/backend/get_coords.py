@@ -1340,8 +1340,8 @@ def _extract_mistakes_with_coords(
     try:
         coords = _run_mistake_coord_pipeline(image_bytes, annotated_tex, mimetype)
         mistakes = coords.get("mistakes", [])
-    except (ValueError, RuntimeError):
-        pass
+    except (ValueError, RuntimeError) as exc:
+        log.warning("Coordinate pipeline failed (returning count without coords): %s", exc)
     return (mistake_count, mistakes)
 
 

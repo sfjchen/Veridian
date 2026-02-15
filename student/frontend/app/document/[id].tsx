@@ -495,13 +495,14 @@ export default function DocumentScreen() {
         headers: getAuthHeaders(token),
         body: formData,
       });
-      const body = await res.json();
-      if (res.ok) {
-        const count = body.mistake_count ?? 0;
-        showAlert('Analysis Complete', count === 0 ? 'No mistakes found!' : `Found ${count} mistake${count !== 1 ? 's' : ''}.`);
-      } else {
-        showAlert('Analysis failed', body.error ?? 'Unable to analyze work.');
+      if (!res.ok) {
+        const body = await res.json().catch(() => ({}));
+        showAlert('Analysis failed', body.error ?? `Unable to analyze work (${res.status}).`);
+        return;
       }
+      const body = await res.json();
+      const count = body.mistake_count ?? 0;
+      showAlert('Analysis Complete', count === 0 ? 'No mistakes found!' : `Found ${count} mistake${count !== 1 ? 's' : ''}.`);
     } catch (e) {
       const err = e instanceof Error ? e : new Error(String(e));
       if (isNetworkError(err)) {

@@ -20,11 +20,34 @@ import { LatexRenderer } from "../../components/LatexRenderer";
 import { FileUploader } from "../../components/FileUploader";
 import { DateField } from "../../components/DateField";
 import { palette, radius, typography } from "../../constants/palette";
+import { spacing } from "../../constants/spacing";
 import { AssignmentDetail, Submission } from "../../types";
 import { alert } from "../../lib/alert";
+import { ScreenContainer } from "../../components/ui/ScreenContainer";
+import { Skeleton, SkeletonCard } from "../../components/ui/Skeleton";
 
 const MAX_CONTENT_LENGTH = 100_000;
 const DATE_PATTERN = /^\d{4}-\d{2}-\d{2}$/;
+
+function formatDueDateLabel(dueDate: string | null): { label: string; warning?: "soon" | "overdue" } {
+  if (!dueDate) return { label: "No due date" };
+  const d = new Date(dueDate);
+  const now = new Date();
+  now.setHours(0, 0, 0, 0);
+  const due = new Date(d);
+  due.setHours(0, 0, 0, 0);
+  const days = Math.ceil((due.getTime() - now.getTime()) / (24 * 60 * 60 * 1000));
+  const formatted = d.toLocaleDateString("en-US", {
+    year: "numeric",
+    month: "short",
+    day: "numeric",
+    timeZone: "UTC",
+  });
+  if (days < 0) return { label: `Due: ${formatted}`, warning: "overdue" };
+  if (days <= 2) return { label: `Due: ${formatted}`, warning: "soon" };
+  return { label: `Due: ${formatted}` };
+}
+
 function sanitizeContent(raw: string): string {
   if (raw.length > MAX_CONTENT_LENGTH) throw new Error("File too large to preview");
   return raw
@@ -224,7 +247,18 @@ export function TeacherAssignmentScreen({ route, navigation }: { route: any; nav
     Linking.openURL(url);
   };
 
-  if (loading && !refreshing) return <ActivityIndicator size="large" style={{ marginTop: 40 }} color={palette.primary} />;
+  if (loading && !refreshing) {
+    return (
+      <ScreenContainer maxWidth="dashboard">
+        <View style={styles.loadingWrap}>
+          <Skeleton height={28} width="70%" style={{ marginBottom: spacing.sm }} />
+          <Skeleton height={14} width="40%" style={{ marginBottom: spacing.lg }} />
+          <SkeletonCard />
+          <SkeletonCard />
+        </View>
+      </ScreenContainer>
+    );
+  }
   if (!assignment) return <Text style={styles.error}>Assignment not found</Text>;
 
   return (
@@ -264,13 +298,16 @@ export function TeacherAssignmentScreen({ route, navigation }: { route: any; nav
         <View>
           <Text style={styles.previewBanner}>Student Preview</Text>
           <Text style={styles.title}>{assignment.title}</Text>
-          {assignment.due_date && (
-            <Text style={styles.due}>
-              Due: {new Date(assignment.due_date).toLocaleDateString("en-US", {
-                year: "numeric", month: "short", day: "numeric", timeZone: "UTC",
-              })}
-            </Text>
-          )}
+          {assignment.due_date && (() => {
+            const { label, warning } = formatDueDateLabel(assignment.due_date);
+            return (
+              <View style={styles.dueRow}>
+                <Text style={[styles.due, warning === "overdue" && styles.dueOverdue, warning === "soon" && styles.dueSoon]}>{label}</Text>
+                {warning === "overdue" && <Text style={styles.badgeOverdue}>Overdue</Text>}
+                {warning === "soon" && <Text style={styles.badgeSoon}>Due soon</Text>}
+              </View>
+            );
+          })()}
           {assignmentContent ? (
             <View style={styles.contentPreview}>
               <Text style={styles.sectionTitle}>Problem</Text>
@@ -358,13 +395,16 @@ export function TeacherAssignmentScreen({ route, navigation }: { route: any; nav
                   <Text style={styles.editChipText}>Edit</Text>
                 </TouchableOpacity>
               </View>
-              {assignment.due_date && (
-                <Text style={styles.due}>
-                  Due: {new Date(assignment.due_date).toLocaleDateString("en-US", {
-                    year: "numeric", month: "short", day: "numeric", timeZone: "UTC",
-                  })}
-                </Text>
-              )}
+              {assignment.due_date && (() => {
+                const { label, warning } = formatDueDateLabel(assignment.due_date);
+                return (
+                  <View style={styles.dueRow}>
+                    <Text style={[styles.due, warning === "overdue" && styles.dueOverdue, warning === "soon" && styles.dueSoon]}>{label}</Text>
+                    {warning === "overdue" && <Text style={styles.badgeOverdue}>Overdue</Text>}
+                    {warning === "soon" && <Text style={styles.badgeSoon}>Due soon</Text>}
+                  </View>
+                );
+              })()}
             </View>
           )}
 
@@ -467,7 +507,7 @@ export function TeacherAssignmentScreen({ route, navigation }: { route: any; nav
                 disabled={converting}
               >
                 {converting ? (
-                  <ActivityIndicator color="#fff" />
+                  <ActivityIndicator color={palette.white} />
                 ) : (
                   <Text style={styles.convertButtonText}>Convert PDF to LaTeX</Text>
                 )}
@@ -477,7 +517,10 @@ export function TeacherAssignmentScreen({ route, navigation }: { route: any; nav
 
           <Text style={[styles.sectionTitle, { marginTop: 24 }]}>Student Submissions</Text>
           {submissionsLoading && !refreshing ? (
-            <ActivityIndicator color={palette.primary} />
+            <View style={styles.submissionsSkeleton}>
+              <SkeletonCard />
+              <SkeletonCard />
+            </View>
           ) : submissionsError ? (
             <Text style={styles.errorText}>{submissionsError}</Text>
           ) : submissions.length === 0 ? (
@@ -552,9 +595,16 @@ const styles = StyleSheet.create({
   container: { flex: 1, padding: 16, backgroundColor: palette.card },
   title: { ...typography.h1, flex: 1, color: palette.textPrimary },
   due: { ...typography.bodySmall, color: palette.textMuted, marginTop: 4, marginBottom: 16 },
+  dueRow: { flexDirection: "row" as const, alignItems: "center" as const, gap: 8, marginBottom: 16, flexWrap: "wrap" as const },
+  dueOverdue: { color: palette.error },
+  dueSoon: { color: palette.warning },
+  badgeOverdue: { ...typography.caption, fontWeight: "600" as const, color: palette.error, marginLeft: 4 },
+  badgeSoon: { ...typography.caption, fontWeight: "600" as const, color: palette.warning, marginLeft: 4 },
   sectionTitle: { fontSize: 16, fontWeight: "600", marginBottom: 8, color: palette.textPrimary },
   error: { textAlign: "center", color: palette.error, marginTop: 40 },
   errorText: { textAlign: "center", color: palette.error, marginTop: 8 },
+  loadingWrap: { paddingTop: spacing.xxl },
+  submissionsSkeleton: { marginTop: spacing.xs },
 
   modeToggle: { flexDirection: "row", marginBottom: 16, gap: 8 },
   modeButton: {

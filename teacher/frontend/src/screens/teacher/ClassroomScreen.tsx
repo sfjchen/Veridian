@@ -20,7 +20,7 @@ import { typography } from "../../constants/typography";
 import { alert } from "../../lib/alert";
 import { SkeletonCard } from "../../components/ui/Skeleton";
 
-type Tab = "assignments" | "corpus" | "students";
+type Tab = "assignments" | "corpus" | "students" | "insights" | "settings";
 
 function formatDueDateLabel(dueDate: string | null): { label: string; warning?: "soon" | "overdue" } {
   if (!dueDate) return { label: "No due date" };
@@ -105,7 +105,7 @@ export function TeacherClassroomScreen({ route, navigation }: { route: any; navi
       </View>
 
       <View style={styles.tabs}>
-        {(["assignments", "corpus", "students"] as Tab[]).map((tab) => (
+        {(["assignments", "corpus", "students", "insights", "settings"] as Tab[]).map((tab) => (
           <TouchableOpacity
             key={tab}
             style={[styles.tab, activeTab === tab && styles.tabActive]}
@@ -261,7 +261,14 @@ export function TeacherClassroomScreen({ route, navigation }: { route: any; navi
               keyExtractor={(item) => item.student_id}
               refreshControl={refreshControl}
               renderItem={({ item }) => (
-                <View style={styles.listItem}>
+                <TouchableOpacity
+                  style={styles.listItem}
+                  onPress={() => navigation.navigate("StudentMistakeDetail", {
+                    classroomId: classroom.id,
+                    studentId: item.student_id,
+                    displayName: item.display_name ?? "Student",
+                  })}
+                >
                   <View style={styles.listItemContent}>
                     <Text style={styles.itemTitle}>{item.display_name ?? "Unnamed Student"}</Text>
                     <Text style={styles.itemSub}>
@@ -274,7 +281,7 @@ export function TeacherClassroomScreen({ route, navigation }: { route: any; navi
                       })}
                     </Text>
                   </View>
-                </View>
+                </TouchableOpacity>
               )}
               ListEmptyComponent={
                 <View style={styles.emptyWrap}>
@@ -284,6 +291,24 @@ export function TeacherClassroomScreen({ route, navigation }: { route: any; navi
               }
             />
           )}
+        </View>
+      )}
+
+      {activeTab === "insights" && (
+        <View style={styles.content}>
+          <View style={styles.emptyWrap}>
+            <Text style={styles.emptyTitle}>Insights coming soon</Text>
+            <Text style={styles.emptySubtitle}>Classroom analytics and mistake heatmaps will appear here.</Text>
+          </View>
+        </View>
+      )}
+
+      {activeTab === "settings" && (
+        <View style={styles.content}>
+          <View style={styles.emptyWrap}>
+            <Text style={styles.emptyTitle}>Settings coming soon</Text>
+            <Text style={styles.emptySubtitle}>Classroom settings will appear here.</Text>
+          </View>
         </View>
       )}
     </View>

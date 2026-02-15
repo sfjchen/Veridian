@@ -5,6 +5,7 @@ import {
   FlatList,
   TouchableOpacity,
   StyleSheet,
+  ScrollView,
   RefreshControl,
   Platform,
 } from "react-native";
@@ -14,12 +15,17 @@ import { useFocusEffect } from "@react-navigation/native";
 import { useCorpus } from "../../hooks/useCorpus";
 import { useAssignments } from "../../hooks/useAssignments";
 import { useClassroomStudents } from "../../hooks/useClassroomStudents";
-import { Classroom, CorpusFile } from "../../types";
+import { useToast } from "../../contexts/ToastContext";
+import { ConfigEditor } from "../../components/ConfigEditor";
+import { api } from "../../lib/api";
+import { Classroom, CorpusFile, AssignmentConfig } from "../../types";
 import { palette, radius, typography } from "../../constants/palette";
+import { spacing } from "../../constants/spacing";
 import { alert } from "../../lib/alert";
 import { SkeletonCard } from "../../components/ui/Skeleton";
+import { InsightsContent } from "./InsightsContent";
 
-type Tab = "assignments" | "corpus" | "students";
+type Tab = "assignments" | "corpus" | "students" | "insights" | "settings";
 
 function formatDueDateLabel(dueDate: string | null): { label: string; warning?: "soon" | "overdue" } {
   if (!dueDate) return { label: "No due date" };
@@ -42,7 +48,10 @@ function formatDueDateLabel(dueDate: string | null): { label: string; warning?: 
 
 export function TeacherClassroomScreen({ route, navigation }: { route: any; navigation: any }) {
   const classroom: Classroom = route.params.classroom;
+  const { showToast } = useToast();
   const [activeTab, setActiveTab] = useState<Tab>("assignments");
+  const [configDraft, setConfigDraft] = useState<Partial<AssignmentConfig>>(classroom.config ?? {});
+  const [savingConfig, setSavingConfig] = useState(false);
   const [refreshing, setRefreshing] = useState(false);
   const { files, loading: corpusLoading, error: corpusError, refresh: refreshCorpus } = useCorpus(classroom.id);
   const { assignments, loading: assignmentsLoading, error: assignmentsError, refresh: refreshAssignments } = useAssignments(classroom.id);
@@ -84,6 +93,21 @@ export function TeacherClassroomScreen({ route, navigation }: { route: any; navi
     if (file.download_url) Linking.openURL(file.download_url);
   };
 
+  const handleSaveConfig = async () => {
+    setSavingConfig(true);
+    try {
+      await api(`/classrooms/${classroom.id}`, {
+        method: "PATCH",
+        body: { config: configDraft },
+      });
+      showToast("Settings saved");
+    } catch (e: any) {
+      alert("Error", e instanceof Error ? e.message : "Failed to save settings");
+    } finally {
+      setSavingConfig(false);
+    }
+  };
+
   const refreshControl = (
     <RefreshControl refreshing={refreshing} onRefresh={onRefresh} colors={[palette.primary]} />
   );
@@ -104,7 +128,7 @@ export function TeacherClassroomScreen({ route, navigation }: { route: any; navi
       </View>
 
       <View style={styles.tabs}>
-        {(["assignments", "corpus", "students"] as Tab[]).map((tab) => (
+        {(["assignments", "corpus", "students", "insights", "settings"] as Tab[]).map((tab) => (
           <TouchableOpacity
             key={tab}
             style={[styles.tab, activeTab === tab && styles.tabActive]}
@@ -260,7 +284,14 @@ export function TeacherClassroomScreen({ route, navigation }: { route: any; navi
               keyExtractor={(item) => item.student_id}
               refreshControl={refreshControl}
               renderItem={({ item }) => (
-                <View style={styles.listItem}>
+                <TouchableOpacity
+                  style={styles.listItem}
+                  onPress={() => navigation.navigate("StudentMistakeDetail", {
+                    classroomId: classroom.id,
+                    studentId: item.student_id,
+                    displayName: item.display_name ?? "Student",
+                  })}
+                >
                   <View style={styles.listItemContent}>
                     <Text style={styles.itemTitle}>{item.display_name ?? "Unnamed Student"}</Text>
                     <Text style={styles.itemSub}>
@@ -273,7 +304,7 @@ export function TeacherClassroomScreen({ route, navigation }: { route: any; navi
                       })}
                     </Text>
                   </View>
-                </View>
+                </TouchableOpacity>
               )}
               ListEmptyComponent={
                 <View style={styles.emptyWrap}>
@@ -284,6 +315,35 @@ export function TeacherClassroomScreen({ route, navigation }: { route: any; navi
             />
           )}
         </View>
+      )}
+
+      {activeTab === "insights" && (
+        <View style={styles.content}>
+          <InsightsContent classroomId={classroom.id} navigation={navigation} />
+        </View>
+      )}
+
+      {activeTab === "settings" && (
+        <ScrollView style={styles.content}>
+          <Text style={styles.settingsHint}>
+            Default settings for all assignments in this classroom.
+            Individual assignments can override these.
+          </Text>
+          <ConfigEditor
+            config={configDraft}
+            onChange={setConfigDraft}
+            mode="classroom"
+          />
+          <TouchableOpacity
+            style={[styles.addButton, savingConfig && { opacity: 0.7 }]}
+            onPress={handleSaveConfig}
+            disabled={savingConfig}
+          >
+            <Text style={styles.addButtonText}>
+              {savingConfig ? "Saving..." : "Save Settings"}
+            </Text>
+          </TouchableOpacity>
+        </ScrollView>
       )}
     </View>
   );
@@ -310,6 +370,7 @@ const styles = StyleSheet.create({
     marginBottom: 12,
   },
   addButtonText: { color: palette.white, fontSize: 16, fontWeight: "600" },
+  settingsHint: { ...typography.bodySmall, color: palette.textMuted, marginBottom: spacing.md, lineHeight: 18 },
   skeletonList: { marginTop: 8 },
   listItem: {
     backgroundColor: palette.card,

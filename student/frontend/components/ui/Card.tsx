@@ -14,13 +14,17 @@ export function Card({ children, onPress, style }: CardProps) {
   const isWeb = Platform.OS === "web";
   const showHover = isWeb && onPress && hovered;
 
+  const webProps = isWeb && onPress ? {
+    onMouseEnter: () => setHovered(true),
+    onMouseLeave: () => setHovered(false),
+  } : {};
+
   const Wrapper = onPress ? TouchableOpacity : View;
   return (
     <Wrapper
       onPress={onPress}
       activeOpacity={onPress ? 0.92 : 1}
-      onMouseEnter={isWeb && onPress ? () => setHovered(true) : undefined}
-      onMouseLeave={isWeb && onPress ? () => setHovered(false) : undefined}
+      {...webProps}
       style={[
         styles.card,
         elevation.shadowMd,

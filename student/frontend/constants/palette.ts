@@ -23,6 +23,7 @@ export const palette = {
   rowPressed: "#f9fafb",
   inkStroke: "#111827",
   error: "#EF4444",
+  errorText: "#EF4444",
   errorBg: "#FEF2F2",
   success: "#10B981",
   successBg: "#F0FDF4",

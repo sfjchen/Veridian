@@ -43,7 +43,7 @@ export function Input({ label, error, style, containerStyle, onFocus, onBlur, ..
 const styles = StyleSheet.create({
   wrapper: { marginBottom: spacing.md },
   label: {
-    fontSize: 14,
+    ...typography.bodySmall,
     fontWeight: "600",
     color: palette.textSecondary,
     marginBottom: spacing.xs,

@@ -60,7 +60,7 @@ export function Button({
     <Pressable
       onPress={onPress}
       disabled={isDisabled}
-      style={({ pressed, focused }) => [
+      style={({ pressed }) => [
         styles.base,
         variantStyles[variant],
         size === "sm" && styles.sizeSm,
@@ -68,7 +68,6 @@ export function Button({
         isDisabled && styles.disabled,
         fullWidth && styles.fullWidth,
         !isDisabled && pressed && styles.pressed,
-        !isDisabled && focused && styles.focusRing,
         style,
       ]}
       accessibilityRole="button"
@@ -107,10 +106,5 @@ const styles = StyleSheet.create({
   fullWidth: { width: "100%" },
   disabled: { opacity: 0.6 },
   pressed: { opacity: 0.9, transform: [{ scale: 0.98 }] },
-  focusRing: {
-    outlineWidth: 2,
-    outlineColor: palette.primary,
-    outlineStyle: "solid",
-  },
   textDisabled: { color: palette.textDisabled },
 });

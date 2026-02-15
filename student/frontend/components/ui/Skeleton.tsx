@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useRef } from "react";
 import { Animated, type DimensionValue, StyleSheet, View, type ViewStyle } from "react-native";
 import { palette, radius } from "@/constants/palette";
 import { spacing } from "@/constants/spacing";
@@ -11,14 +11,8 @@ interface SkeletonProps {
 
 export function Skeleton({ width, height = 20, style }: SkeletonProps) {
   const opacity = useRef(new Animated.Value(0.3)).current;
-  const [mounted, setMounted] = useState(false);
 
   useEffect(() => {
-    setMounted(true);
-  }, []);
-
-  useEffect(() => {
-    if (!mounted) return;
     const loop = Animated.loop(
       Animated.sequence([
         Animated.timing(opacity, { toValue: 0.6, useNativeDriver: true, duration: 600 }),
@@ -27,7 +21,7 @@ export function Skeleton({ width, height = 20, style }: SkeletonProps) {
     );
     loop.start();
     return () => loop.stop();
-  }, [mounted, opacity]);
+  }, [opacity]);
 
   const widthVal = (width ?? "100%") as DimensionValue;
   return (

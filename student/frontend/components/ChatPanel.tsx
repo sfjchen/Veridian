@@ -15,7 +15,6 @@ import { palette, radius } from "@/constants/palette";
 import { spacing } from "@/constants/spacing";
 import { typography } from "@/constants/typography";
 import { useChat } from "@/hooks/useChat";
-import { hasLatex, InlineLatex } from "@/components/InlineLatex";
 import type { ChatMessage } from '@/lib/api';
 
 type ChatPanelProps = {
@@ -104,7 +103,6 @@ function MessageList({ messages, loading, problemNum }: MessageListProps) {
       )}
       {messages.map((msg) => {
         const isStudent = msg.role === 'student';
-        const showLatex = !isStudent && hasLatex(msg.content);
         return (
           <View
             key={msg.id}
@@ -113,13 +111,9 @@ function MessageList({ messages, loading, problemNum }: MessageListProps) {
               isStudent ? styles.studentBubble : styles.assistantBubble,
             ]}
           >
-            {showLatex ? (
-              <InlineLatex content={msg.content} color={palette.textPrimary} />
-            ) : (
-              <Text style={isStudent ? styles.studentText : styles.assistantText}>
-                {msg.content}
-              </Text>
-            )}
+            <Text style={isStudent ? styles.studentText : styles.assistantText}>
+              {msg.content}
+            </Text>
           </View>
         );
       })}
@@ -319,6 +313,7 @@ const styles = StyleSheet.create({
   },
   messageBubble: {
     maxWidth: "80%",
+    flexShrink: 1,
     paddingHorizontal: spacing.sm,
     paddingVertical: 10,
     borderRadius: radius.card,

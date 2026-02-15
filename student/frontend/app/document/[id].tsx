@@ -304,9 +304,18 @@ export default function DocumentScreen() {
       return;
     }
     if (!doc.uri) return;
+    if (Platform.OS === 'web') {
+      setPdfBase64('default');
+      return;
+    }
     let cancelled = false;
     (async () => {
       try {
+        const info = await FileSystem.getInfoAsync(doc.uri);
+        if (!info.exists) {
+          if (!cancelled) setLoadError('PDF file not found. It may have been removed by the system. Try uploading it again.');
+          return;
+        }
         const base64 = await FileSystem.readAsStringAsync(doc.uri, {
           encoding: (FileSystem.EncodingType?.Base64 ?? 'base64') as 'base64',
         });

@@ -2,6 +2,7 @@ import AsyncStorage from '@react-native-async-storage/async-storage';
 import * as DocumentPicker from 'expo-document-picker';
 import * as FileSystem from 'expo-file-system/legacy';
 import { useCallback, useEffect, useState } from 'react';
+import { Platform } from 'react-native';
 
 const DOCUMENTS_KEY = 'veridian_documents';
 const PDFS_DIR = 'pdfs';
@@ -35,6 +36,22 @@ async function ensurePdfsDir(): Promise<string> {
   return dir;
 }
 
+async function pruneStaleDocuments(docs: DocumentMeta[]): Promise<DocumentMeta[]> {
+  const results = await Promise.all(
+    docs.map(async (doc) => {
+      if (isDefaultDocument(doc)) return doc;
+      try {
+        const info = await FileSystem.getInfoAsync(doc.uri);
+        return info.exists ? doc : null;
+      } catch {
+        return null;
+      }
+    }),
+  );
+  const valid = results.filter((d): d is DocumentMeta => d !== null);
+  return valid.length > 0 ? valid : [DEFAULT_DOCUMENT];
+}
+
 export function useDocuments() {
   const [documents, setDocuments] = useState<DocumentMeta[]>([]);
   const [loading, setLoading] = useState(true);
@@ -51,6 +68,15 @@ export function useDocuments() {
       if (list.length === 0) {
         list = [DEFAULT_DOCUMENT];
         await AsyncStorage.setItem(DOCUMENTS_KEY, JSON.stringify(list));
+      }
+      if (Platform.OS !== 'web') {
+        const validated = await pruneStaleDocuments(list);
+        const changed = validated.length !== list.length
+          || validated.some((v, i) => v.id !== list[i]?.id);
+        if (changed) {
+          await AsyncStorage.setItem(DOCUMENTS_KEY, JSON.stringify(validated));
+          list = validated;
+        }
       }
       setDocuments(list);
     } catch (e) {

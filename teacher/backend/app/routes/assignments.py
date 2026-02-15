@@ -49,6 +49,20 @@ def _validate_problem_item(index: int, item: Any) -> dict[str, Any]:
     return {"num": num, "statement_tex": tex}
 
 
+def _validate_solution_item(index: int, item: Any) -> dict[str, Any]:
+    if not isinstance(item, dict):
+        raise ValueError(f"solutions[{index}] must be an object")
+    num = item.get("num")
+    if not isinstance(num, int) or num < 1:
+        raise ValueError(f"solutions[{index}].num must be a positive integer")
+    tex = item.get("solution_tex", "")
+    if not isinstance(tex, str) or len(tex) > MAX_STATEMENT_LENGTH:
+        raise ValueError(f"solutions[{index}].solution_tex must be a string (<= {MAX_STATEMENT_LENGTH} chars)")
+    if not tex.strip():
+        raise ValueError(f"solutions[{index}].solution_tex must not be empty")
+    return {"num": num, "solution_tex": tex}
+
+
 def _parse_job_id(raw_value: str | None) -> str | None:
     if raw_value is None:
         return None
@@ -73,6 +87,22 @@ def _validate_problems(raw: Any) -> list[dict[str, Any]]:
         validated = _validate_problem_item(i, item)
         if validated["num"] in seen_nums:
             raise ValueError(f"Duplicate problem num {validated['num']}")
+        seen_nums.add(validated["num"])
+        result.append(validated)
+    return result
+
+
+def _validate_solutions(raw: Any) -> list[dict[str, Any]]:
+    if not isinstance(raw, list):
+        raise ValueError("solutions must be a list")
+    if len(raw) > MAX_PROBLEMS:
+        raise ValueError(f"Too many solutions (max {MAX_PROBLEMS})")
+    seen_nums: set[int] = set()
+    result: list[dict[str, Any]] = []
+    for i, item in enumerate(raw):
+        validated = _validate_solution_item(i, item)
+        if validated["num"] in seen_nums:
+            raise ValueError(f"Duplicate solution num {validated['num']}")
         seen_nums.add(validated["num"])
         result.append(validated)
     return result
@@ -512,6 +542,16 @@ def update_assignment(assignment_id: str) -> Tuple[Response, int]:
             updates["problems"] = _validate_problems(data["problems"])
         except ValueError as e:
             return jsonify({"error": str(e)}), 400
+    if "solutions" in data:
+        try:
+            updates["solutions"] = _validate_solutions(data["solutions"])
+        except ValueError as e:
+            return jsonify({"error": str(e)}), 400
+    if "answer_key_latex" in data:
+        latex = data["answer_key_latex"]
+        if latex is not None and len(latex) > 100_000:
+            return jsonify({"error": "Answer key LaTeX content too large"}), 400
+        updates["answer_key_latex"] = latex
 
     if not updates:
         return jsonify({"error": "No valid fields to update"}), 400
@@ -737,6 +777,102 @@ def list_submissions(assignment_id: str) -> Tuple[Response, int]:
         result.append(item)
 
     return jsonify(result), 200
+
+
+@assignments_bp.route("/assignments/<assignment_id>/convert-answer-key", methods=["POST"])
+@require_role("teacher")
+def convert_answer_key(assignment_id: str) -> Tuple[Response, int]:
+    """
+    Convert answer key PDF/TEX to LaTeX with automatic solution detection.
+
+    Expects multipart/form-data with:
+    - file: PDF or TEX answer key file
+    - job_id (optional): UUID for WebSocket progress tracking
+    """
+    # Validate file upload
+    if "file" not in request.files:
+        return jsonify({"error": "File is required"}), 400
+
+    uploaded_file = request.files["file"]
+    if not uploaded_file or not uploaded_file.filename:
+        return jsonify({"error": "File is required"}), 400
+
+    # Determine file type
+    filename = uploaded_file.filename.lower()
+    if filename.endswith(".pdf"):
+        file_type = "pdf"
+    elif filename.endswith(".tex"):
+        file_type = "tex"
+    else:
+        return jsonify({"error": "File must be PDF or TEX"}), 400
+
+    # Read file bytes
+    try:
+        file_bytes = uploaded_file.read()
+    except Exception:
+        log.exception("Failed to read uploaded file")
+        return jsonify({"error": "Failed to read file"}), 500
+
+    if not file_bytes:
+        return jsonify({"error": "Empty file"}), 400
+    if file_type == "pdf" and not file_bytes.startswith(PDF_SIGNATURE):
+        return jsonify({"error": "File content is not a valid PDF"}), 400
+
+    client = get_supabase_admin_client()
+
+    # Verify ownership
+    record = _find_owned_assignment(client, assignment_id)
+    if record is None:
+        return jsonify({"error": "Assignment not found or access denied"}), 404
+
+    # Parse optional job_id for WebSocket progress
+    try:
+        job_id = _parse_job_id(request.form.get("job_id")) or str(uuid.uuid4())
+    except ValueError as e:
+        return jsonify({"error": str(e)}), 400
+
+    # Create progress tracker for WebSocket updates
+    progress_tracker = ProgressTracker(job_id)
+
+    # Process answer key with conversion orchestrator
+    orchestrator = create_orchestrator()
+    register_conversion_job(job_id, g.user_id)
+    try:
+        result = orchestrator.process_answer_key(
+            file_bytes=file_bytes,
+            file_type=file_type,
+            progress_tracker=progress_tracker,
+        )
+    except ConversionError as e:
+        progress_tracker.error(str(e))
+        log.exception("Answer key conversion failed for assignment %s", assignment_id)
+        return jsonify({
+            "error": "Failed to convert answer key and detect solutions",
+            "detail": str(e),
+        }), 422
+    finally:
+        complete_conversion_job(job_id)
+
+    # Update assignment with answer key LaTeX and solutions
+    try:
+        updated = client.table("assignments").update({
+            "answer_key_latex": result["latex_content"],
+            "solutions": [dict(s) for s in result["solutions"]],
+        }).eq("id", assignment_id).execute()
+    except APIError:
+        log.exception("Failed to update assignment %s with answer key", assignment_id)
+        return jsonify({"error": "Failed to save answer key"}), 500
+
+    if not updated.data:
+        return jsonify({"error": "Update returned no data"}), 500
+
+    response: dict[str, Any] = {
+        "solutions": result["solutions"],
+        "needs_review": result["needs_review"],
+        "job_id": job_id,
+    }
+
+    return jsonify(response), 200
 
 
 @assignments_bp.route("/assignments/<assignment_id>/submissions", methods=["POST"])

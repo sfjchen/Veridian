@@ -19,9 +19,12 @@ from app.constants import (
 )
 from ..utils.latex_parser import (
     Problem,
+    Solution,
     ProblemDetectionError,
     extract_problems_from_latex,
+    extract_solutions_from_latex,
     validate_problem_structure,
+    validate_solution_structure,
 )
 from .progress_tracker import ProgressTracker
 
@@ -395,6 +398,92 @@ class ConversionOrchestrator:
         validated_problems = validate_problem_structure(raw_problems)
 
         return validated_problems
+
+    def process_answer_key(
+        self,
+        file_bytes: bytes,
+        file_type: str,
+        progress_tracker: Optional[ProgressTracker] = None,
+    ) -> dict:
+        """
+        Process answer key file (PDF or TEX) with automatic solution detection.
+
+        Args:
+            file_bytes: Raw file bytes
+            file_type: 'pdf' or 'tex'
+            progress_tracker: Optional progress tracker for WebSocket updates
+
+        Returns:
+            Dict with latex_content, solutions, needs_review
+
+        Raises:
+            ConversionError: If conversion or solution detection fails
+        """
+        if file_type == "pdf":
+            latex_content = self._convert_pdf_to_latex(file_bytes, progress_tracker)
+        elif file_type == "tex":
+            latex_content = file_bytes.decode("utf-8")
+        else:
+            raise ConversionError(f"Unsupported file type: {file_type}")
+
+        # Intelligent solution detection
+        if progress_tracker:
+            progress_tracker.emit_progress(
+                stage="detecting_solutions",
+                progress=95,
+                message="Detecting solutions...",
+            )
+
+        try:
+            solutions = self._intelligent_solution_detection(latex_content, progress_tracker)
+            needs_review = True  # Successful auto-detection, offer review
+
+            if progress_tracker:
+                progress_tracker.emit_progress(
+                    stage="detecting_solutions",
+                    progress=98,
+                    message=f"Detected {len(solutions)} solutions",
+                )
+        except ProblemDetectionError as e:
+            # Solution detection failed
+            if progress_tracker:
+                progress_tracker.error(f"Failed to detect solutions: {e}")
+            raise ConversionError(f"Failed to detect solutions: {e}") from e
+
+        if progress_tracker:
+            progress_tracker.complete(solutions, len(latex_content))
+
+        return {
+            "latex_content": latex_content,
+            "solutions": solutions,
+            "needs_review": needs_review,
+        }
+
+    def _intelligent_solution_detection(
+        self,
+        latex: str,
+        progress_tracker: Optional[ProgressTracker] = None,
+    ) -> list[Solution]:
+        """
+        Use Claude to intelligently detect solutions in LaTeX answer key.
+
+        Args:
+            latex: Raw LaTeX content
+            progress_tracker: Optional progress tracker
+
+        Returns:
+            List of detected and validated solutions
+
+        Raises:
+            ProblemDetectionError: If detection or validation fails
+        """
+        # Extract solutions using AI
+        raw_solutions = extract_solutions_from_latex(latex)
+
+        # Validate structure
+        validated_solutions = validate_solution_structure(raw_solutions)
+
+        return validated_solutions
 
 
 def create_orchestrator() -> ConversionOrchestrator:

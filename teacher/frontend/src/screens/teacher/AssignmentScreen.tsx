@@ -11,6 +11,7 @@ import {
   RefreshControl,
 } from "react-native";
 import * as Linking from "expo-linking";
+import * as DocumentPicker from "expo-document-picker";
 import { supabase } from "../../lib/supabase";
 import { api } from "../../lib/api";
 import { API_URL } from "../../lib/apiBaseUrl";
@@ -20,7 +21,9 @@ import { LatexRenderer } from "../../components/LatexRenderer";
 import { FileUploader } from "../../components/FileUploader";
 import { DateField } from "../../components/DateField";
 import { ProblemEditor } from "../../components/ProblemEditor";
-import { AssignmentConfig, AssignmentDetail, Problem, Submission } from "../../types";
+import { SolutionEditor } from "../../components/SolutionEditor";
+import { DetectedSolutionsPreview } from "../../components/DetectedSolutionsPreview";
+import { AssignmentConfig, AssignmentDetail, Problem, Solution, Submission } from "../../types";
 import { alert } from "../../lib/alert";
 import {
   Button,
@@ -71,7 +74,10 @@ export function TeacherAssignmentScreen({ route, navigation }: { route: any; nav
   const [editDueDate, setEditDueDate] = useState("");
   const [editConfig, setEditConfig] = useState<Partial<AssignmentConfig>>({});
   const [editProblems, setEditProblems] = useState<Problem[]>([]);
+  const [editSolutions, setEditSolutions] = useState<Solution[]>([]);
   const [saving, setSaving] = useState(false);
+  const [uploadingAnswerKey, setUploadingAnswerKey] = useState(false);
+  const [detectedSolutions, setDetectedSolutions] = useState<Solution[] | null>(null);
 
   const [reuploadUrls, setReuploadUrls] = useState<{
     assignment_file_upload_url?: string;
@@ -95,6 +101,7 @@ export function TeacherAssignmentScreen({ route, navigation }: { route: any; nav
       setEditDueDate(data.due_date ? data.due_date.split("T")[0] : "");
       setEditConfig(data.config ?? {});
       setEditProblems(data.problems ?? []);
+      setEditSolutions(data.solutions ?? []);
       setAssignmentContent(null);
       setIsPdf(false);
       setPdfPreviewUri(null);
@@ -209,11 +216,68 @@ export function TeacherAssignmentScreen({ route, navigation }: { route: any; nav
           due_date: editDueDate.trim() || null,
           config: editConfig,
           problems: editProblems,
+          solutions: editSolutions,
         },
       });
       setAssignment((prev) => prev ? { ...prev, ...updated } : updated);
       setEditing(false);
       navigation.setOptions({ title: updated.title });
+    } catch (e: any) {
+      alert("Error", e.message);
+    } finally {
+      setSaving(false);
+    }
+  };
+
+  const handleAnswerKeyUpload = async () => {
+    try {
+      const result = await DocumentPicker.getDocumentAsync({
+        type: ["application/pdf", "text/*"],
+        copyToCacheDirectory: true,
+      });
+
+      if (result.canceled) return;
+
+      const file = result.assets[0];
+      setUploadingAnswerKey(true);
+
+      const { data: { session } } = await supabase.auth.getSession();
+      const formData = new FormData();
+      formData.append("file", file.file as any);
+
+      const response = await fetch(`${API_URL}/assignments/${assignmentId}/convert-answer-key`, {
+        method: "POST",
+        headers: session?.access_token
+          ? { Authorization: `Bearer ${session.access_token}` }
+          : {},
+        body: formData,
+      });
+
+      if (!response.ok) {
+        const err = await response.json().catch(() => ({ error: `HTTP ${response.status}` }));
+        throw new Error(err.error || `Upload failed: ${response.status}`);
+      }
+
+      const data = await response.json();
+      setDetectedSolutions(data.solutions);
+      fetchAssignment();
+    } catch (e: any) {
+      alert("Upload Error", e.message);
+    } finally {
+      setUploadingAnswerKey(false);
+    }
+  };
+
+  const handleSaveSolutions = async () => {
+    if (!detectedSolutions) return;
+    setSaving(true);
+    try {
+      const updated = await api<AssignmentDetail>(`/assignments/${assignmentId}`, {
+        method: "PATCH",
+        body: { solutions: detectedSolutions },
+      });
+      setAssignment((prev) => prev ? { ...prev, ...updated } : updated);
+      setDetectedSolutions(null);
     } catch (e: any) {
       alert("Error", e.message);
     } finally {
@@ -349,6 +413,8 @@ export function TeacherAssignmentScreen({ route, navigation }: { route: any; nav
               />
               <Text style={styles.sectionTitle}>Problems</Text>
               <ProblemEditor problems={editProblems} onChange={setEditProblems} />
+              <Text style={[styles.sectionTitle, { marginTop: 24 }]}>Solutions</Text>
+              <SolutionEditor solutions={editSolutions} onChange={setEditSolutions} />
               <View style={styles.editActions}>
                 <TouchableOpacity
                   style={[styles.actionButton, styles.saveButton]}
@@ -367,6 +433,7 @@ export function TeacherAssignmentScreen({ route, navigation }: { route: any; nav
                     setEditDueDate(assignment.due_date ? assignment.due_date.split("T")[0] : "");
                     setEditConfig(assignment.config ?? {});
                     setEditProblems(assignment.problems ?? []);
+                    setEditSolutions(assignment.solutions ?? []);
                   }}
                   accessibilityRole="button"
                   accessibilityLabel="Cancel edit"
@@ -408,6 +475,43 @@ export function TeacherAssignmentScreen({ route, navigation }: { route: any; nav
                     </View>
                   ))}
                 </View>
+              )}
+              {(assignment.solutions?.length ?? 0) > 0 && (
+                <View style={styles.problemsSummary}>
+                  <Text style={styles.sectionTitle}>Solutions ({assignment.solutions.length})</Text>
+                  {assignment.solutions.map((s) => (
+                    <View key={s.num} style={styles.problemRow}>
+                      <Text style={styles.problemNum}>#{s.num}</Text>
+                      <Text style={styles.problemTex} numberOfLines={2}>
+                        {s.solution_tex || "(no solution)"}
+                      </Text>
+                    </View>
+                  ))}
+                </View>
+              )}
+              {!assignment.answer_key_latex && !detectedSolutions && (
+                <View style={{ marginTop: 16 }}>
+                  <Text style={styles.sectionTitle}>Answer Key</Text>
+                  <Button
+                    onPress={handleAnswerKeyUpload}
+                    loading={uploadingAnswerKey}
+                    disabled={uploadingAnswerKey}
+                  >
+                    Upload Answer Key (PDF/TEX)
+                  </Button>
+                </View>
+              )}
+              {detectedSolutions && (
+                <DetectedSolutionsPreview
+                  solutions={detectedSolutions}
+                  onReview={() => {
+                    setEditSolutions(detectedSolutions);
+                    setDetectedSolutions(null);
+                    setEditing(true);
+                  }}
+                  onSave={handleSaveSolutions}
+                  isSaving={saving}
+                />
               )}
               <View style={styles.configSummary}>
                 <Text style={styles.sectionTitle}>Config</Text>

@@ -33,6 +33,11 @@ export interface Problem {
   statement_tex: string;
 }
 
+export interface Solution {
+  num: number;
+  solution_tex: string;
+}
+
 export interface Assignment {
   id: string;
   classroom_id: string;
@@ -41,6 +46,8 @@ export interface Assignment {
   answer_key_storage_path: string | null;
   context_file_ids: string[];
   problems?: Problem[];
+  solutions?: Solution[];
+  answer_key_latex?: string | null;
   due_date: string | null;
   created_at: string;
   config: Partial<AssignmentConfig>;

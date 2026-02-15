@@ -9,6 +9,7 @@ import anthropic
 from flask import current_app
 from app.constants import CLAUDE_MAX_TOKENS, CLAUDE_MODEL_SONNET_4_5
 from ..prompts.problem_detection import get_problem_detection_prompt
+from ..prompts.solution_detection import get_solution_detection_prompt
 
 
 _CODE_FENCE_RE = re.compile(r"^```(?:json)?\s*\n(.*?)```\s*$", re.DOTALL)
@@ -22,6 +23,11 @@ def _strip_code_fences(text: str) -> str:
 class Problem(TypedDict):
     num: int
     statement_tex: str
+
+
+class Solution(TypedDict):
+    num: int
+    solution_tex: str
 
 
 class ProblemDetectionError(Exception):
@@ -157,6 +163,138 @@ def validate_problem_structure(problems: list[dict[str, Any]]) -> list[Problem]:
     expected_nums = set(range(1, len(validated) + 1))
     if seen_nums != expected_nums:
         raise ProblemDetectionError(f"Problem numbers must be sequential from 1, got {sorted(seen_nums)}")
+
+    return validated
+
+
+def extract_solutions_from_latex(latex: str) -> list[dict[str, Any]]:
+    """
+    Use Claude Sonnet 4.5 to intelligently detect solutions in LaTeX answer key.
+    No explicit \\Solution{} blocks required - AI infers solution boundaries.
+
+    Args:
+        latex: Raw LaTeX answer key content
+
+    Returns:
+        List of detected solutions with num and solution_tex
+
+    Raises:
+        ProblemDetectionError: If AI fails to detect solutions or returns invalid JSON
+    """
+    if not latex.strip():
+        raise ProblemDetectionError("Empty LaTeX source provided")
+
+    client = anthropic.Anthropic(api_key=current_app.config["ANTHROPIC_API_KEY"])
+    prompt = get_solution_detection_prompt(latex)
+
+    try:
+        message = client.messages.create(
+            model=CLAUDE_MODEL_SONNET_4_5,
+            max_tokens=CLAUDE_MAX_TOKENS,
+            messages=[{
+                "role": "user",
+                "content": prompt,
+            }],
+        )
+
+        if not message.content:
+            raise ProblemDetectionError("Claude API returned empty response")
+
+        block = message.content[0]
+        if not hasattr(block, "text"):
+            raise ProblemDetectionError(f"Claude API returned non-text content: {block.type}")
+
+        response_text = _strip_code_fences(block.text.strip())
+
+        try:
+            solutions = json.loads(response_text)
+        except json.JSONDecodeError as e:
+            snippet = response_text[:500]
+            raise ProblemDetectionError(
+                f"Failed to parse JSON response: {e}. Response snippet: {snippet!r}"
+            ) from e
+
+        # Check for error response
+        if isinstance(solutions, dict) and "error" in solutions:
+            raise ProblemDetectionError(solutions["error"])
+
+        if not isinstance(solutions, list):
+            raise ProblemDetectionError(f"Expected JSON array, got {type(solutions)}")
+
+        return solutions
+
+    except anthropic.APIError as e:
+        raise ProblemDetectionError(f"Anthropic API error: {e}") from e
+
+
+def validate_solution_structure(solutions: list[dict[str, Any]]) -> list[Solution]:
+    """
+    Validate solution structure against constraints.
+
+    Constraints:
+    - Max 100 solutions per assignment
+    - Unique num values (sequential from 1)
+    - Each solution_tex < 5000 characters
+    - Required fields: num (int), solution_tex (str)
+
+    Args:
+        solutions: Raw solution dictionaries from AI
+
+    Returns:
+        Validated and typed list of Solution objects
+
+    Raises:
+        ProblemDetectionError: If validation fails
+    """
+    if not solutions:
+        raise ProblemDetectionError("No solutions detected")
+
+    if len(solutions) > 100:
+        raise ProblemDetectionError(f"Too many solutions detected: {len(solutions)} (max 100)")
+
+    validated: list[Solution] = []
+    seen_nums = set()
+
+    for i, solution in enumerate(solutions):
+        # Check required fields
+        if not isinstance(solution, dict):
+            raise ProblemDetectionError(f"Solution {i+1} is not a dictionary")
+
+        if "num" not in solution:
+            raise ProblemDetectionError(f"Solution {i+1} missing 'num' field")
+
+        if "solution_tex" not in solution:
+            raise ProblemDetectionError(f"Solution {i+1} missing 'solution_tex' field")
+
+        num = solution["num"]
+        solution_tex = solution["solution_tex"]
+
+        # Validate types
+        if not isinstance(num, int):
+            raise ProblemDetectionError(f"Solution {i+1} num must be integer, got {type(num)}")
+
+        if not isinstance(solution_tex, str):
+            raise ProblemDetectionError(f"Solution {i+1} solution_tex must be string, got {type(solution_tex)}")
+
+        # Check num uniqueness
+        if num in seen_nums:
+            raise ProblemDetectionError(f"Duplicate solution number: {num}")
+        seen_nums.add(num)
+
+        # Check solution length
+        if len(solution_tex) >= 5000:
+            raise ProblemDetectionError(f"Solution {num} solution_tex exceeds 5000 characters")
+
+        # Check solution not empty
+        if not solution_tex.strip():
+            raise ProblemDetectionError(f"Solution {num} has empty solution_tex")
+
+        validated.append(Solution(num=num, solution_tex=solution_tex))
+
+    # Ensure nums are sequential from 1
+    expected_nums = set(range(1, len(validated) + 1))
+    if seen_nums != expected_nums:
+        raise ProblemDetectionError(f"Solution numbers must be sequential from 1, got {sorted(seen_nums)}")
 
     return validated
 

@@ -1,8 +1,18 @@
-import { useCallback, useState } from 'react';
-import { Pressable, StyleSheet, Text, View, type LayoutChangeEvent } from 'react-native';
+import { useCallback, useMemo, useState } from 'react';
+import {
+  PixelRatio,
+  Pressable,
+  StyleSheet,
+  Text,
+  View,
+  type LayoutChangeEvent,
+} from 'react-native';
 
 import type { Mistake } from '@/lib/api';
+import type { DotThreshold } from '@/lib/teacherConfig';
 
+// Re-export Mistake from the canonical api module so existing imports from
+// MistakeOverlay continue to work after the PR #20 merge.
 export type { Mistake } from '@/lib/api';
 
 export type AnalysisResponse = {
@@ -11,11 +21,54 @@ export type AnalysisResponse = {
   error?: string;
 };
 
-// Red-dot overlay: dot = center of bbox, normalized [0,1]. Backend bottom-left origin;
-// frontend top-left: left = dot.x * width - R, top = (1 - dot.y) * height - R.
-// 8px radius → 16px visible dot. Combined with hitSlop=12 the total touch target
-// is 40px, close to the 44px accessibility minimum while staying unobtrusive.
+// ---------------------------------------------------------------------------
+// Bounding-box overlay (PR #20) — pixel-based rectangles
+// ---------------------------------------------------------------------------
+
+type BoxOverlayProps = {
+  mistakes: Mistake[];
+  layoutWidth: number;
+  layoutHeight: number;
+};
+
+/** Backend coords: image pixels (layout * PixelRatio), bottom-left origin. Convert to layout points, top-left. */
+function toLayoutRect(
+  m: Mistake,
+  imgH: number,
+  scale: number,
+): { left: number; top: number; width: number; height: number } {
+  return {
+    left: m.x_min * scale,
+    top: (imgH - m.y_max) * scale,
+    width: (m.x_max - m.x_min) * scale,
+    height: (m.y_max - m.y_min) * scale,
+  };
+}
+
+export function BoxOverlay({ mistakes, layoutWidth, layoutHeight }: BoxOverlayProps) {
+  const pr = PixelRatio.get();
+  const imgH = layoutHeight * pr;
+  const scale = 1 / pr;
+  return (
+    <View style={StyleSheet.absoluteFill} pointerEvents="none">
+      {mistakes.map((m, i) => (
+        <View key={i} style={[styles.box, toLayoutRect(m, imgH, scale)]} />
+      ))}
+    </View>
+  );
+}
+
+// ---------------------------------------------------------------------------
+// Dot overlay (PR #11) — normalised dot positions with hint bubbles
+// ---------------------------------------------------------------------------
+
 const DOT_RADIUS = 8;
+const SEVERITY_RANK: Record<DotThreshold, number> = {
+  notational: 0,
+  mechanical: 1,
+  procedural: 2,
+  conceptual: 3,
+};
 
 type TapState = { id: string; taps: number };
 
@@ -23,11 +76,53 @@ type MistakeOverlayProps = {
   mistakes: Mistake[];
   revealMode?: 'single-tap' | 'progressive';
   onAskAboutMistake?: (mistake: Mistake) => void;
+  dotThreshold?: DotThreshold;
+  maxDotsShown?: number;
 };
 
-export function MistakeOverlay({ mistakes, revealMode = 'single-tap', onAskAboutMistake }: MistakeOverlayProps) {
+function severityRank(severity: string): number {
+  if (severity === 'notational') return SEVERITY_RANK.notational;
+  if (severity === 'mechanical') return SEVERITY_RANK.mechanical;
+  if (severity === 'procedural') return SEVERITY_RANK.procedural;
+  if (severity === 'conceptual') return SEVERITY_RANK.conceptual;
+  return -1;
+}
+
+function filterVisibleMistakes(
+  mistakes: Mistake[],
+  dotThreshold: DotThreshold,
+  maxDotsShown: number,
+): Mistake[] {
+  const minRank = SEVERITY_RANK[dotThreshold];
+  const filtered = mistakes.filter((m) => m.dot != null && severityRank(m.severity) >= minRank);
+  if (maxDotsShown <= 0 || filtered.length <= maxDotsShown) return filtered;
+
+  const prioritized = filtered
+    .map((mistake, index) => ({ mistake, index }))
+    .sort((a, b) => {
+      const rankDiff = severityRank(b.mistake.severity) - severityRank(a.mistake.severity);
+      if (rankDiff !== 0) return rankDiff;
+      return a.index - b.index;
+    })
+    .slice(0, maxDotsShown)
+    .map((item) => item.mistake);
+  return prioritized;
+}
+
+export function MistakeOverlay({
+  mistakes,
+  revealMode = 'single-tap',
+  onAskAboutMistake,
+  dotThreshold = 'mechanical',
+  maxDotsShown = 0,
+}: MistakeOverlayProps) {
   const [containerSize, setContainerSize] = useState({ width: 0, height: 0 });
   const [activeDot, setActiveDot] = useState<TapState | null>(null);
+
+  const visibleMistakes = useMemo(
+    () => filterVisibleMistakes(mistakes, dotThreshold, maxDotsShown),
+    [mistakes, dotThreshold, maxDotsShown],
+  );
 
   const handleLayout = useCallback((e: LayoutChangeEvent) => {
     const { width, height } = e.nativeEvent.layout;
@@ -51,7 +146,7 @@ export function MistakeOverlay({ mistakes, revealMode = 'single-tap', onAskAbout
 
   const dismissBubble = useCallback(() => setActiveDot(null), []);
 
-  if (!containerSize.width || !containerSize.height || mistakes.length === 0) {
+  if (!containerSize.width || !containerSize.height || visibleMistakes.length === 0) {
     return <View style={styles.overlay} pointerEvents="box-none" onLayout={handleLayout} />;
   }
 
@@ -60,7 +155,7 @@ export function MistakeOverlay({ mistakes, revealMode = 'single-tap', onAskAbout
       {activeDot && (
         <Pressable style={StyleSheet.absoluteFill} onPress={dismissBubble} />
       )}
-      {mistakes.map((m) => {
+      {visibleMistakes.map((m) => {
         if (!m.dot) return null;
         const left = m.dot.x * containerSize.width - DOT_RADIUS;
         // Backend uses bottom-left origin (math convention), frontend uses
@@ -105,11 +200,10 @@ function HintBubble({
   let text: string;
   if (revealMode === 'progressive') {
     if (taps === 1) text = "There's a mistake here.";
-    else if (taps === 2) text = mistake.tag.replace(/-/g, ' ');
+    else if (taps === 2) text = `Hint: ${mistake.tag.replace(/-/g, ' ')}`;
     else text = mistake.explanation || mistake.tag;
   } else {
-    const tag = mistake.tag.replace(/-/g, ' ');
-    text = mistake.explanation ? `${tag}: ${mistake.explanation}` : tag;
+    text = mistake.explanation || mistake.tag;
   }
 
   return (
@@ -176,5 +270,12 @@ const styles = StyleSheet.create({
     color: '#93c5fd',
     fontSize: 12,
     fontWeight: '600',
+  },
+  // Box overlay styles
+  box: {
+    position: 'absolute',
+    borderWidth: 2,
+    borderColor: '#dc2626',
+    backgroundColor: 'rgba(220, 38, 38, 0.15)',
   },
 });

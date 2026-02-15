@@ -20,21 +20,26 @@ import { CenteredMessage } from '@/components/CenteredMessage';
 import { ChatPanel } from '@/components/ChatPanel';
 import { InkCanvas, type Stroke } from '@/components/InkCanvas';
 import { MistakeOverlay } from '@/components/MistakeOverlay';
+import { StatusBadge, type StatusTone } from '@/components/notifications/StatusBadge';
+import { ToastHost, type ToastNotice } from '@/components/notifications/ToastHost';
 import { ProblemHeader } from '@/components/ProblemHeader';
 import { SampleAlgebraContent } from '@/components/SampleAlgebraContent';
 import { palette, radius } from '@/constants/palette';
-import { useAccessToken } from '@/hooks/useAccessToken';
 import { useAssignment } from '@/hooks/useAssignment';
 import { useAutoAnalysis } from '@/hooks/useAutoAnalysis';
 import { useDocuments, isDefaultDocument } from '@/hooks/useDocuments';
-import { getAuthHeaders, type AnalysisResult, type Mistake } from '@/lib/api';
+import type { AnalysisResult, Mistake } from '@/lib/api';
 import type { CaptureResult } from '@/lib/capture-types';
-import { buildAnalysisFormData } from '@/lib/image-upload';
 import { captureStrokesAsDataUri } from '@/lib/capture-web';
+import { buildAnalysisFormData } from '@/lib/image-upload';
 import { PDF_VIEWER_HTML } from '@/lib/pdf-viewer-html';
 import { SAMPLE_ALGEBRA_HTML } from '@/lib/sample-algebra-html';
+import {
+  DEFAULT_RESOLVED_CONFIG,
+  type AnalysisTrigger,
+  type DotThreshold,
+} from '@/lib/teacherConfig';
 
-// Default problems matching the sample algebra worksheet.
 const SAMPLE_PROBLEMS = [
   { num: 1, statement_tex: '2x + 5 = 13' },
   { num: 2, statement_tex: '3(x - 4) = 15' },
@@ -42,7 +47,26 @@ const SAMPLE_PROBLEMS = [
   { num: 4, statement_tex: 'x/2 + 3 = 8' },
   { num: 5, statement_tex: 'x + y = 10,\\; 2x - y = 2' },
 ];
-const DEFAULT_ANALYSIS_DEBOUNCE_MS = 15_000;
+
+type BadgeState = { label: string; tone: StatusTone };
+
+type CanvasViewProps = {
+  isProblemMode: boolean;
+  isDefault: boolean;
+  webViewRef: React.MutableRefObject<WebView | null>;
+  handleWebViewLoad: () => void;
+  handleMessage: (event: { nativeEvent: { data: string } }) => void;
+  pageIndex: number;
+  viewShotRef: React.RefObject<ViewShot | null>;
+  currentStrokes: Stroke[];
+  onStrokesChange: (strokes: Stroke[]) => void;
+  currentMistakes: Mistake[];
+  revealMode: 'single-tap' | 'progressive';
+  dotThreshold: DotThreshold;
+  maxDotsShown: number;
+  onAskAboutMistake?: (mistake: Mistake) => void;
+  onCanvasLayout?: (width: number, height: number) => void;
+};
 
 function isNetworkError(err: Error): boolean {
   if (err.name === 'TypeError' || err.name === 'NetworkError') return true;
@@ -58,21 +82,11 @@ function showAlert(title: string, message: string) {
   }
 }
 
-type CanvasViewProps = {
-  isProblemMode: boolean;
-  isDefault: boolean;
-  webViewRef: React.MutableRefObject<WebView | null>;
-  handleWebViewLoad: () => void;
-  handleMessage: (event: { nativeEvent: { data: string } }) => void;
-  pageIndex: number;
-  viewShotRef: React.RefObject<ViewShot | null>;
-  currentStrokes: Stroke[];
-  onStrokesChange: (strokes: Stroke[]) => void;
-  currentMistakes: Mistake[];
-  revealMode: 'single-tap' | 'progressive';
-  onAskAboutMistake?: (mistake: Mistake) => void;
-  onCanvasLayout?: (width: number, height: number) => void;
-};
+function analysisSummaryText(result: AnalysisResult): string {
+  const count = result.mistake_count ?? result.mistakes?.length ?? 0;
+  if (count === 0) return 'No mistakes found.';
+  return `Found ${count} mistake${count === 1 ? '' : 's'}.`;
+}
 
 function CanvasView({
   isProblemMode,
@@ -86,6 +100,8 @@ function CanvasView({
   onStrokesChange,
   currentMistakes,
   revealMode,
+  dotThreshold,
+  maxDotsShown,
   onAskAboutMistake,
   onCanvasLayout,
 }: CanvasViewProps) {
@@ -126,6 +142,8 @@ function CanvasView({
           <MistakeOverlay
             mistakes={currentMistakes}
             revealMode={revealMode}
+            dotThreshold={dotThreshold}
+            maxDotsShown={maxDotsShown}
             onAskAboutMistake={onAskAboutMistake}
           />
         )}
@@ -136,7 +154,8 @@ function CanvasView({
 
 export default function DocumentScreen() {
   const params = useLocalSearchParams<{ id: string; assignmentId?: string; classroomName?: string }>();
-  const { id, assignmentId, classroomName } = params;
+  const { id, assignmentId: assignmentIdParam, classroomName } = params;
+  const assignmentId = assignmentIdParam ?? null;
   const router = useRouter();
   const {
     getDocument,
@@ -148,9 +167,14 @@ export default function DocumentScreen() {
   } = useDocuments();
   const doc = id ? getDocument(id) : undefined;
 
-  const accessToken = useAccessToken();
   const assignmentOnly = !!assignmentId;
-  const { assignment, problems: assignmentProblems, loading: assignmentLoading, error: assignmentError } = useAssignment(assignmentId ?? null);
+  const {
+    assignment,
+    problems: assignmentProblems,
+    resolvedConfig,
+    loading: assignmentLoading,
+    error: assignmentError,
+  } = useAssignment(assignmentId);
 
   const isDefault = doc ? isDefaultDocument(doc) : false;
   const problems =
@@ -166,6 +190,15 @@ export default function DocumentScreen() {
     ? (classroomName ? `Back to ${classroomName}` : 'Back')
     : 'Back to Library';
 
+  const config = useMemo(
+    () => resolvedConfig ?? DEFAULT_RESOLVED_CONFIG,
+    [resolvedConfig],
+  );
+  const analysisTrigger = config.analysis_trigger as AnalysisTrigger;
+  const checkButtonVisible = config.check_button_visible && analysisTrigger !== 'passive';
+  const chatEnabled = config.chat_enabled;
+  const revealMode = assignment?.reveal_mode ?? 'single-tap';
+
   const [pdfBase64, setPdfBase64] = useState<string | null>(null);
   const [loadError, setLoadError] = useState<string | null>(null);
   const [totalPages, setTotalPages] = useState<number>(isProblemMode ? problems.length : 1);
@@ -177,27 +210,55 @@ export default function DocumentScreen() {
   const [resultsByProblem, setResultsByProblem] = useState<Record<number, AnalysisResult>>({});
   const [chatVisible, setChatVisible] = useState(false);
   const [chatProblemNum, setChatProblemNum] = useState<number | null>(null);
+  const [toast, setToast] = useState<ToastNotice | null>(null);
+  const [badgeState, setBadgeState] = useState<BadgeState | null>(null);
   const webViewRef = useRef<WebView | null>(null);
   const webViewReadyRef = useRef(false);
   const saveTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const viewShotRef = useRef<ViewShot | null>(null);
   const [canvasDims, setCanvasDims] = useState<{ w: number; h: number } | null>(null);
 
-  const pageIndex = currentPage - 1;
-
-  useEffect(() => {
-    setCanvasDims(null);
-  }, [pageIndex]);
-
   const STROKES_KEY = id ? `veridian_strokes:${id}` : null;
+  const pageIndex = currentPage - 1;
   const currentStrokes = useMemo(() => strokesByPage[pageIndex] ?? [], [strokesByPage, pageIndex]);
   const currentProblem = isProblemMode ? problems[pageIndex] : null;
   const currentMistakes: Mistake[] = currentProblem
     ? resultsByProblem[currentProblem.num]?.mistakes ?? []
     : [];
-  const revealMode = assignment?.reveal_mode ?? 'single-tap';
 
-  // Update totalPages when problems change.
+  const hideToast = useCallback(() => {
+    setToast(null);
+  }, []);
+
+  const pushToast = useCallback((message: string, tone: ToastNotice['tone']) => {
+    const id = `${Date.now()}-${Math.random().toString(36).slice(2)}`;
+    setToast({ id, message, tone });
+  }, []);
+
+  const notifySuccess = useCallback(
+    (message: string) => {
+      if (config.notification_style === 'silent') return;
+      if (config.notification_style === 'toast') {
+        pushToast(message, 'success');
+        return;
+      }
+      setBadgeState({ label: message, tone: 'success' });
+    },
+    [config.notification_style, pushToast],
+  );
+
+  const notifyError = useCallback(
+    (message: string) => {
+      if (config.notification_style === 'toast') {
+        pushToast(message, 'error');
+      }
+      if (config.notification_style === 'badge') {
+        setBadgeState({ label: message, tone: 'error' });
+      }
+    },
+    [config.notification_style, pushToast],
+  );
+
   useEffect(() => {
     if (isProblemMode) setTotalPages(problems.length);
   }, [isProblemMode, problems.length]);
@@ -209,7 +270,6 @@ export default function DocumentScreen() {
     [pageIndex],
   );
 
-  // --- Stroke persistence ---
   useEffect(() => {
     if (!STROKES_KEY || !id) return;
     let cancelled = false;
@@ -224,8 +284,7 @@ export default function DocumentScreen() {
         }
       } catch (e) {
         if (!cancelled) {
-          const msg = e instanceof Error ? e.message : 'Failed to load saved strokes';
-          setStrokeLoadError(msg);
+          setStrokeLoadError(e instanceof Error ? e.message : 'Failed to load saved strokes');
         }
       } finally {
         if (!cancelled) setStrokesLoaded(true);
@@ -239,14 +298,14 @@ export default function DocumentScreen() {
     if (saveTimeoutRef.current) clearTimeout(saveTimeoutRef.current);
     saveTimeoutRef.current = setTimeout(() => {
       const done = () => { saveTimeoutRef.current = null; };
-      AsyncStorage.setItem(STROKES_KEY, JSON.stringify(strokesByPage)).catch(() => {
+      AsyncStorage.setItem(STROKES_KEY, JSON.stringify(strokesByPage)).catch((error: unknown) => {
+        console.error('Failed to save strokes', error);
         setStrokeSaveError(true);
       }).finally(done);
     }, 500);
     return () => { if (saveTimeoutRef.current) clearTimeout(saveTimeoutRef.current); };
   }, [STROKES_KEY, strokesLoaded, strokesByPage]);
 
-  // --- PDF loading (legacy mode) ---
   useEffect(() => {
     if (!doc) return;
     if (isDefault || isProblemMode) {
@@ -268,7 +327,6 @@ export default function DocumentScreen() {
     return () => { cancelled = true; };
   }, [doc, isDefault, isProblemMode, doc?.uri]);
 
-  // --- PDF page injection (legacy) ---
   const injectPage = useCallback(
     (pageNum: number) => {
       if (pdfBase64 && pdfBase64 !== 'default' && webViewRef.current) {
@@ -298,44 +356,26 @@ export default function DocumentScreen() {
     if (!isDefault && !isProblemMode && webViewReadyRef.current && pdfBase64) injectPage(currentPage);
   }, [currentPage, pdfBase64, injectPage, isDefault, isProblemMode]);
 
-  // --- Navigation ---
-  const goPrev = () => setCurrentPage((p) => Math.max(1, p - 1));
-  const goNext = () => setCurrentPage((p) => Math.min(totalPages, p + 1));
-  const goToPage = (page: number) => setCurrentPage(Math.max(1, Math.min(totalPages, page)));
-
-  // --- Screenshot capture ---
-  const captureWeb = useCallback((): CaptureResult => {
-    if (!canvasDims) return { error: 'unavailable' };
-    try {
-      return { uri: captureStrokesAsDataUri(currentStrokes, canvasDims.w, canvasDims.h) };
-    } catch (e) {
-      const err = e instanceof Error ? e.message : String(e);
-      console.error('Web capture failed:', err);
-      return { error: 'failed' };
+  const captureScreenshot = useCallback(async (): Promise<CaptureResult> => {
+    if (Platform.OS === 'web') {
+      if (!canvasDims) return { error: 'unavailable' };
+      try {
+        const uri = captureStrokesAsDataUri(currentStrokes, canvasDims.w, canvasDims.h);
+        return { uri };
+      } catch {
+        return { error: 'failed' };
+      }
     }
-  }, [canvasDims, currentStrokes]);
-
-  const captureNative = useCallback(async (): Promise<CaptureResult> => {
     const viewShot = viewShotRef.current;
     if (!viewShot || typeof viewShot.capture !== 'function') return { error: 'unavailable' };
     try {
       const uri = await viewShot.capture();
-      return uri ? { uri } : { error: 'failed' };
-    } catch (e) {
-      const err = e instanceof Error ? e.message : String(e);
-      console.error('Native capture failed:', err);
+      if (!uri) return { error: 'failed' };
+      return { uri };
+    } catch {
       return { error: 'failed' };
     }
-  }, []);
-
-  const captureScreenshot = useCallback(async (): Promise<CaptureResult> => {
-    return Platform.OS === 'web' ? captureWeb() : captureNative();
-  }, [captureWeb, captureNative]);
-
-  // --- Auto-analysis ---
-  const debounceMs = assignment?.analysis_debounce_seconds
-    ? assignment.analysis_debounce_seconds * 1000
-    : DEFAULT_ANALYSIS_DEBOUNCE_MS;
+  }, [canvasDims, currentStrokes]);
 
   const onStaleResult = useCallback((result: AnalysisResult) => {
     if (result.problem_num == null) return;
@@ -348,31 +388,53 @@ export default function DocumentScreen() {
     error: analysisError,
     clearError: clearAnalysisError,
     triggerNow,
+    triggerOnPageChange,
     markDirty,
   } = useAutoAnalysis({
-    assignmentId,
+    assignmentId: assignmentId ?? undefined,
     problemNum: currentProblem?.num,
     isSample: isDefault,
-    token: accessToken ?? undefined,
-    debounceMs,
-    enabled: isProblemMode && (assignment?.auto_analyze ?? isDefault) && !!canvasDims,
+    debounceMs: config.analysis_debounce_seconds * 1000,
+    enabled: isProblemMode && !!canvasDims,
+    mode: analysisTrigger,
     captureScreenshot,
-    onError: (msg) => showAlert('Analysis failed', msg),
+    onError: (msg) => notifyError(msg),
     onStaleResult,
   });
+
+  const badgeStatus = useMemo(() => {
+    if (config.notification_style !== 'badge') return null;
+    if (analysisTrigger === 'passive') {
+      return { label: 'Passive mode', tone: 'info' as const };
+    }
+    if (isAnalyzing) {
+      return { label: 'Analyzing…', tone: 'info' as const };
+    }
+    if (analysisError) {
+      return { label: analysisError, tone: 'error' as const };
+    }
+    if (badgeState) return badgeState;
+    return null;
+  }, [config.notification_style, analysisTrigger, isAnalyzing, analysisError, badgeState]);
 
   useEffect(() => {
     setCanvasDims(null);
     clearAnalysisError();
+    setBadgeState(null);
   }, [pageIndex, clearAnalysisError]);
 
-  // Store results per problem when analysis completes.
   useEffect(() => {
     if (!lastResult || lastResult.problem_num == null) return;
     setResultsByProblem((prev) => ({ ...prev, [lastResult.problem_num!]: lastResult }));
-  }, [lastResult]);
+    if (currentProblem?.num === lastResult.problem_num) {
+      notifySuccess(analysisSummaryText(lastResult));
+    }
+  }, [lastResult, currentProblem?.num, notifySuccess]);
 
-  // Mark dirty when strokes change.
+  useEffect(() => {
+    if (!chatEnabled && chatVisible) setChatVisible(false);
+  }, [chatEnabled, chatVisible]);
+
   const handleStrokesChange = useCallback(
     (strokes: Stroke[]) => {
       setCurrentStrokes(strokes);
@@ -381,30 +443,56 @@ export default function DocumentScreen() {
     [setCurrentStrokes, isProblemMode, markDirty],
   );
 
-  // Manual "Check my work" -- for non-problem mode, use legacy submission.
+  const changePage = useCallback(
+    (nextPage: number) => {
+      const clamped = Math.max(1, Math.min(totalPages, nextPage));
+      if (clamped === currentPage) return;
+      if (analysisTrigger === 'auto_page_change') {
+        triggerOnPageChange();
+      }
+      setCurrentPage(clamped);
+    },
+    [totalPages, currentPage, analysisTrigger, triggerOnPageChange],
+  );
+
+  const goPrev = useCallback(() => {
+    changePage(currentPage - 1);
+  }, [changePage, currentPage]);
+
+  const goNext = useCallback(() => {
+    changePage(currentPage + 1);
+  }, [changePage, currentPage]);
+
+  const goToPage = useCallback((page: number) => {
+    changePage(page);
+  }, [changePage]);
+
   const handleCheckWork = useCallback(async () => {
     if (isProblemMode) {
+      if (analysisTrigger === 'passive') return;
       triggerNow();
       return;
     }
-    // Legacy: full-page analysis for non-assignment documents.
+
     const result = await captureScreenshot();
     if ('error' in result) {
       showAlert('Capture failed', result.error === 'unavailable' ? 'Capture unavailable' : 'Capture failed');
       return;
     }
+
     const uri = result.uri;
     const apiUrl = process.env.EXPO_PUBLIC_BACKEND_URL ?? '';
     if (!apiUrl) {
       showAlert('Submit failed', 'Set EXPO_PUBLIC_BACKEND_URL in .env and restart Expo.');
       return;
     }
+
     const extra: Record<string, string> = isDefault
       ? { is_sample: 'true', sample_slug: 'high-school-algebra-01' }
       : {};
     const formData = await buildAnalysisFormData(uri, extra);
     try {
-      const res = await fetch(`${apiUrl.replace(/\/$/, '')}/analyze-solution`, { method: 'POST', headers: getAuthHeaders(accessToken ?? undefined), body: formData });
+      const res = await fetch(`${apiUrl.replace(/\/$/, '')}/analyze-solution`, { method: 'POST', body: formData });
       const body = await res.json();
       if (res.ok) {
         const count = body.mistake_count ?? 0;
@@ -425,23 +513,22 @@ export default function DocumentScreen() {
         showAlert('Submit failed', 'Check that the Flask server is running.');
       }
     }
-  }, [isProblemMode, triggerNow, captureScreenshot, isDefault, accessToken]);
+  }, [isProblemMode, analysisTrigger, triggerNow, captureScreenshot, isDefault]);
 
-  // --- Chat panel ---
   const handleAskAboutMistake = useCallback(
     (_mistake: Mistake) => {
-      if (!currentProblem || !assignmentIdForChat) return;
+      if (!chatEnabled || !currentProblem || !assignmentIdForChat) return;
       setChatProblemNum(currentProblem.num);
       setChatVisible(true);
     },
-    [currentProblem, assignmentIdForChat],
+    [chatEnabled, currentProblem, assignmentIdForChat],
   );
 
   const handleOpenChat = useCallback(() => {
-    if (!currentProblem || !assignmentIdForChat) return;
+    if (!chatEnabled || !currentProblem || !assignmentIdForChat) return;
     setChatProblemNum(currentProblem.num);
     setChatVisible(true);
-  }, [currentProblem, assignmentIdForChat]);
+  }, [chatEnabled, currentProblem, assignmentIdForChat]);
 
   const handleCloseChat = useCallback(() => setChatVisible(false), []);
 
@@ -534,12 +621,10 @@ export default function DocumentScreen() {
     );
   }
 
-  // --- Main render ---
   const pageLabel = isProblemMode ? `Problem ${currentPage} of ${totalPages}` : `${currentPage} / ${totalPages}`;
 
   return (
     <SafeAreaView style={styles.screen}>
-      {/* Header */}
       <View style={styles.header}>
         <Pressable
           style={({ pressed }) => [styles.headerBackBtn, pressed && { opacity: 0.7 }]}
@@ -550,36 +635,34 @@ export default function DocumentScreen() {
           <MaterialCommunityIcons name="arrow-left" size={24} color={palette.primary} />
         </Pressable>
         <Text style={styles.title} numberOfLines={1}>{headerTitle}</Text>
-        <Pressable
-          style={({ pressed }) => [styles.checkButton, pressed && { opacity: 0.7 }]}
-          onPress={handleCheckWork}
-          disabled={isAnalyzing}
-          accessibilityRole="button"
-          accessibilityLabel="Check my work">
-          {isAnalyzing ? (
-            <ActivityIndicator size="small" color={palette.white} />
-          ) : (
-            <Text style={styles.checkButtonText}>Check</Text>
-          )}
-        </Pressable>
+        {checkButtonVisible && (
+          <Pressable
+            style={({ pressed }) => [styles.checkButton, pressed && { opacity: 0.7 }]}
+            onPress={handleCheckWork}
+            disabled={isAnalyzing}
+            accessibilityRole="button"
+            accessibilityLabel="Check my work">
+            {isAnalyzing ? (
+              <ActivityIndicator size="small" color={palette.white} />
+            ) : (
+              <Text style={styles.checkButtonText}>Check</Text>
+            )}
+          </Pressable>
+        )}
       </View>
 
-      {/* Problem header (per-problem mode) */}
       {isProblemMode && currentProblem && (
         <View style={styles.problemHeaderWrap}>
           <ProblemHeader problemNum={currentProblem.num} statementTex={currentProblem.statement_tex} />
         </View>
       )}
 
-      {/* Analyzing indicator */}
-      {isAnalyzing && (
-        <View style={styles.analyzingBar}>
-          <ActivityIndicator size="small" color={palette.textMuted} />
-          <Text style={styles.analyzingText}>Analyzing...</Text>
+      {badgeStatus && (
+        <View style={styles.badgeBar}>
+          <StatusBadge label={badgeStatus.label} tone={badgeStatus.tone} />
         </View>
       )}
 
-      {/* Capture / analysis error status */}
       {analysisError !== null && !isAnalyzing && (
         <View style={styles.analyzingBar}>
           <MaterialCommunityIcons name="alert-outline" size={18} color={palette.textMuted} />
@@ -587,7 +670,6 @@ export default function DocumentScreen() {
         </View>
       )}
 
-      {/* Stroke / docs persistence errors (non-blocking) */}
       {(strokeLoadError || strokeSaveError || docsLoadError || docsSaveError) && (
         <View style={styles.strokeErrorBar}>
           <MaterialCommunityIcons name="alert-outline" size={18} color={palette.errorText} />
@@ -609,7 +691,6 @@ export default function DocumentScreen() {
         </View>
       )}
 
-      {/* Page navigation */}
       <View style={styles.pagerBar}>
         <Pressable
           style={({ pressed }) => [styles.pageBtn, currentPage <= 1 && styles.pageBtnDisabled, currentPage > 1 && pressed && { opacity: 0.7 }]}
@@ -630,7 +711,6 @@ export default function DocumentScreen() {
         </Pressable>
       </View>
 
-      {/* Page thumbnails */}
       {totalPages > 1 && (
         <View style={styles.pageStrip}>
           {Array.from({ length: totalPages }, (_, i) => i + 1).map((p) => (
@@ -646,7 +726,6 @@ export default function DocumentScreen() {
         </View>
       )}
 
-      {/* Canvas + overlay */}
       <CanvasView
         isProblemMode={isProblemMode}
         isDefault={isDefault}
@@ -659,12 +738,13 @@ export default function DocumentScreen() {
         onStrokesChange={handleStrokesChange}
         currentMistakes={currentMistakes}
         revealMode={revealMode}
-        onAskAboutMistake={handleAskAboutMistake}
+        dotThreshold={config.dot_threshold}
+        maxDotsShown={config.max_dots_shown}
+        onAskAboutMistake={chatEnabled ? handleAskAboutMistake : undefined}
         onCanvasLayout={(w, h) => setCanvasDims({ w, h })}
       />
 
-      {/* Chat FAB — visible in problem mode when chat is closed */}
-      {isProblemMode && !chatVisible && (
+      {isProblemMode && chatEnabled && !chatVisible && (
         <Pressable
           style={({ pressed }) => [styles.chatFab, pressed && { opacity: 0.8 }]}
           onPress={handleOpenChat}
@@ -675,14 +755,16 @@ export default function DocumentScreen() {
         </Pressable>
       )}
 
-      {/* Chat panel */}
       <ChatPanel
-        visible={chatVisible}
+        visible={chatVisible && chatEnabled}
         onClose={handleCloseChat}
         assignmentId={assignmentIdForChat}
         problemNum={chatProblemNum}
-        token={accessToken}
       />
+
+      {config.notification_style === 'toast' && (
+        <ToastHost toast={toast} onHide={hideToast} />
+      )}
     </SafeAreaView>
   );
 }
@@ -729,6 +811,13 @@ const styles = StyleSheet.create({
   problemHeaderWrap: {
     paddingHorizontal: 12,
     paddingVertical: 8,
+    backgroundColor: palette.card,
+    borderBottomWidth: 1,
+    borderBottomColor: palette.border,
+  },
+  badgeBar: {
+    paddingVertical: 6,
+    paddingHorizontal: 12,
     backgroundColor: palette.card,
     borderBottomWidth: 1,
     borderBottomColor: palette.border,
@@ -860,17 +949,6 @@ const styles = StyleSheet.create({
     fontSize: 16,
     color: palette.textSecondary,
     textAlign: 'center',
-  },
-  retryButton: {
-    paddingVertical: 10,
-    paddingHorizontal: 16,
-    backgroundColor: palette.primary,
-    borderRadius: radius.button,
-  },
-  retryButtonText: {
-    color: palette.white,
-    fontSize: 15,
-    fontWeight: '600',
   },
   backButtonText: {
     fontSize: 15,

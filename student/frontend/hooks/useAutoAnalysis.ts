@@ -107,8 +107,8 @@ export function useAutoAnalysis({
 
   const markDirty = useCallback(() => {
     if (!enabled || mode === 'passive') return;
-    if (analyzingRef.current) return;
     dirtyRef.current = true;
+    if (analyzingRef.current) return;
     cancel();
     if (mode !== 'auto_idle') return;
     timerRef.current = setTimeout(() => {

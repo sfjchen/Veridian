@@ -61,3 +61,26 @@ def move_object(bucket: str, from_path: str, to_path: str) -> None:
         client.storage.from_(bucket).move(from_path, to_path)
     except Exception as e:
         raise ValueError(f"Storage error moving object from {from_path} to {to_path}: {e}") from e
+
+
+def upload_file_bytes(bucket: str, path: str, file_bytes: bytes) -> None:
+    """
+    Upload file bytes directly to storage.
+
+    Args:
+        bucket: Storage bucket name
+        path: Destination path within bucket
+        file_bytes: Raw file bytes to upload
+
+    Raises:
+        ValueError: If upload fails
+    """
+    _validate_path(path)
+    client = get_supabase_admin_client()
+    try:
+        client.storage.from_(bucket).upload(path, file_bytes, {
+            "content-type": "application/octet-stream",
+            "upsert": "true",
+        })
+    except Exception as e:
+        raise ValueError(f"Storage error uploading to {path}: {e}") from e

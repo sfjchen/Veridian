@@ -4,6 +4,8 @@ import * as DocumentPicker from "expo-document-picker";
 import { Button, Card, Input, ScreenContainer, Section } from "../../components/ui";
 import { ConfigEditor } from "../../components/ConfigEditor";
 import { ProblemEditor } from "../../components/ProblemEditor";
+import { ConversionProgressModal } from "../../components/ConversionProgressModal";
+import { DetectedProblemsPreview, Problem as DetectedProblem } from "../../components/DetectedProblemsPreview";
 import { palette } from "../../constants/palette";
 import { spacing } from "../../constants/spacing";
 import { typography } from "../../constants/typography";
@@ -25,6 +27,8 @@ interface PickedFile {
 export function CreateAssignmentScreen({ route, navigation }: { route: any; navigation: any }) {
   const { classroomId } = route.params;
   const { showToast } = useToast();
+
+  // Manual creation state
   const [title, setTitle] = useState("");
   const [dueDate, setDueDate] = useState("");
   const [assignmentFile, setAssignmentFile] = useState<PickedFile | null>(null);
@@ -34,6 +38,12 @@ export function CreateAssignmentScreen({ route, navigation }: { route: any; navi
   const [configExpanded, setConfigExpanded] = useState(false);
   const [configDraft, setConfigDraft] = useState<Partial<AssignmentConfig>>({});
   const classroomConfig: AssignmentConfig | undefined = route.params?.classroomConfig;
+
+  // Auto-conversion state
+  const [converting, setConverting] = useState(false);
+  const [detectedProblems, setDetectedProblems] = useState<DetectedProblem[] | null>(null);
+  const [convertedAssignmentId, setConvertedAssignmentId] = useState<string | null>(null);
+  const [publishing, setPublishing] = useState(false);
 
   const pickFile = async (setter: (f: PickedFile) => void) => {
     const result = await DocumentPicker.getDocumentAsync({
@@ -48,6 +58,89 @@ export function CreateAssignmentScreen({ route, navigation }: { route: any; navi
       mimeType: picked.mimeType ?? "application/octet-stream",
       file: picked.file,
     });
+  };
+
+  const handleQuickUpload = async () => {
+    const result = await DocumentPicker.getDocumentAsync({
+      type: ["application/pdf", "text/plain"],
+      copyToCacheDirectory: true,
+    });
+    if (result.canceled) return;
+
+    const picked = result.assets[0];
+    const fileName = picked.name.toLowerCase();
+
+    // Validate file type
+    if (!fileName.endsWith(".pdf") && !fileName.endsWith(".tex")) {
+      alert("Error", "Please select a PDF or TEX file");
+      return;
+    }
+
+    // Prompt for title
+    const assignmentTitle = prompt("Enter assignment title:");
+    if (!assignmentTitle?.trim()) {
+      alert("Error", "Title is required");
+      return;
+    }
+
+    setConverting(true);
+    try {
+      // Create FormData
+      const formData = new FormData();
+      formData.append("file", picked.file as any);
+      formData.append("title", assignmentTitle.trim());
+
+      // Call auto-conversion endpoint
+      const response = await fetch(
+        `${api.baseUrl}/classrooms/${classroomId}/assignments/from-file`,
+        {
+          method: "POST",
+          headers: {
+            Authorization: `Bearer ${await api.getToken()}`,
+          },
+          body: formData,
+        }
+      );
+
+      if (!response.ok) {
+        const error = await response.json();
+        throw new Error(error.detail || error.error || "Conversion failed");
+      }
+
+      const data = await response.json();
+
+      setDetectedProblems(data.problems || []);
+      setConvertedAssignmentId(data.id);
+      showToast(`Detected ${data.problems?.length || 0} problems!`);
+    } catch (e: unknown) {
+      alert("Conversion Failed", e instanceof Error ? e.message : "Failed to convert file");
+      setDetectedProblems(null);
+      setConvertedAssignmentId(null);
+    } finally {
+      setConverting(false);
+    }
+  };
+
+  const handlePublish = async () => {
+    if (!convertedAssignmentId) return;
+
+    setPublishing(true);
+    try {
+      await api(`/assignments/${convertedAssignmentId}/publish`, {
+        method: "POST",
+      });
+      showToast("Assignment published!");
+      navigation.goBack();
+    } catch (e: unknown) {
+      alert("Error", e instanceof Error ? e.message : "Failed to publish assignment");
+    } finally {
+      setPublishing(false);
+    }
+  };
+
+  const handleReview = () => {
+    if (!convertedAssignmentId) return;
+    navigation.navigate("ReviewAssignment", { assignmentId: convertedAssignmentId });
   };
 
   const handleCreate = async () => {
@@ -122,11 +215,51 @@ export function CreateAssignmentScreen({ route, navigation }: { route: any; navi
     }
   };
 
+  // Show detected problems preview after successful conversion
+  if (detectedProblems && convertedAssignmentId) {
+    return (
+      <ScreenContainer maxWidth="form">
+        <View style={styles.content}>
+          <Text style={styles.title}>Review Detected Problems</Text>
+          <DetectedProblemsPreview
+            problems={detectedProblems}
+            onReview={handleReview}
+            onPublish={handlePublish}
+            isPublishing={publishing}
+          />
+        </View>
+      </ScreenContainer>
+    );
+  }
+
   return (
     <ScreenContainer maxWidth="form">
+      <ConversionProgressModal
+        visible={converting}
+        fileName="Converting PDF to LaTeX..."
+        stage="Detecting problems..."
+      />
+
       <View style={styles.content}>
         <Text style={styles.title}>New Assignment</Text>
 
+        {/* Quick Upload Section */}
+        <Section title="Quick Create from PDF/TEX">
+          <Card onPress={handleQuickUpload} style={styles.quickUploadCard}>
+            <Text style={styles.quickUploadTitle}>📄 Upload PDF or TEX File</Text>
+            <Text style={styles.quickUploadSubtitle}>
+              Automatically detect problems and create assignment
+            </Text>
+          </Card>
+        </Section>
+
+        <View style={styles.divider}>
+          <View style={styles.dividerLine} />
+          <Text style={styles.dividerText}>OR CREATE MANUALLY</Text>
+          <View style={styles.dividerLine} />
+        </View>
+
+        {/* Manual Creation Section */}
         <Section title="Details">
           <Input
             placeholder="Assignment title"
@@ -200,6 +333,37 @@ export function CreateAssignmentScreen({ route, navigation }: { route: any; navi
 const styles = StyleSheet.create({
   content: { paddingVertical: spacing.lg },
   title: { ...typography.h1, color: palette.textPrimary, marginBottom: spacing.lg },
+  quickUploadCard: {
+    padding: spacing.lg,
+    backgroundColor: palette.primaryMutedTint,
+    borderWidth: 2,
+    borderColor: palette.primary,
+    borderStyle: "dashed",
+  },
+  quickUploadTitle: {
+    ...typography.heading2,
+    color: palette.primary,
+    marginBottom: spacing.xs,
+  },
+  quickUploadSubtitle: {
+    ...typography.body,
+    color: palette.textSecondary,
+  },
+  divider: {
+    flexDirection: "row",
+    alignItems: "center",
+    marginVertical: spacing.lg,
+  },
+  dividerLine: {
+    flex: 1,
+    height: 1,
+    backgroundColor: palette.border,
+  },
+  dividerText: {
+    ...typography.caption,
+    color: palette.textMuted,
+    paddingHorizontal: spacing.md,
+  },
   fileCard: { marginBottom: spacing.md },
   filePickerText: { ...typography.body, color: palette.textMuted },
   hint: { ...typography.caption, color: palette.textMuted, marginBottom: spacing.sm },

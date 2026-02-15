@@ -8,8 +8,18 @@ from supabase import Client
 
 from app.middleware.auth import require_auth, require_role
 from app.services.live_monitoring import validate_uuid
-from app.services.storage import delete_object, generate_download_url, generate_upload_url, move_object
+from app.services.storage import (
+    delete_object,
+    generate_download_url,
+    generate_upload_url,
+    move_object,
+    upload_file_bytes,
+)
 from app.services.supabase_client import get_supabase_admin_client
+from app.services.conversion_orchestrator import (
+    ConversionError,
+    create_orchestrator,
+)
 
 log = logging.getLogger(__name__)
 
@@ -233,6 +243,116 @@ def create_corpus_file(classroom_id: str) -> tuple[Response, int]:
             return jsonify({"error": "Failed to generate upload URL"}), 500
 
     return jsonify(response), 201
+
+
+@corpus_bp.route("/classrooms/<classroom_id>/corpus/upload-pdf", methods=["POST"])
+@require_role("teacher")
+def upload_pdf_corpus(classroom_id: str) -> tuple[Response, int]:
+    """
+    Upload PDF corpus file with automatic LaTeX conversion.
+
+    Expects multipart/form-data with:
+    - file: PDF file
+    - display_name: Display name for the file
+    - folder_path (optional): Folder path within corpus
+    """
+    if not validate_uuid(classroom_id):
+        return jsonify({"error": "Invalid classroom ID"}), 400
+
+    # Validate file upload
+    if "file" not in request.files:
+        return jsonify({"error": "File is required"}), 400
+
+    uploaded_file = request.files["file"]
+    if not uploaded_file or not uploaded_file.filename:
+        return jsonify({"error": "File is required"}), 400
+
+    # Validate file type (must be PDF)
+    filename = uploaded_file.filename.lower()
+    if not filename.endswith(".pdf"):
+        return jsonify({"error": "File must be PDF"}), 400
+
+    # Read file bytes
+    try:
+        file_bytes = uploaded_file.read()
+    except Exception:
+        log.exception("Failed to read uploaded file")
+        return jsonify({"error": "Failed to read file"}), 500
+
+    if not file_bytes:
+        return jsonify({"error": "Empty file"}), 400
+
+    # Validate display_name
+    display_name = request.form.get("display_name", "").strip()
+    if not display_name:
+        return jsonify({"error": "display_name is required"}), 400
+    if len(display_name) > MAX_DISPLAY_NAME_LENGTH:
+        return jsonify({"error": f"display_name must be <= {MAX_DISPLAY_NAME_LENGTH} characters"}), 400
+
+    # Parse optional folder_path
+    folder_path_raw = request.form.get("folder_path")
+    try:
+        folder_path = _normalize_folder_path(folder_path_raw)
+    except ValueError as e:
+        return jsonify({"error": str(e)}), 400
+
+    client = get_supabase_admin_client()
+    if not _teacher_owns_classroom(client, classroom_id, g.user_id):
+        return jsonify({"error": "Classroom not found"}), 404
+
+    # Generate file ID and storage path
+    file_id = str(uuid.uuid4())
+    storage_path = _build_storage_path(classroom_id, file_id, "pdf", folder_path)
+
+    # Convert PDF to LaTeX
+    orchestrator = create_orchestrator()
+    try:
+        result = orchestrator.process_corpus(
+            corpus_file_id=file_id,
+            file_bytes=file_bytes,
+        )
+    except ConversionError as e:
+        log.exception("PDF conversion failed for corpus file %s", file_id)
+        return jsonify({
+            "error": "Failed to convert PDF to LaTeX",
+            "detail": str(e),
+        }), 422
+
+    # Upload original PDF
+    try:
+        upload_file_bytes(CORPUS_BUCKET, storage_path, file_bytes)
+    except ValueError:
+        log.exception("Failed to upload PDF for corpus file %s", file_id)
+        return jsonify({"error": "Failed to upload file"}), 500
+
+    # Create corpus file record with LaTeX content
+    try:
+        record = client.table("corpus_files").insert({
+            "id": file_id,
+            "classroom_id": classroom_id,
+            "display_name": display_name,
+            "storage_path": storage_path,
+            "file_type": "pdf",
+            "latex_content": result.latex_content,
+        }).execute()
+    except APIError:
+        log.exception("Failed to insert corpus file")
+        # Clean up uploaded file
+        try:
+            delete_object(CORPUS_BUCKET, storage_path)
+        except Exception:
+            log.exception("Failed to clean up uploaded file after insert failure")
+        return jsonify({"error": "Failed to create corpus file"}), 500
+
+    if not record.data:
+        # Clean up uploaded file
+        try:
+            delete_object(CORPUS_BUCKET, storage_path)
+        except Exception:
+            log.exception("Failed to clean up uploaded file after insert failure")
+        return jsonify({"error": "Failed to create corpus file"}), 500
+
+    return jsonify(_serialize_file(record.data[0])), 201
 
 
 @corpus_bp.route("/classrooms/<classroom_id>/corpus", methods=["GET"])

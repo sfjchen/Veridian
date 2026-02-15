@@ -10,7 +10,16 @@ from app.constants import POSTGRES_UNIQUE_VIOLATION
 from app.middleware.auth import require_auth, require_role
 from app.services.config_schema import resolve_config, validate_config
 from app.services.supabase_client import get_supabase_admin_client
-from app.services.storage import delete_object, generate_download_url, generate_upload_url
+from app.services.storage import (
+    delete_object,
+    generate_download_url,
+    generate_upload_url,
+    upload_file_bytes,
+)
+from app.services.conversion_orchestrator import (
+    ConversionError,
+    create_orchestrator,
+)
 
 log = logging.getLogger(__name__)
 
@@ -188,6 +197,155 @@ def create_assignment(classroom_id: str) -> Tuple[Response, int]:
     return jsonify(response), 201
 
 
+@assignments_bp.route("/classrooms/<classroom_id>/assignments/from-file", methods=["POST"])
+@require_role("teacher")
+def create_assignment_from_file(classroom_id: str) -> Tuple[Response, int]:
+    """
+    Create assignment from uploaded PDF or TEX file with automatic conversion
+    and intelligent problem detection.
+
+    Expects multipart/form-data with:
+    - file: PDF or TEX file
+    - title: Assignment title
+    - context_file_ids (optional): JSON array of corpus file IDs
+    - config (optional): JSON config object
+    - due_date (optional): ISO date string
+    """
+    # Validate file upload
+    if "file" not in request.files:
+        return jsonify({"error": "File is required"}), 400
+
+    uploaded_file = request.files["file"]
+    if not uploaded_file or not uploaded_file.filename:
+        return jsonify({"error": "File is required"}), 400
+
+    # Determine file type
+    filename = uploaded_file.filename.lower()
+    if filename.endswith(".pdf"):
+        file_type = "pdf"
+    elif filename.endswith(".tex"):
+        file_type = "tex"
+    else:
+        return jsonify({"error": "File must be PDF or TEX"}), 400
+
+    # Read file bytes
+    try:
+        file_bytes = uploaded_file.read()
+    except Exception:
+        log.exception("Failed to read uploaded file")
+        return jsonify({"error": "Failed to read file"}), 500
+
+    if not file_bytes:
+        return jsonify({"error": "Empty file"}), 400
+
+    # Validate title
+    title = request.form.get("title", "").strip()
+    if not title or len(title) > MAX_TITLE_LENGTH:
+        return jsonify({"error": f"title must be 1-{MAX_TITLE_LENGTH} characters"}), 400
+
+    client = get_supabase_admin_client()
+
+    if not _is_classroom_teacher(client, classroom_id):
+        return jsonify({"error": "Classroom not found"}), 404
+
+    # Parse optional context_file_ids
+    context_file_ids_str = request.form.get("context_file_ids")
+    context_file_ids = []
+    if context_file_ids_str:
+        try:
+            import json
+            context_file_ids = json.loads(context_file_ids_str)
+            if not isinstance(context_file_ids, list):
+                return jsonify({"error": "context_file_ids must be a list"}), 400
+        except json.JSONDecodeError:
+            return jsonify({"error": "context_file_ids must be valid JSON"}), 400
+
+    if not _validate_context_file_ids(client, classroom_id, context_file_ids):
+        return jsonify({"error": "One or more context_file_ids are invalid"}), 400
+
+    # Parse optional config
+    config_str = request.form.get("config")
+    config = None
+    if config_str:
+        try:
+            import json
+            config = json.loads(config_str)
+            config = validate_config(config)
+        except (json.JSONDecodeError, ValueError) as e:
+            return jsonify({"error": f"Invalid config: {e}"}), 400
+
+    # Parse optional due_date
+    due_date = request.form.get("due_date")
+
+    # Generate assignment ID and storage paths
+    assignment_id = str(uuid.uuid4())
+    prompt_path = f"{classroom_id}/{assignment_id}/prompt.{file_type}"
+
+    # Process file with conversion orchestrator
+    orchestrator = create_orchestrator()
+    try:
+        result = orchestrator.process_assignment(
+            assignment_id=assignment_id,
+            file_bytes=file_bytes,
+            file_type=file_type,
+        )
+    except ConversionError as e:
+        log.exception("Conversion failed for assignment %s", assignment_id)
+        return jsonify({
+            "error": "Failed to convert file and detect problems",
+            "detail": str(e),
+        }), 422
+
+    # Upload original file as backup
+    try:
+        upload_file_bytes(ASSIGNMENTS_BUCKET, prompt_path, file_bytes)
+    except ValueError:
+        log.exception("Failed to upload original file for assignment %s", assignment_id)
+        return jsonify({"error": "Failed to upload file"}), 500
+
+    # Create assignment record with detected problems
+    insert_data: dict[str, Any] = {
+        "id": assignment_id,
+        "classroom_id": classroom_id,
+        "title": title,
+        "context_file_ids": context_file_ids,
+        "prompt_storage_path": prompt_path,
+        "prompt_latex": result.latex_content,
+        "problems": [dict(p) for p in result.problems],
+        "published": False,  # Draft by default - teacher reviews before publishing
+    }
+    if due_date:
+        insert_data["due_date"] = due_date
+    if config:
+        insert_data["config"] = config
+
+    try:
+        record = client.table("assignments").insert(insert_data).execute()
+    except APIError:
+        log.exception("Failed to insert assignment")
+        # Clean up uploaded file
+        try:
+            delete_object(ASSIGNMENTS_BUCKET, prompt_path)
+        except Exception:
+            log.exception("Failed to clean up uploaded file after insert failure")
+        return jsonify({"error": "Failed to create assignment"}), 500
+
+    if not record.data:
+        # Clean up uploaded file
+        try:
+            delete_object(ASSIGNMENTS_BUCKET, prompt_path)
+        except Exception:
+            log.exception("Failed to clean up uploaded file after insert failure")
+        return jsonify({"error": "Insert returned no data"}), 500
+
+    response: dict[str, Any] = {
+        **record.data[0],
+        "needs_review": result.needs_review,
+    }
+
+    return jsonify(response), 201
+
+
 @assignments_bp.route("/classrooms/<classroom_id>/assignments", methods=["GET"])
 @require_auth
 def list_assignments(classroom_id: str) -> Tuple[Response, int]:
@@ -196,9 +354,13 @@ def list_assignments(classroom_id: str) -> Tuple[Response, int]:
     if not (_is_classroom_teacher(client, classroom_id) if g.user_role == "teacher" else _is_classroom_student(client, classroom_id)):
         return jsonify({"error": "Access denied"}), 403
 
-    assignments = client.table("assignments").select("*").eq(
-        "classroom_id", classroom_id
-    ).order("created_at", desc=True).execute()
+    query = client.table("assignments").select("*").eq("classroom_id", classroom_id)
+
+    # Students only see published assignments
+    if g.user_role != "teacher":
+        query = query.eq("published", True)
+
+    assignments = query.order("created_at", desc=True).execute()
 
     records = assignments.data
     if g.user_role != "teacher":
@@ -236,6 +398,10 @@ def get_assignment(assignment_id: str) -> Tuple[Response, int]:
         ).eq("student_id", g.user_id).execute()
         if not membership.data:
             return jsonify({"error": "Access denied"}), 403
+
+        # Students can only access published assignments
+        if not record.get("published", False):
+            return jsonify({"error": "Assignment not found"}), 404
 
     result = dict(record)
     classroom_config = classroom.data[0].get("config") or {}
@@ -382,6 +548,56 @@ def delete_assignment(assignment_id: str) -> Tuple[Response, int] | Response:
             "failed_paths": warnings,
         }), 200
     return Response(status=204)
+
+
+@assignments_bp.route("/assignments/<assignment_id>/publish", methods=["POST"])
+@require_role("teacher")
+def publish_assignment(assignment_id: str) -> Tuple[Response, int]:
+    """
+    Publish an assignment (make visible to students).
+    """
+    client = get_supabase_admin_client()
+    record = _find_owned_assignment(client, assignment_id)
+    if record is None:
+        return jsonify({"error": "Assignment not found or access denied"}), 404
+
+    try:
+        updated = client.table("assignments").update({
+            "published": True
+        }).eq("id", assignment_id).execute()
+    except APIError:
+        log.exception("Failed to publish assignment %s", assignment_id)
+        return jsonify({"error": "Failed to publish assignment"}), 500
+
+    if not updated.data:
+        return jsonify({"error": "Update returned no data"}), 500
+
+    return jsonify(updated.data[0]), 200
+
+
+@assignments_bp.route("/assignments/<assignment_id>/unpublish", methods=["POST"])
+@require_role("teacher")
+def unpublish_assignment(assignment_id: str) -> Tuple[Response, int]:
+    """
+    Unpublish an assignment (hide from students).
+    """
+    client = get_supabase_admin_client()
+    record = _find_owned_assignment(client, assignment_id)
+    if record is None:
+        return jsonify({"error": "Assignment not found or access denied"}), 404
+
+    try:
+        updated = client.table("assignments").update({
+            "published": False
+        }).eq("id", assignment_id).execute()
+    except APIError:
+        log.exception("Failed to unpublish assignment %s", assignment_id)
+        return jsonify({"error": "Failed to unpublish assignment"}), 500
+
+    if not updated.data:
+        return jsonify({"error": "Update returned no data"}), 500
+
+    return jsonify(updated.data[0]), 200
 
 
 @assignments_bp.route("/assignments/<assignment_id>/reupload", methods=["POST"])

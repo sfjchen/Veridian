@@ -21,6 +21,9 @@ import type {
 } from "../../types";
 import { SEVERITY_ORDER, SEVERITY_COLORS } from "../../constants/severity";
 import { TAG_ABBREV, TAG_TO_SEVERITY } from "../../constants/tags";
+import { palette, radius } from "../../constants/palette";
+import { spacing } from "../../constants/spacing";
+import { typography } from "../../constants/typography";
 
 type SubTab = "overview" | "faq" | "mistakes" | "trends";
 const SUB_TABS: { key: SubTab; label: string }[] = [
@@ -31,7 +34,7 @@ const SUB_TABS: { key: SubTab; label: string }[] = [
 ];
 
 function cellColor(count: number, maxCount: number): string {
-  if (count === 0 || maxCount === 0) return "#F9FAFB";
+  if (count === 0 || maxCount === 0) return palette.surface;
   const t = Math.min(count / maxCount, 1);
   const channel = Math.round(68 + 182 * (1 - t));
   return `rgb(239,${channel},${channel})`;
@@ -81,7 +84,7 @@ export function InsightsContent({ classroomId, navigation }: { classroomId: stri
     <View style={styles.container}>
       <SubTabBar subTab={subTab} setSubTab={setSubTab} onRefresh={handleRefresh}
         refreshing={refreshing} disabled={isLoading} />
-      {subTab === "overview" && <OverviewPanel overview={overview} loading={overviewLoading} error={overviewError} />}
+      {subTab === "overview" && <OverviewPanel overview={overview} loading={overviewLoading} error={overviewError} onRetry={refreshOverview} />}
       {subTab === "faq" && <FaqPanel faq={faq} totalMessages={faqTotalMessages} loading={faqLoading} error={faqError} />}
       {subTab === "mistakes" && (
         <MistakesPanel heatmap={heatmap} loading={heatmapLoading} error={heatmapError}
@@ -106,7 +109,7 @@ function SubTabBar({ subTab, setSubTab, onRefresh, refreshing, disabled }: {
       <TouchableOpacity style={[styles.refreshBtn, disabled && styles.refreshBtnDisabled]}
         onPress={onRefresh} disabled={disabled}>
         {refreshing
-          ? <ActivityIndicator size="small" color="#fff" />
+          ? <ActivityIndicator size="small" color={palette.white} />
           : <Text style={styles.refreshBtnText}>Refresh</Text>}
       </TouchableOpacity>
     </View>
@@ -115,12 +118,25 @@ function SubTabBar({ subTab, setSubTab, onRefresh, refreshing, disabled }: {
 
 // --- Overview Panel ---
 
-function OverviewPanel({ overview, loading, error }: {
-  overview: ClassroomOverview | null; loading: boolean; error: string | null;
+function OverviewPanel({ overview, loading, error, onRetry }: {
+  overview: ClassroomOverview | null; loading: boolean; error: string | null; onRetry?: () => void;
 }) {
-  if (loading) return <ActivityIndicator style={styles.centered} />;
-  if (error) return <Text style={styles.errorText}>{error}</Text>;
-  if (!overview) return <Text style={styles.emptyText}>No student submissions yet. Data will appear once students begin working on assignments.</Text>;
+  if (loading) {
+    return (
+      <View style={styles.skeletonPanel}>
+        <View style={styles.statsGrid}>
+          {[1, 2, 3, 4, 5].map((i) => (
+            <View key={i} style={styles.statCard}>
+              <Skeleton width={48} height={28} style={{ marginBottom: spacing.xs }} />
+              <Skeleton width={64} height={14} />
+            </View>
+          ))}
+        </View>
+      </View>
+    );
+  }
+  if (error) return <ErrorState message={error} onRetry={onRetry} />;
+  if (!overview) return <EmptyState title="No data yet" description="Data will appear once students begin working on assignments." />;
   return (
     <ScrollView style={styles.panel}>
       <View style={styles.statsGrid}>
@@ -135,7 +151,7 @@ function OverviewPanel({ overview, loading, error }: {
           <Text style={styles.highlightLabel}>Most Common Mistake</Text>
           <Text style={styles.highlightValue}>{overview.most_common_tag}</Text>
           <View style={styles.highlightMeta}>
-            <View style={[styles.highlightSevDot, { backgroundColor: SEVERITY_COLORS[TAG_TO_SEVERITY[overview.most_common_tag] ?? ""] ?? "#9CA3AF" }]} />
+            <View style={[styles.highlightSevDot, { backgroundColor: SEVERITY_COLORS[TAG_TO_SEVERITY[overview.most_common_tag] ?? ""] ?? palette.textDisabled }]} />
             <Text style={styles.highlightSub}>
               {TAG_TO_SEVERITY[overview.most_common_tag] ?? ""} &middot; {overview.most_common_tag_count} occurrences
             </Text>
@@ -282,7 +298,7 @@ function HeatmapHeader({ tags }: { tags: string[] }) {
         prevSev = sev;
         return (
           <View key={tag} style={[styles.tagCell, showDivider && styles.severityDivider,
-            { borderTopWidth: 3, borderTopColor: SEVERITY_COLORS[sev] ?? "#E5E7EB" }]}>
+            { borderTopWidth: 3, borderTopColor: SEVERITY_COLORS[sev] ?? palette.border }]}>
             <Text style={styles.tagHeader}>{TAG_ABBREV[tag] ?? tag.slice(0, 4)}</Text>
           </View>
         );
@@ -360,8 +376,8 @@ function TrendsPanel({ trends, loading, error }: {
         const curRate = t.student_count > 0 ? t.total_mistakes / t.student_count : 0;
         const prevRate = prev && prev.student_count > 0 ? prev.total_mistakes / prev.student_count : null;
         const trendArrow = prevRate === null ? null
-          : curRate < prevRate ? { symbol: "\u2193", color: "#10B981" }
-          : curRate > prevRate ? { symbol: "\u2191", color: "#EF4444" }
+          : curRate < prevRate ? { symbol: "\u2193", color: palette.success }
+          : curRate > prevRate ? { symbol: "\u2191", color: palette.error }
           : null;
         return (
           <View key={t.assignment_id} style={styles.trendRow}>
@@ -425,82 +441,77 @@ function MiniSeverityBar({ dist }: { dist: SeverityDistribution }) {
 
 const styles = StyleSheet.create({
   container: { flex: 1 },
-  subTabs: { flexDirection: "row", gap: 6, marginBottom: 12, alignItems: "center", flexWrap: "wrap" },
-  subTab: { paddingHorizontal: 14, paddingVertical: 8, borderRadius: 8, backgroundColor: "#E5E7EB" },
-  subTabActive: { backgroundColor: "#4F46E5" },
-  subTabText: { fontWeight: "600", color: "#374151", fontSize: 13 },
-  subTabTextActive: { color: "#fff" },
-  refreshBtn: { marginLeft: "auto", paddingHorizontal: 12, paddingVertical: 8, borderRadius: 8, backgroundColor: "#10B981", minWidth: 70, alignItems: "center" },
+  subTabs: { flexDirection: "row" as const, gap: spacing.xs, marginBottom: spacing.sm, alignItems: "center" as const, flexWrap: "wrap" as const },
+  subTab: { paddingHorizontal: spacing.sm, paddingVertical: spacing.xs, borderRadius: radius.input, backgroundColor: palette.border },
+  subTabActive: { backgroundColor: palette.primary },
+  subTabText: { ...typography.bodySmall, fontWeight: "600" as const, color: palette.textSecondary },
+  subTabTextActive: { color: palette.white },
+  refreshBtn: { marginLeft: "auto" as const, paddingHorizontal: spacing.sm, paddingVertical: spacing.xs, borderRadius: radius.input, backgroundColor: palette.success, minWidth: 70, alignItems: "center" as const },
   refreshBtnDisabled: { opacity: 0.6 },
-  refreshBtnText: { color: "#fff", fontWeight: "600", fontSize: 13 },
+  refreshBtnText: { color: palette.white, fontWeight: "600" as const, ...typography.bodySmall },
   panel: { flex: 1 },
-  centered: { marginTop: 40 },
-  errorText: { textAlign: "center", color: "#EF4444", marginTop: 20 },
-  emptyText: { textAlign: "center", color: "#9CA3AF", marginTop: 20 },
+  centered: { marginTop: spacing.xxl },
+  errorText: { ...typography.body, textAlign: "center" as const, color: palette.error, marginTop: spacing.lg },
+  emptyText: { ...typography.body, textAlign: "center" as const, color: palette.textDisabled, marginTop: spacing.lg },
 
-  // Overview
-  statsGrid: { flexDirection: "row", flexWrap: "wrap", gap: 10, marginBottom: 16 },
-  statCard: { flex: 1, minWidth: 140, backgroundColor: "#fff", borderRadius: 10, padding: 14, alignItems: "center" },
-  statValue: { fontSize: 26, fontWeight: "bold", color: "#4F46E5" },
-  statLabel: { fontSize: 12, color: "#6B7280", marginTop: 4, fontWeight: "600" },
-  statSub: { fontSize: 11, color: "#9CA3AF", marginTop: 2 },
-  highlightCard: { backgroundColor: "#FEF3C7", borderRadius: 10, padding: 14, marginBottom: 16, alignItems: "center" },
-  highlightLabel: { fontSize: 12, color: "#92400E", fontWeight: "600" },
-  highlightValue: { fontSize: 18, fontWeight: "bold", color: "#B45309", marginTop: 4 },
-  highlightMeta: { flexDirection: "row", alignItems: "center", gap: 4, marginTop: 4 },
+  statsGrid: { flexDirection: "row" as const, flexWrap: "wrap" as const, gap: spacing.sm, marginBottom: spacing.md },
+  statCard: { flex: 1, minWidth: 140, backgroundColor: palette.card, borderRadius: radius.card, padding: spacing.sm, alignItems: "center" as const },
+  statValue: { fontSize: 26, fontWeight: "700" as const, color: palette.primary },
+  statLabel: { ...typography.caption, color: palette.textMuted, marginTop: spacing.xxs, fontWeight: "600" as const },
+  statSub: { fontSize: 11, color: palette.textDisabled, marginTop: 2 },
+  highlightCard: { backgroundColor: palette.warningBg, borderRadius: radius.card, padding: spacing.sm, marginBottom: spacing.md, alignItems: "center" as const },
+  highlightLabel: { ...typography.caption, color: palette.warning, fontWeight: "600" as const },
+  highlightValue: { fontSize: 18, fontWeight: "700" as const, color: palette.warning, marginTop: spacing.xxs },
+  highlightMeta: { flexDirection: "row" as const, alignItems: "center" as const, gap: spacing.xxs, marginTop: spacing.xxs },
   highlightSevDot: { width: 8, height: 8, borderRadius: 4 },
-  highlightSub: { fontSize: 12, color: "#92400E" },
+  highlightSub: { ...typography.caption, color: palette.warning },
 
-  // Severity bar
-  severitySection: { marginBottom: 16 },
-  sectionTitle: { fontSize: 14, fontWeight: "700", color: "#111827", marginBottom: 8 },
-  severityBar: { flexDirection: "row", height: 12, borderRadius: 6, overflow: "hidden", backgroundColor: "#E5E7EB" },
+  severitySection: { marginBottom: spacing.md },
+  sectionTitle: { ...typography.bodySmall, fontWeight: "700" as const, color: palette.textPrimary, marginBottom: spacing.xs },
+  severityBar: { flexDirection: "row" as const, height: 12, borderRadius: radius.input, overflow: "hidden" as const, backgroundColor: palette.border },
   severitySegment: { height: 12 },
-  severityLegend: { flexDirection: "row", flexWrap: "wrap", gap: 12, marginTop: 8 },
-  legendItem: { flexDirection: "row", alignItems: "center", gap: 4 },
+  severityLegend: { flexDirection: "row" as const, flexWrap: "wrap" as const, gap: spacing.sm, marginTop: spacing.xs },
+  legendItem: { flexDirection: "row" as const, alignItems: "center" as const, gap: spacing.xxs },
   legendDot: { width: 10, height: 10, borderRadius: 5 },
-  legendText: { fontSize: 11, color: "#6B7280" },
+  legendText: { fontSize: 11, color: palette.textMuted },
 
-  // FAQ
-  faqRow: { backgroundColor: "#fff", borderRadius: 8, padding: 12, marginBottom: 8 },
-  faqHeader: { flexDirection: "row", justifyContent: "space-between", marginBottom: 6 },
-  faqTopic: { fontSize: 15, fontWeight: "600", color: "#111827" },
-  faqStat: { fontSize: 13, color: "#6B7280" },
-  barBg: { height: 8, backgroundColor: "#E5E7EB", borderRadius: 4, marginBottom: 4 },
-  barFill: { height: 8, backgroundColor: "#4F46E5", borderRadius: 4 },
-  faqCount: { fontSize: 12, color: "#9CA3AF" },
-  sampleSection: { marginTop: 10, paddingTop: 10, borderTopWidth: 1, borderTopColor: "#F3F4F6" },
-  sampleTitle: { fontSize: 12, fontWeight: "700", color: "#6B7280", marginBottom: 6 },
-  sampleQuestion: { fontSize: 13, color: "#374151", marginBottom: 4, paddingLeft: 8, borderLeftWidth: 2, borderLeftColor: "#E5E7EB" },
+  faqRow: { backgroundColor: palette.card, borderRadius: radius.input, padding: spacing.sm, marginBottom: spacing.xs },
+  faqHeader: { flexDirection: "row" as const, justifyContent: "space-between" as const, marginBottom: spacing.xs },
+  faqTopic: { ...typography.body, fontWeight: "600" as const, color: palette.textPrimary },
+  faqStat: { ...typography.bodySmall, color: palette.textMuted },
+  barBg: { height: 8, backgroundColor: palette.border, borderRadius: spacing.xxs, marginBottom: spacing.xxs },
+  barFill: { height: 8, backgroundColor: palette.primary, borderRadius: spacing.xxs },
+  faqCount: { ...typography.caption, color: palette.textDisabled },
+  sampleSection: { marginTop: spacing.sm, paddingTop: spacing.sm, borderTopWidth: 1, borderTopColor: palette.surface },
+  sampleTitle: { ...typography.caption, fontWeight: "700" as const, color: palette.textMuted, marginBottom: spacing.xs },
+  sampleQuestion: { ...typography.bodySmall, color: palette.textSecondary, marginBottom: spacing.xxs, paddingLeft: spacing.xs, borderLeftWidth: 2, borderLeftColor: palette.border },
 
-  // Heatmap
-  heatmapLegendRow: { flexDirection: "row", gap: 16, marginBottom: 10, paddingHorizontal: 4 },
-  heatmapRow: { flexDirection: "row", borderBottomWidth: 1, borderBottomColor: "#E5E7EB" },
-  nameCell: { width: 120, padding: 8, justifyContent: "center" },
-  nameText: { fontSize: 13, color: "#374151" },
-  headerText: { fontSize: 12, fontWeight: "700", color: "#374151" },
-  tagCell: { width: 48, padding: 4, alignItems: "center", justifyContent: "center", borderLeftWidth: 1, borderLeftColor: "#F3F4F6" },
-  tagHeader: { fontSize: 10, fontWeight: "700", color: "#6B7280", textAlign: "center" },
-  cellText: { fontSize: 12, color: "#374151" },
-  totalText: { fontSize: 12, fontWeight: "700", color: "#111827" },
-  totalRow: { backgroundColor: "#F3F4F6" },
-  totalLabel: { fontSize: 13, fontWeight: "700", color: "#111827" },
-  severityDivider: { borderLeftWidth: 2, borderLeftColor: "#9CA3AF" },
+  heatmapLegendRow: { flexDirection: "row" as const, gap: spacing.md, marginBottom: spacing.sm, paddingHorizontal: spacing.xxs },
+  heatmapRow: { flexDirection: "row" as const, borderBottomWidth: 1, borderBottomColor: palette.border },
+  nameCell: { width: 120, padding: spacing.xs, justifyContent: "center" as const },
+  nameText: { ...typography.bodySmall, color: palette.textSecondary },
+  headerText: { ...typography.caption, fontWeight: "700" as const, color: palette.textSecondary },
+  tagCell: { width: 48, padding: spacing.xxs, alignItems: "center" as const, justifyContent: "center" as const, borderLeftWidth: 1, borderLeftColor: palette.surface },
+  tagHeader: { fontSize: 10, fontWeight: "700" as const, color: palette.textMuted, textAlign: "center" as const },
+  cellText: { ...typography.caption, color: palette.textSecondary },
+  totalText: { ...typography.caption, fontWeight: "700" as const, color: palette.textPrimary },
+  totalRow: { backgroundColor: palette.surface },
+  totalLabel: { ...typography.bodySmall, fontWeight: "700" as const, color: palette.textPrimary },
+  severityDivider: { borderLeftWidth: 2, borderLeftColor: palette.textDisabled },
 
-  // Trends
-  trendRow: { backgroundColor: "#fff", borderRadius: 8, padding: 12, marginBottom: 8 },
-  trendHeader: { flexDirection: "row", justifyContent: "space-between", marginBottom: 6 },
-  trendTitle: { fontSize: 14, fontWeight: "600", color: "#374151", flex: 1 },
-  trendArrow: { fontSize: 16, fontWeight: "bold", marginLeft: 4 },
-  trendDate: { fontSize: 12, color: "#9CA3AF", marginLeft: 8 },
-  trendBarBg: { height: 8, backgroundColor: "#E5E7EB", borderRadius: 4, marginBottom: 6 },
-  trendBarFill: { height: 8, backgroundColor: "#4F46E5", borderRadius: 4 },
-  trendStats: { flexDirection: "row", gap: 12, marginBottom: 4 },
-  trendStat: { fontSize: 13, color: "#4F46E5", fontWeight: "600" },
-  trendStatSub: { fontSize: 12, color: "#9CA3AF" },
-  trendSectionLabel: { fontSize: 11, color: "#9CA3AF", marginBottom: 6, fontStyle: "italic" },
-  trendSeverityLabels: { flexDirection: "row", gap: 10, marginTop: 4 },
-  trendSeverityLabel: { fontSize: 11, fontWeight: "600" },
-  miniSeverityBar: { flexDirection: "row", height: 4, borderRadius: 2, overflow: "hidden", marginTop: 4 },
+  trendRow: { backgroundColor: palette.card, borderRadius: radius.input, padding: spacing.sm, marginBottom: spacing.xs },
+  trendHeader: { flexDirection: "row" as const, justifyContent: "space-between" as const, marginBottom: spacing.xs },
+  trendTitle: { ...typography.bodySmall, fontWeight: "600" as const, color: palette.textSecondary, flex: 1 },
+  trendArrow: { fontSize: 16, fontWeight: "700" as const, marginLeft: spacing.xxs },
+  trendDate: { ...typography.caption, color: palette.textDisabled, marginLeft: spacing.xs },
+  trendBarBg: { height: 8, backgroundColor: palette.border, borderRadius: spacing.xxs, marginBottom: spacing.xs },
+  trendBarFill: { height: 8, backgroundColor: palette.primary, borderRadius: spacing.xxs },
+  trendStats: { flexDirection: "row" as const, gap: spacing.sm, marginBottom: spacing.xxs },
+  trendStat: { ...typography.bodySmall, color: palette.primary, fontWeight: "600" as const },
+  trendStatSub: { ...typography.caption, color: palette.textDisabled },
+  trendSectionLabel: { fontSize: 11, color: palette.textDisabled, marginBottom: spacing.xs, fontStyle: "italic" as const },
+  trendSeverityLabels: { flexDirection: "row" as const, gap: spacing.sm, marginTop: spacing.xxs },
+  trendSeverityLabel: { fontSize: 11, fontWeight: "600" as const },
+  miniSeverityBar: { flexDirection: "row" as const, height: 4, borderRadius: 2, overflow: "hidden" as const, marginTop: spacing.xxs },
   miniSeveritySegment: { height: 4 },
 });

@@ -1,7 +1,7 @@
 import React from "react";
 import { NavigationContainer } from "@react-navigation/native";
 import { createNativeStackNavigator } from "@react-navigation/native-stack";
-import { ActivityIndicator, View, Text, TouchableOpacity, StyleSheet } from "react-native";
+import { ActivityIndicator, View, Text, StyleSheet } from "react-native";
 import { useAuth } from "../stores/auth";
 import { LoginScreen } from "../screens/auth/LoginScreen";
 import { SignupScreen } from "../screens/auth/SignupScreen";
@@ -12,12 +12,14 @@ import { CreateAssignmentScreen } from "../screens/teacher/CreateAssignmentScree
 import { TeacherAssignmentScreen } from "../screens/teacher/AssignmentScreen";
 import { StudentExperienceScreen } from "../screens/teacher/StudentExperienceScreen";
 import { StudentMistakeDetailScreen } from "../screens/teacher/StudentMistakeDetailScreen";
+import { StudentWorkReviewScreen } from "../screens/teacher/StudentWorkReviewScreen";
 import { StudentDashboardScreen } from "../screens/student/DashboardScreen";
 import { StudentClassroomScreen } from "../screens/student/ClassroomScreen";
 import { AssignmentScreen } from "../screens/student/AssignmentScreen";
 import { palette } from "../constants/palette";
 import { spacing } from "../constants/spacing";
 import { typography } from "../constants/typography";
+import { Button } from "../components/ui/Button";
 import { TeacherHeaderLeft } from "../components/TeacherHeaderLeft";
 import { TeacherHeaderRight } from "../components/TeacherHeaderRight";
 
@@ -67,6 +69,7 @@ function TeacherNavigator() {
       <TeacherStack.Screen name="TeacherAssignment" component={TeacherAssignmentScreen} options={{ title: "Assignment" }} />
       <TeacherStack.Screen name="StudentExperience" component={StudentExperienceScreen} options={{ title: "Student Experience", headerShown: false }} />
       <TeacherStack.Screen name="StudentMistakeDetail" component={StudentMistakeDetailScreen} options={{ title: "Student Mistakes" }} />
+      <TeacherStack.Screen name="StudentWorkReview" component={StudentWorkReviewScreen} options={{ title: "Student Work" }} />
     </TeacherStack.Navigator>
   );
 }
@@ -88,9 +91,9 @@ function InvalidRoleScreen() {
     <View style={styles.center}>
       <Text style={styles.errorText}>Unable to determine your account role.</Text>
       <Text style={styles.errorSubtext}>Please contact support or try signing in again.</Text>
-      <TouchableOpacity style={styles.signOutButton} onPress={signOut}>
-        <Text style={styles.signOutText}>Sign Out</Text>
-      </TouchableOpacity>
+      <Button variant="danger" onPress={signOut} style={styles.signOutButton}>
+        Sign Out
+      </Button>
     </View>
   );
 }
@@ -125,11 +128,5 @@ const styles = StyleSheet.create({
   center: { flex: 1, justifyContent: "center", alignItems: "center", padding: 24, backgroundColor: palette.surface },
   errorText: { ...typography.h2, color: palette.textPrimary, marginBottom: 8, textAlign: "center" },
   errorSubtext: { ...typography.bodySmall, color: palette.textMuted, marginBottom: 24, textAlign: "center" },
-  signOutButton: {
-    backgroundColor: palette.error,
-    borderRadius: 8,
-    paddingVertical: 12,
-    paddingHorizontal: 24,
-  },
-  signOutText: { color: palette.white, fontSize: 16, fontWeight: "600" },
+  signOutButton: { marginTop: spacing.xs },
 });

@@ -62,6 +62,8 @@ def _format_context_block(context: Dict[str, Any]) -> str:
     parts: List[str] = []
     if context.get("problem_statement"):
         parts.append(f"Problem statement:\n{context['problem_statement']}")
+    if context.get("reference_materials"):
+        parts.append(f"Reference materials:\n{context['reference_materials']}")
     if context.get("annotated_tex"):
         parts.append(f"Student's annotated work:\n{context['annotated_tex']}")
     if context.get("mistakes"):

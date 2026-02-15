@@ -1,6 +1,6 @@
 import React, { useEffect, useRef } from "react";
 import { Animated, StyleSheet, Text, View } from "react-native";
-import { palette } from "../../constants/palette";
+import { palette, radius } from "../../constants/palette";
 import { spacing } from "../../constants/spacing";
 import { typography } from "../../constants/typography";
 
@@ -57,7 +57,7 @@ const styles = StyleSheet.create({
     backgroundColor: palette.successBg,
     paddingVertical: spacing.sm,
     paddingHorizontal: spacing.lg,
-    borderRadius: 8,
+    borderRadius: radius.button,
     borderWidth: 1,
     borderColor: palette.success,
   },

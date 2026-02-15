@@ -10,7 +10,7 @@ export default function TabLayout() {
       screenOptions={{
         headerShown: false,
         tabBarActiveTintColor: palette.primary,
-        tabBarInactiveTintColor: palette.textMuted,
+        tabBarInactiveTintColor: palette.tabInactive,
         tabBarStyle: {
           backgroundColor: palette.card,
           borderTopColor: palette.border,
@@ -19,7 +19,7 @@ export default function TabLayout() {
       <Tabs.Screen
         name="index"
         options={{
-          title: 'Documents',
+          title: "Classrooms",
           tabBarIcon: ({ color, size }) => (
             <MaterialCommunityIcons name="file-document-outline" size={size} color={color} />
           ),

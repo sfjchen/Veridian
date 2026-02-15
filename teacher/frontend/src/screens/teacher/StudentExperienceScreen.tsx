@@ -2,6 +2,8 @@ import { MaterialCommunityIcons } from '@expo/vector-icons';
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import {
   ActivityIndicator,
+  Alert,
+  Linking,
   Platform,
   Pressable,
   SafeAreaView,
@@ -17,6 +19,7 @@ import { ProblemHeader } from '../../student-view/components/ProblemHeader';
 import { StatusBadge, type StatusTone } from '../../student-view/components/notifications/StatusBadge';
 import { ToastHost, type ToastNotice } from '../../student-view/components/notifications/ToastHost';
 import { palette, radius } from '../../student-view/constants/palette';
+import { palette as teacherPalette } from '../../constants/palette';
 import { useAutoAnalysis } from '../../student-view/hooks/useAutoAnalysis';
 import type { CaptureResult } from '../../student-view/lib/capture-types';
 import { captureStrokesAsDataUri } from '../../student-view/lib/capture-web';
@@ -289,6 +292,28 @@ export function StudentExperienceScreen({ route, navigation }: { route: any; nav
           <ProblemHeader problemNum={currentProblem.num} statementTex={currentProblem.statement_tex} />
         </View>
       )}
+      {assignment.assignment_file_download_url && (
+        <Pressable
+          style={({ pressed }) => [styles.assignmentFileBanner, pressed && { opacity: 0.7 }]}
+          onPress={async () => {
+            const url = assignment.assignment_file_download_url!;
+            if (Platform.OS === 'web') {
+              window.open(url, '_blank');
+            } else {
+              try {
+                await Linking.openURL(url);
+              } catch {
+                Alert.alert('Could not open file', 'Unable to open the assignment file URL.');
+              }
+            }
+          }}
+          accessibilityRole="link"
+          accessibilityLabel="View assignment file">
+          <MaterialCommunityIcons name="file-document-outline" size={18} color={palette.primary} />
+          <Text style={styles.assignmentFileBannerText}>View Assignment File</Text>
+          <MaterialCommunityIcons name="open-in-new" size={16} color={palette.primary} />
+        </Pressable>
+      )}
       {badgeStatus && (
         <View style={styles.badgeBar}><StatusBadge label={badgeStatus.label} tone={badgeStatus.tone} /></View>
       )}
@@ -430,7 +455,7 @@ const styles = StyleSheet.create({
   },
   checkButtonText: { color: palette.white, fontSize: 14, fontWeight: '700' },
   previewBanner: {
-    backgroundColor: '#EBF5FF',
+    backgroundColor: teacherPalette.primaryMutedTint,
     paddingVertical: 6,
     borderBottomWidth: 1,
     borderBottomColor: palette.border,
@@ -439,7 +464,7 @@ const styles = StyleSheet.create({
     textAlign: 'center',
     fontSize: 13,
     fontWeight: '600',
-    color: '#1E40AF',
+    color: teacherPalette.primary,
   },
   problemHeaderWrap: {
     paddingHorizontal: 12,
@@ -447,6 +472,22 @@ const styles = StyleSheet.create({
     backgroundColor: palette.card,
     borderBottomWidth: 1,
     borderBottomColor: palette.border,
+  },
+  assignmentFileBanner: {
+    flexDirection: 'row' as const,
+    alignItems: 'center' as const,
+    gap: 8,
+    paddingVertical: 10,
+    paddingHorizontal: 16,
+    backgroundColor: palette.card,
+    borderBottomWidth: 1,
+    borderBottomColor: palette.border,
+  },
+  assignmentFileBannerText: {
+    flex: 1,
+    fontSize: 14,
+    fontWeight: '600' as const,
+    color: palette.primary,
   },
   badgeBar: {
     paddingVertical: 6,

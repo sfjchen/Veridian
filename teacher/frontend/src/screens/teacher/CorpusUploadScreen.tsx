@@ -17,7 +17,7 @@ interface PickedFile {
   file?: File;
 }
 
-const ALLOWED_FILE_TYPES = ["pdf", "txt", "docx", "doc", "md", "tex", "rtf"];
+const ALLOWED_FILE_TYPES = ["pdf", "txt", "docx", "doc", "md", "tex", "rtf", "csv", "json", "ipynb"];
 
 function inferFileType(name: string, mimeType: string): string | null {
   const ext = name.split(".").pop()?.toLowerCase();
@@ -40,10 +40,13 @@ export function CorpusUploadScreen({ route, navigation }: { route: any; navigati
         "application/pdf",
         "text/plain",
         "text/markdown",
+        "text/csv",
+        "application/json",
         "application/vnd.openxmlformats-officedocument.wordprocessingml.document",
         "application/msword",
         "application/x-tex",
         "application/rtf",
+        "application/x-ipynb+json",
       ],
       copyToCacheDirectory: true,
     });
@@ -71,7 +74,7 @@ export function CorpusUploadScreen({ route, navigation }: { route: any; navigati
     }
     const fileType = inferFileType(file.name, file.mimeType);
     if (!fileType) {
-      alert("Error", "Unsupported file type. Allowed: pdf, txt, docx, doc, md, tex, rtf");
+      alert("Error", "Unsupported file type. Allowed: pdf, txt, docx, doc, md, tex, rtf, csv, json, ipynb");
       return;
     }
 
@@ -107,6 +110,7 @@ export function CorpusUploadScreen({ route, navigation }: { route: any; navigati
               {file ? file.name : "Select File"}
             </Text>
           </Card>
+          {!file && <Text style={styles.fileHint}>Pick a PDF or text file to add to the classroom corpus.</Text>}
           <Input
             placeholder="Display name"
             value={displayName}
@@ -124,6 +128,7 @@ export function CorpusUploadScreen({ route, navigation }: { route: any; navigati
 
 const styles = StyleSheet.create({
   content: { paddingVertical: spacing.lg },
-  fileCard: { marginBottom: spacing.md },
+  fileCard: { marginBottom: spacing.xs },
   filePickerText: { ...typography.body, color: palette.textMuted },
+  fileHint: { ...typography.caption, color: palette.textMuted, marginBottom: spacing.md },
 });

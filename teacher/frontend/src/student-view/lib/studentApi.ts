@@ -111,6 +111,7 @@ export type Assignment = {
   problems: Problem[];
   reveal_mode?: 'single-tap' | 'progressive';
   resolved_config?: Partial<ResolvedConfig>;
+  assignment_file_download_url?: string | null;
 };
 
 export function getAuthHeaders(accessToken?: string): Record<string, string> {

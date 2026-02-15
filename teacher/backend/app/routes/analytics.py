@@ -150,6 +150,46 @@ def get_classroom_mistakes(classroom_id: str) -> Tuple[Response, int]:
     return jsonify(heatmap), 200
 
 
+@analytics_bp.route("/analytics/assignments/<assignment_id>/students/<student_id>/results", methods=["GET"])
+@require_role("teacher")
+def get_student_results(assignment_id: str, student_id: str) -> Tuple[Response, int]:
+    if not validate_uuid(assignment_id) or not validate_uuid(student_id):
+        return _err("Invalid ID", 400)
+    client = get_supabase_admin_client()
+    asgn = client.table("assignments").select("id,classroom_id").eq("id", assignment_id).limit(1).execute()
+    if not (asgn.data or []):
+        return _err("Assignment not found", 404)
+    classroom_id = asgn.data[0]["classroom_id"]
+    check = _require_classroom_owner(client, classroom_id)
+    if isinstance(check, tuple):
+        return check
+
+    membership = (
+        client.table("classroom_memberships")
+        .select("student_id")
+        .eq("classroom_id", classroom_id)
+        .eq("student_id", student_id)
+        .limit(1)
+        .execute()
+    )
+    if not (membership.data or []):
+        return _err("Student not in classroom", 403)
+
+    try:
+        resp = (
+            client.table("problem_results")
+            .select("*")
+            .eq("assignment_id", assignment_id)
+            .eq("student_id", student_id)
+            .order("problem_num")
+            .execute()
+        )
+        return jsonify({"results": resp.data or []}), 200
+    except Exception:
+        log.exception("Failed to fetch results for %s/%s", assignment_id, student_id)
+        return _err("Failed to fetch student results", 500)
+
+
 @analytics_bp.route("/analytics/classrooms/<classroom_id>/students/<student_id>/mistakes", methods=["GET"])
 @require_role("teacher")
 def get_student_mistakes(classroom_id: str, student_id: str) -> Tuple[Response, int]:

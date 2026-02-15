@@ -97,12 +97,6 @@ export function TeacherAssignmentScreen({ route, navigation }: { route: any; nav
     refresh: refreshSubmissions,
   } = useSubmissions(assignmentId);
 
-  const onRefresh = useCallback(async () => {
-    setRefreshing(true);
-    await Promise.all([fetchAssignment(), refreshSubmissions()]);
-    if (mountedRef.current) setRefreshing(false);
-  }, [fetchAssignment, refreshSubmissions]);
-
   const fetchAssignment = useCallback(async () => {
     try {
       const data = await api<AssignmentDetail>(`/assignments/${assignmentId}`);
@@ -155,6 +149,12 @@ export function TeacherAssignmentScreen({ route, navigation }: { route: any; nav
       if (mountedRef.current) setLoading(false);
     }
   }, [assignmentId]);
+
+  const onRefresh = useCallback(async () => {
+    setRefreshing(true);
+    await Promise.all([fetchAssignment(), refreshSubmissions()]);
+    if (mountedRef.current) setRefreshing(false);
+  }, [fetchAssignment, refreshSubmissions]);
 
   const handleConvertPdf = async () => {
     if (!assignment?.assignment_file_download_url) return;

@@ -106,6 +106,8 @@ Use this sequence for a repeatable demo:
 | Teacher backend | `cd teacher/backend && python3 run.py` — hit `/classrooms` with JWT |
 | Student backend | `cd student/backend && python3 get_coords.py` — `curl http://localhost:8000/health` |
 
+After migrations: assignments load without config errors; corpus upload works.
+
 ## Development
 
 See `AGENTS.md`, `CLAUDE.md` for workflow and conventions. Running docs: `AGENTS.md`, `CLAUDE.md`, `README.md`, `PLAN.md`.

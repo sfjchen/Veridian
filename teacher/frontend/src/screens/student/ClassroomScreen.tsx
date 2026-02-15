@@ -1,7 +1,15 @@
 import React from "react";
-import { View, Text, FlatList, TouchableOpacity, StyleSheet, ActivityIndicator } from "react-native";
+import {
+  View,
+  Text,
+  FlatList,
+  TouchableOpacity,
+  StyleSheet,
+  ActivityIndicator,
+} from "react-native";
 import { useAssignments } from "../../hooks/useAssignments";
 import { Classroom } from "../../types";
+import { palette, radius, typography } from "../../constants/palette";
 
 export function StudentClassroomScreen({ route, navigation }: { route: any; navigation: any }) {
   const classroom: Classroom = route.params.classroom;
@@ -11,7 +19,7 @@ export function StudentClassroomScreen({ route, navigation }: { route: any; navi
     <View style={styles.container}>
       <Text style={styles.title}>{classroom.name}</Text>
       {loading ? (
-        <ActivityIndicator size="large" />
+        <ActivityIndicator size="large" color={palette.primary} />
       ) : error ? (
         <Text style={styles.errorText}>{error}</Text>
       ) : (
@@ -22,18 +30,28 @@ export function StudentClassroomScreen({ route, navigation }: { route: any; navi
             <TouchableOpacity
               style={styles.card}
               onPress={() => navigation.navigate("Assignment", { assignmentId: item.id })}
+              accessibilityRole="button"
+              accessibilityLabel={`${item.title}`}
             >
               <Text style={styles.cardTitle}>{item.title}</Text>
               <Text style={styles.cardSub}>
                 {item.due_date
                   ? `Due: ${new Date(item.due_date).toLocaleDateString("en-US", {
-                      year: "numeric", month: "short", day: "numeric", timeZone: "UTC",
+                      year: "numeric",
+                      month: "short",
+                      day: "numeric",
+                      timeZone: "UTC",
                     })}`
                   : "No due date"}
               </Text>
             </TouchableOpacity>
           )}
-          ListEmptyComponent={<Text style={styles.empty}>No assignments yet</Text>}
+          ListEmptyComponent={
+            <View style={styles.emptyWrap}>
+              <Text style={styles.emptyTitle}>No assignments yet</Text>
+              <Text style={styles.emptySubtitle}>Your teacher will add assignments here.</Text>
+            </View>
+          }
         />
       )}
     </View>
@@ -41,15 +59,22 @@ export function StudentClassroomScreen({ route, navigation }: { route: any; navi
 }
 
 const styles = StyleSheet.create({
-  container: { flex: 1, padding: 16, backgroundColor: "#f9fafb" },
-  title: { fontSize: 24, fontWeight: "bold", marginBottom: 16 },
+  container: { flex: 1, padding: 16, backgroundColor: palette.surface },
+  title: { ...typography.h1, marginBottom: 16, color: palette.textPrimary },
   card: {
-    backgroundColor: "#fff", borderRadius: 12, padding: 16,
-    marginBottom: 12, shadowColor: "#000", shadowOpacity: 0.05,
-    shadowRadius: 4, elevation: 2,
+    backgroundColor: palette.card,
+    borderRadius: radius.card,
+    padding: 16,
+    marginBottom: 12,
+    shadowColor: "#000",
+    shadowOpacity: 0.05,
+    shadowRadius: 4,
+    elevation: 2,
   },
-  cardTitle: { fontSize: 18, fontWeight: "600" },
-  cardSub: { fontSize: 13, color: "#6B7280", marginTop: 4 },
-  empty: { textAlign: "center", color: "#9CA3AF", marginTop: 40 },
-  errorText: { textAlign: "center", color: "#EF4444", marginTop: 40 },
+  cardTitle: { fontSize: 18, fontWeight: "600", color: palette.textPrimary },
+  cardSub: { ...typography.caption, color: palette.textMuted, marginTop: 4 },
+  emptyWrap: { paddingVertical: 48, paddingHorizontal: 24, alignItems: "center" },
+  emptyTitle: { fontSize: 18, fontWeight: "600", color: palette.textSecondary, marginBottom: 8 },
+  emptySubtitle: { fontSize: 15, color: palette.textMuted, textAlign: "center" },
+  errorText: { textAlign: "center", color: palette.error, marginTop: 40 },
 });

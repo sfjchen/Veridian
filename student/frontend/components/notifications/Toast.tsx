@@ -1,6 +1,7 @@
 import { StyleSheet, Text, View } from 'react-native';
 
 import { palette, radius } from '@/constants/palette';
+import { typography } from '@/constants/typography';
 
 export type ToastTone = 'success' | 'error' | 'info';
 
@@ -40,7 +41,7 @@ const styles = StyleSheet.create({
   },
   text: {
     color: palette.textOnPrimary,
-    fontSize: 13,
+    ...typography.caption,
     fontWeight: "600",
   },
 });

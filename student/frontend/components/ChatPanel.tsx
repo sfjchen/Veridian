@@ -261,7 +261,7 @@ const styles = StyleSheet.create({
     flexWrap: "wrap",
     gap: spacing.xs,
     paddingHorizontal: spacing.md,
-    paddingVertical: 10,
+    paddingVertical: spacing.xs,
     borderBottomWidth: 1,
     borderBottomColor: palette.border,
   },

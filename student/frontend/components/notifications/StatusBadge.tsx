@@ -1,6 +1,7 @@
 import { StyleSheet, Text, View } from 'react-native';
 
 import { palette, radius } from '@/constants/palette';
+import { typography } from '@/constants/typography';
 
 export type StatusTone = 'info' | 'success' | 'error';
 
@@ -38,7 +39,7 @@ const styles = StyleSheet.create({
     maxWidth: "90%",
   },
   label: {
-    fontSize: 12,
+    ...typography.caption,
     fontWeight: "600",
     textAlign: "center",
   },

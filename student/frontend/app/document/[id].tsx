@@ -32,7 +32,7 @@ import { useAccessToken } from '@/hooks/useAccessToken';
 import { useAuth } from '@/hooks/useAuth';
 import { useDocuments, isDefaultDocument } from '@/hooks/useDocuments';
 import { scopedKey } from '@/lib/scoped-storage';
-import { submitAnalysis, type AnalysisResult, type Mistake } from '@/lib/api';
+import { submitAnalysis, submitAssignment, type AnalysisResult, type Mistake } from '@/lib/api';
 import type { CaptureResult } from '@/lib/capture-types';
 import { captureStrokesAsDataUri } from '@/lib/capture-web';
 import { PDF_VIEWER_HTML } from '@/lib/pdf-viewer-html';
@@ -212,6 +212,8 @@ export default function DocumentScreen() {
   const [chatProblemNum, setChatProblemNum] = useState<number | null>(null);
   const [toast, setToast] = useState<ToastNotice | null>(null);
   const [badgeState, setBadgeState] = useState<BadgeState | null>(null);
+  const [isSubmitting, setIsSubmitting] = useState(false);
+  const [isSubmitted, setIsSubmitted] = useState(false);
   const webViewRef = useRef<WebView | null>(null);
   const webViewReadyRef = useRef(false);
   const saveTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
@@ -517,6 +519,34 @@ export default function DocumentScreen() {
 
   const handleCloseChat = useCallback(() => setChatVisible(false), []);
 
+  const handleSubmit = useCallback(() => {
+    if (!assignmentId || isSubmitted) return;
+    Alert.alert(
+      'Submit Assignment',
+      'Are you sure you want to submit this assignment? You can still access it after submission.',
+      [
+        { text: 'Cancel', style: 'cancel' },
+        {
+          text: 'Submit',
+          style: 'default',
+          onPress: async () => {
+            setIsSubmitting(true);
+            try {
+              await submitAssignment(assignmentId, token);
+              setIsSubmitted(true);
+              pushToast('Assignment submitted successfully', 'success');
+            } catch (e) {
+              const err = e instanceof Error ? e : new Error(String(e));
+              showAlert('Submission failed', err.message);
+            } finally {
+              setIsSubmitting(false);
+            }
+          },
+        },
+      ],
+    );
+  }, [assignmentId, isSubmitted, token, pushToast]);
+
   const backAction = (
     <Pressable
       style={({ pressed }) => [pressed && { opacity: 0.7 }]}
@@ -620,20 +650,42 @@ export default function DocumentScreen() {
           <MaterialCommunityIcons name="arrow-left" size={24} color={palette.primary} />
         </Pressable>
         <Text style={styles.title} numberOfLines={1}>{headerTitle}</Text>
-        {checkButtonVisible && (
-          <Pressable
-            style={({ pressed }) => [styles.checkButton, pressed && { opacity: 0.7 }]}
-            onPress={handleCheckWork}
-            disabled={isAnalyzing}
-            accessibilityRole="button"
-            accessibilityLabel="Check my work">
-            {isAnalyzing ? (
-              <ActivityIndicator size="small" color={palette.white} />
-            ) : (
-              <Text style={styles.checkButtonText}>Check</Text>
-            )}
-          </Pressable>
-        )}
+        <View style={styles.headerActions}>
+          {checkButtonVisible && (
+            <Pressable
+              style={({ pressed }) => [styles.checkButton, pressed && { opacity: 0.7 }]}
+              onPress={handleCheckWork}
+              disabled={isAnalyzing}
+              accessibilityRole="button"
+              accessibilityLabel="Check my work">
+              {isAnalyzing ? (
+                <ActivityIndicator size="small" color={palette.white} />
+              ) : (
+                <Text style={styles.checkButtonText}>Check</Text>
+              )}
+            </Pressable>
+          )}
+          {assignmentId && (
+            <Pressable
+              style={({ pressed }) => [
+                styles.submitButton,
+                isSubmitted && styles.submitButtonSubmitted,
+                pressed && !isSubmitted && { opacity: 0.7 },
+              ]}
+              onPress={handleSubmit}
+              disabled={isSubmitting || isSubmitted}
+              accessibilityRole="button"
+              accessibilityLabel={isSubmitted ? 'Submitted' : 'Submit assignment'}>
+              {isSubmitting ? (
+                <ActivityIndicator size="small" color={palette.white} />
+              ) : (
+                <Text style={[styles.submitButtonText, isSubmitted && styles.submitButtonTextSubmitted]}>
+                  {isSubmitted ? 'Submitted' : 'Submit'}
+                </Text>
+              )}
+            </Pressable>
+          )}
+        </View>
       </View>
 
       {isProblemMode && currentProblem && (
@@ -779,6 +831,11 @@ const styles = StyleSheet.create({
     fontWeight: "600",
     color: palette.textPrimary,
   },
+  headerActions: {
+    flexDirection: "row",
+    gap: spacing.xs,
+    alignItems: "center",
+  },
   checkButton: {
     minWidth: 72,
     backgroundColor: palette.primary,
@@ -792,6 +849,26 @@ const styles = StyleSheet.create({
     color: palette.white,
     fontSize: 14,
     fontWeight: "700",
+  },
+  submitButton: {
+    minWidth: 80,
+    backgroundColor: palette.primary,
+    borderRadius: radius.button,
+    justifyContent: "center",
+    alignItems: "center",
+    paddingHorizontal: spacing.sm,
+    paddingVertical: 10,
+  },
+  submitButtonSubmitted: {
+    backgroundColor: palette.success,
+  },
+  submitButtonText: {
+    color: palette.white,
+    fontSize: 14,
+    fontWeight: "700",
+  },
+  submitButtonTextSubmitted: {
+    opacity: 0.9,
   },
   problemHeaderWrap: {
     paddingHorizontal: spacing.sm,

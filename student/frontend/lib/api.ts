@@ -187,6 +187,19 @@ export async function joinClassroom(classCode: string, token?: string): Promise<
   return body.classroom;
 }
 
+export type SubmitResult = { success: boolean; submission_id: string };
+
+export async function submitAssignment(assignmentId: string, token?: string): Promise<SubmitResult> {
+  const res = await safeFetch(`${BASE_URL}/assignments/${assignmentId}/submit`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json', ...getAuthHeaders(token) },
+  });
+  if (!res.ok) {
+    throw new Error(await extractErrorMessage(res, `Failed to submit assignment (${res.status})`));
+  }
+  return await res.json();
+}
+
 export type AutocompleteResult = { suggestion: string; ms: number };
 
 export async function fetchAutocomplete(

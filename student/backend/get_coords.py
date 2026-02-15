@@ -1654,6 +1654,34 @@ def result_for_problem(assignment_id: str, problem_num: int) -> Any:
     return jsonify({"result": result})
 
 
+@app.post("/assignments/<assignment_id>/submit")
+@require_auth
+def submit_assignment(assignment_id: str) -> Any:
+    if not _is_valid_uuid(assignment_id):
+        return jsonify({"error": "Invalid assignment_id format."}), 400
+    assignment = get_assignment(assignment_id)
+    if assignment is None:
+        return jsonify({"error": "Assignment not found."}), 404
+    if not can_student_access_assignment(assignment_id, g.user_id, g.user_role, assignment=assignment):
+        return jsonify({"error": "Access denied"}), 403
+
+    supabase = get_supabase_service_client()
+    try:
+        response = supabase.table("submissions").upsert({
+            "assignment_id": assignment_id,
+            "student_id": g.user_id,
+            "submitted_at": "now()",
+        }, on_conflict="assignment_id,student_id").execute()
+        data = unwrap_supabase_data(response)
+        if not data or not isinstance(data, list) or not data:
+            raise RuntimeError("Submission insert failed.")
+        submission = data[0]
+        return jsonify({"success": True, "submission_id": submission.get("id")})
+    except Exception as exc:
+        log.error("Failed to submit assignment %s for %s: %s", assignment_id, g.user_id, exc, exc_info=True)
+        return jsonify({"error": f"Submission failed: {exc}"}), 500
+
+
 _chat_auth = require_auth_or_sample_chat(DEFAULT_ARTIFACT_OWNER_ID or "anonymous-sample")
 
 

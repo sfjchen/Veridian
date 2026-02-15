@@ -19,6 +19,7 @@ import { ProblemHeader } from '../../student-view/components/ProblemHeader';
 import { StatusBadge, type StatusTone } from '../../student-view/components/notifications/StatusBadge';
 import { ToastHost, type ToastNotice } from '../../student-view/components/notifications/ToastHost';
 import { palette, radius } from '../../student-view/constants/palette';
+import { palette as teacherPalette } from '../../constants/palette';
 import { useAutoAnalysis } from '../../student-view/hooks/useAutoAnalysis';
 import type { CaptureResult } from '../../student-view/lib/capture-types';
 import { captureStrokesAsDataUri } from '../../student-view/lib/capture-web';
@@ -454,7 +455,7 @@ const styles = StyleSheet.create({
   },
   checkButtonText: { color: palette.white, fontSize: 14, fontWeight: '700' },
   previewBanner: {
-    backgroundColor: '#EBF5FF',
+    backgroundColor: teacherPalette.primaryMutedTint,
     paddingVertical: 6,
     borderBottomWidth: 1,
     borderBottomColor: palette.border,
@@ -463,7 +464,7 @@ const styles = StyleSheet.create({
     textAlign: 'center',
     fontSize: 13,
     fontWeight: '600',
-    color: '#1E40AF',
+    color: teacherPalette.primary,
   },
   problemHeaderWrap: {
     paddingHorizontal: 12,

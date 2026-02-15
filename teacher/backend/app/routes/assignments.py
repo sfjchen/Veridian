@@ -19,6 +19,38 @@ assignments_bp = Blueprint("assignments", __name__)
 ASSIGNMENTS_BUCKET = "assignments"
 SUBMISSIONS_BUCKET = "submissions"
 MAX_TITLE_LENGTH = 500
+MAX_PROBLEMS = 100
+MAX_STATEMENT_LENGTH = 5000
+
+
+def _validate_problem_item(index: int, item: Any) -> dict[str, Any]:
+    if not isinstance(item, dict):
+        raise ValueError(f"problems[{index}] must be an object")
+    num = item.get("num")
+    if not isinstance(num, int) or num < 1:
+        raise ValueError(f"problems[{index}].num must be a positive integer")
+    tex = item.get("statement_tex", "")
+    if not isinstance(tex, str) or len(tex) > MAX_STATEMENT_LENGTH:
+        raise ValueError(f"problems[{index}].statement_tex must be a string (<= {MAX_STATEMENT_LENGTH} chars)")
+    if not tex.strip():
+        raise ValueError(f"problems[{index}].statement_tex must not be empty")
+    return {"num": num, "statement_tex": tex}
+
+
+def _validate_problems(raw: Any) -> list[dict[str, Any]]:
+    if not isinstance(raw, list):
+        raise ValueError("problems must be a list")
+    if len(raw) > MAX_PROBLEMS:
+        raise ValueError(f"Too many problems (max {MAX_PROBLEMS})")
+    seen_nums: set[int] = set()
+    result: list[dict[str, Any]] = []
+    for i, item in enumerate(raw):
+        validated = _validate_problem_item(i, item)
+        if validated["num"] in seen_nums:
+            raise ValueError(f"Duplicate problem num {validated['num']}")
+        seen_nums.add(validated["num"])
+        result.append(validated)
+    return result
 
 
 def _is_classroom_teacher(client: Client, classroom_id: str) -> bool:
@@ -48,11 +80,11 @@ def _validate_context_file_ids(
 
 def _generate_upload_urls_or_rollback(
     client: Client, assignment_id: str,
-    prompt_path: str, answer_key_path: str,
-) -> tuple[str, str] | None:
+    prompt_path: str | None, answer_key_path: str | None,
+) -> tuple[str | None, str | None] | None:
     try:
-        prompt_url = generate_upload_url(ASSIGNMENTS_BUCKET, prompt_path)
-        answer_key_url = generate_upload_url(ASSIGNMENTS_BUCKET, answer_key_path)
+        prompt_url = generate_upload_url(ASSIGNMENTS_BUCKET, prompt_path) if prompt_path else None
+        answer_key_url = generate_upload_url(ASSIGNMENTS_BUCKET, answer_key_path) if answer_key_path else None
         return prompt_url, answer_key_url
     except Exception:
         log.exception("Failed to generate upload URLs for assignment %s", assignment_id)
@@ -92,10 +124,16 @@ def create_assignment(classroom_id: str) -> Tuple[Response, int]:
         except ValueError as e:
             return jsonify({"error": str(e)}), 400
 
+    problems: list[dict[str, Any]] | None = None
+    if "problems" in data:
+        try:
+            problems = _validate_problems(data["problems"])
+        except ValueError as e:
+            return jsonify({"error": str(e)}), 400
+
     assignment_id = str(uuid.uuid4())
     has_assignment_file = bool(data.get("has_assignment_file"))
     has_answer_key = bool(data.get("has_answer_key"))
-
     prompt_path = f"{classroom_id}/{assignment_id}/prompt" if has_assignment_file else None
     answer_key_path = f"{classroom_id}/{assignment_id}/answer_key" if has_answer_key else None
 
@@ -112,6 +150,8 @@ def create_assignment(classroom_id: str) -> Tuple[Response, int]:
         insert_data["answer_key_storage_path"] = answer_key_path
     if config:
         insert_data["config"] = config
+    if problems is not None:
+        insert_data["problems"] = problems
 
     try:
         record = client.table("assignments").insert(insert_data).execute()
@@ -211,8 +251,6 @@ def get_assignment(assignment_id: str) -> Tuple[Response, int]:
         except ValueError:
             log.exception("Failed to generate assignment file download URL for %s", assignment_id)
             result["assignment_file_download_url"] = None
-    else:
-        result["assignment_file_download_url"] = None
 
     if is_teacher and record.get("answer_key_storage_path"):
         try:
@@ -222,8 +260,6 @@ def get_assignment(assignment_id: str) -> Tuple[Response, int]:
         except ValueError:
             log.exception("Failed to generate answer key download URL for %s", assignment_id)
             result["answer_key_download_url"] = None
-    elif is_teacher:
-        result["answer_key_download_url"] = None
 
     if not is_teacher:
         result.pop("answer_key_storage_path", None)
@@ -265,6 +301,16 @@ def update_assignment(assignment_id: str) -> Tuple[Response, int]:
     if "config" in data:
         try:
             updates["config"] = validate_config(data["config"])
+        except ValueError as e:
+            return jsonify({"error": str(e)}), 400
+    if "prompt_latex" in data:
+        latex = data["prompt_latex"]
+        if latex is not None and len(latex) > 100_000:
+            return jsonify({"error": "LaTeX content too large"}), 400
+        updates["prompt_latex"] = latex
+    if "problems" in data:
+        try:
+            updates["problems"] = _validate_problems(data["problems"])
         except ValueError as e:
             return jsonify({"error": str(e)}), 400
 

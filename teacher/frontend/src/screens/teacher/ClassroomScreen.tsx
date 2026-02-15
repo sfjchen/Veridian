@@ -8,6 +8,7 @@ import {
   ScrollView,
   RefreshControl,
   Platform,
+  ScrollView,
 } from "react-native";
 import * as Clipboard from "expo-clipboard";
 import * as Linking from "expo-linking";
@@ -15,11 +16,13 @@ import { useFocusEffect } from "@react-navigation/native";
 import { useCorpus } from "../../hooks/useCorpus";
 import { useAssignments } from "../../hooks/useAssignments";
 import { useClassroomStudents } from "../../hooks/useClassroomStudents";
-import { useToast } from "../../contexts/ToastContext";
+import { ScreenContainer } from "../../components/ui";
 import { ConfigEditor } from "../../components/ConfigEditor";
+import { InsightsContent } from "./InsightsContent";
 import { api } from "../../lib/api";
 import { Classroom, CorpusFile, AssignmentConfig } from "../../types";
-import { palette, radius, typography } from "../../constants/palette";
+import { palette, radius } from "../../constants/palette";
+import { typography } from "../../constants/typography";
 import { spacing } from "../../constants/spacing";
 import { alert } from "../../lib/alert";
 import { SkeletonCard } from "../../components/ui/Skeleton";
@@ -53,6 +56,8 @@ export function TeacherClassroomScreen({ route, navigation }: { route: any; navi
   const [configDraft, setConfigDraft] = useState<Partial<AssignmentConfig>>(classroom.config ?? {});
   const [savingConfig, setSavingConfig] = useState(false);
   const [refreshing, setRefreshing] = useState(false);
+  const [configDraft, setConfigDraft] = useState<Partial<AssignmentConfig>>(classroom.config ?? {});
+  const [savingConfig, setSavingConfig] = useState(false);
   const { files, loading: corpusLoading, error: corpusError, refresh: refreshCorpus } = useCorpus(classroom.id);
   const { assignments, loading: assignmentsLoading, error: assignmentsError, refresh: refreshAssignments } = useAssignments(classroom.id);
   const {
@@ -62,6 +67,12 @@ export function TeacherClassroomScreen({ route, navigation }: { route: any; navi
     refresh: refreshStudents,
   } = useClassroomStudents(classroom.id);
 
+  const onRefresh = useCallback(async () => {
+    setRefreshing(true);
+    await Promise.all([refreshAssignments(), refreshCorpus(), refreshStudents()]);
+    setRefreshing(false);
+  }, [refreshAssignments, refreshCorpus, refreshStudents]);
+
   useFocusEffect(
     useCallback(() => {
       refreshAssignments();
@@ -69,12 +80,6 @@ export function TeacherClassroomScreen({ route, navigation }: { route: any; navi
       refreshStudents();
     }, [refreshAssignments, refreshCorpus, refreshStudents])
   );
-
-  const onRefresh = useCallback(async () => {
-    setRefreshing(true);
-    await Promise.all([refreshAssignments(), refreshCorpus(), refreshStudents()]);
-    setRefreshing(false);
-  }, [refreshAssignments, refreshCorpus, refreshStudents]);
 
   const copyClassCode = async () => {
     try {
@@ -100,7 +105,7 @@ export function TeacherClassroomScreen({ route, navigation }: { route: any; navi
         method: "PATCH",
         body: { config: configDraft },
       });
-      showToast("Settings saved");
+      alert("Success", "Settings saved");
     } catch (e: any) {
       alert("Error", e instanceof Error ? e.message : "Failed to save settings");
     } finally {
@@ -113,7 +118,7 @@ export function TeacherClassroomScreen({ route, navigation }: { route: any; navi
   );
 
   return (
-    <View style={styles.container}>
+    <ScreenContainer maxWidth="dashboard">
       <Text style={styles.title}>{classroom.name}</Text>
       <View style={styles.codeRow}>
         <Text style={styles.code}>Class Code: {classroom.class_code}</Text>
@@ -316,7 +321,6 @@ export function TeacherClassroomScreen({ route, navigation }: { route: any; navi
           )}
         </View>
       )}
-
       {activeTab === "insights" && (
         <View style={styles.content}>
           <InsightsContent classroomId={classroom.id} navigation={navigation} />
@@ -338,6 +342,8 @@ export function TeacherClassroomScreen({ route, navigation }: { route: any; navi
             style={[styles.addButton, savingConfig && { opacity: 0.7 }]}
             onPress={handleSaveConfig}
             disabled={savingConfig}
+            accessibilityRole="button"
+            accessibilityLabel={savingConfig ? "Saving settings" : "Save settings"}
           >
             <Text style={styles.addButtonText}>
               {savingConfig ? "Saving..." : "Save Settings"}
@@ -345,19 +351,33 @@ export function TeacherClassroomScreen({ route, navigation }: { route: any; navi
           </TouchableOpacity>
         </ScrollView>
       )}
-    </View>
+    </ScreenContainer>
   );
 }
 
 const styles = StyleSheet.create({
-  container: { flex: 1, padding: 16, backgroundColor: palette.surface },
-  title: { ...typography.h1, color: palette.textPrimary, marginBottom: 4 },
-  codeRow: { flexDirection: "row", alignItems: "center", marginBottom: 16, gap: 8 },
-  code: { ...typography.bodySmall, color: palette.textMuted },
-  copyButton: { paddingHorizontal: 10, paddingVertical: 4, borderRadius: radius.button, backgroundColor: palette.tabInactive },
-  copyButtonText: { fontSize: 13, fontWeight: "600", color: palette.primary },
-  tabs: { flexDirection: "row", marginBottom: 16, gap: 8 },
-  tab: { flex: 1, padding: 10, borderRadius: radius.button, backgroundColor: palette.tabInactive, alignItems: "center" },
+  header: {
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "space-between",
+    gap: spacing.sm,
+    marginBottom: spacing.md,
+    paddingTop: spacing.xs,
+    paddingBottom: spacing.sm,
+    borderBottomWidth: 2,
+    borderBottomColor: palette.primaryMuted,
+  },
+  title: { ...typography.h1, color: palette.textPrimary, flex: 1 },
+  tabs: { flexDirection: "row", marginBottom: spacing.md, gap: spacing.xs },
+  tab: {
+    flex: 1,
+    minHeight: 44,
+    paddingVertical: spacing.sm,
+    borderRadius: radius.input,
+    backgroundColor: palette.tabInactive,
+    alignItems: "center",
+    justifyContent: "center",
+  },
   tabActive: { backgroundColor: palette.primary },
   tabText: { fontWeight: "600", color: palette.textSecondary },
   tabTextActive: { color: palette.white },
@@ -365,40 +385,37 @@ const styles = StyleSheet.create({
   addButton: {
     backgroundColor: palette.success,
     borderRadius: radius.button,
-    padding: 12,
+    padding: spacing.sm,
     alignItems: "center",
-    marginBottom: 12,
+    marginBottom: spacing.sm,
   },
   addButtonText: { color: palette.white, fontSize: 16, fontWeight: "600" },
-  settingsHint: { ...typography.bodySmall, color: palette.textMuted, marginBottom: spacing.md, lineHeight: 18 },
-  skeletonList: { marginTop: 8 },
+  loader: { marginTop: spacing.md },
   listItem: {
     backgroundColor: palette.card,
     borderRadius: radius.button,
     padding: 14,
-    marginBottom: 8,
+    marginBottom: spacing.xs,
     flexDirection: "row",
     alignItems: "center",
   },
-  listItemContent: { flex: 1 },
-  itemTitle: { fontSize: 16, fontWeight: "500", color: palette.textPrimary },
-  dueRow: { flexDirection: "row", alignItems: "center", gap: 8, marginTop: 4 },
-  itemSub: { ...typography.caption, color: palette.textMuted },
-  dueOverdue: { color: palette.error },
-  dueSoon: { color: palette.warning },
-  badgeOverdue: { fontSize: 11, fontWeight: "600", color: palette.error },
-  badgeSoon: { fontSize: 11, fontWeight: "600", color: palette.warning },
-  chevron: { fontSize: 18, color: palette.textDisabled, marginLeft: 8 },
-  downloadHint: { fontSize: 13, color: palette.primary, fontWeight: "600", marginLeft: 8 },
-  emptyWrap: { paddingVertical: 40, paddingHorizontal: 24, alignItems: "center" },
-  emptyTitle: { fontSize: 18, fontWeight: "600", color: palette.textSecondary, marginBottom: 8 },
-  emptySubtitle: { fontSize: 15, color: palette.textMuted, textAlign: "center", marginBottom: 20 },
+  emptyIconText: {
+    ...typography.h1,
+    fontSize: typography.h1.fontSize,
+    color: palette.primary,
+  },
+  empty: { textAlign: "center", color: palette.textDisabled, marginTop: spacing.lg },
+  errorText: { textAlign: "center", color: palette.error, marginTop: spacing.lg },
+  settingsHint: { ...typography.bodySmall, color: palette.textMuted, marginBottom: spacing.md, lineHeight: 18 },
+  emptyWrap: { paddingVertical: spacing.xxl, paddingHorizontal: spacing.lg, alignItems: "center" as const },
+  emptyTitle: { ...typography.h2, color: palette.textSecondary, marginBottom: spacing.sm },
+  emptySubtitle: { ...typography.body, color: palette.textMuted, textAlign: "center" as const },
   emptyButton: {
     backgroundColor: palette.primary,
     borderRadius: radius.button,
-    paddingHorizontal: 20,
-    paddingVertical: 12,
+    padding: spacing.sm,
+    alignItems: "center",
+    marginTop: spacing.md,
   },
   emptyButtonText: { color: palette.white, fontSize: 16, fontWeight: "600" },
-  errorText: { textAlign: "center", color: palette.error, marginTop: 20 },
 });

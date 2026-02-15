@@ -8,14 +8,27 @@ const SUPABASE_ANON_KEY = process.env.EXPO_PUBLIC_SUPABASE_ANON_KEY?.trim();
 const storage =
   Platform.OS === 'web'
     ? {
-        getItem: (k: string) =>
-          Promise.resolve(typeof window !== 'undefined' ? window.localStorage?.getItem(k) ?? null : null),
+        getItem: (k: string) => {
+          try {
+            return Promise.resolve(typeof window !== 'undefined' ? window.localStorage.getItem(k) : null);
+          } catch {
+            return Promise.resolve(null);
+          }
+        },
         setItem: (k: string, v: string) => {
-          if (typeof window !== 'undefined') window.localStorage?.setItem(k, v);
+          try {
+            if (typeof window !== 'undefined') window.localStorage.setItem(k, v);
+          } catch {
+            /* silent fail in private mode */
+          }
           return Promise.resolve();
         },
         removeItem: (k: string) => {
-          if (typeof window !== 'undefined') window.localStorage?.removeItem(k);
+          try {
+            if (typeof window !== 'undefined') window.localStorage.removeItem(k);
+          } catch {
+            /* silent fail in private mode */
+          }
           return Promise.resolve();
         },
       }

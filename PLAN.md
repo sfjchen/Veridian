@@ -84,15 +84,12 @@ Full platform monorepo: teacher side (classrooms, assignments, corpus, submissio
 
 | PR | Title | Priority | Status | Dependencies |
 |----|-------|----------|--------|--------------|
-| 4 | Student app reads teacher config | P0 | Not started | Depends on PR 3 |
-
-### Completed (Confirmed)
-
-- PR 1: Fix Anthropic `thinking` SDK parameter
-- PR 2: Student home screen (classrooms > assignments)
-- PR 3: Teacher config system (classroom defaults + overrides)
-- PR 5: Eliminate all silent failures
-- PR 7: Shared design system + visual overhaul
+| 1 | Fix Anthropic `thinking` SDK parameter | P0 | Completed (2026-02-14) | Standalone |
+| 2 | Student home screen (classrooms > assignments) | P0 | Done (2026-02-14) | Standalone (uses PR 7 tokens if available) |
+| 3 | Teacher config system (classroom defaults + overrides) | P0 | Done | Standalone |
+| 4 | Student app reads teacher config | P0 | Done (2026-02-15) | Depends on PR 3 |
+| 5 | Eliminate all silent failures | P1 | Done | Standalone |
+| 7 | Shared design system + visual overhaul | P2 | Done | Standalone |
 
 ### PR 1: Fix Anthropic `thinking` SDK Parameter
 
@@ -133,9 +130,17 @@ Add teacher-controlled config that governs student behavior: check button visibi
 
 ### PR 4: Student App Reads Teacher Config (depends on PR 3)
 
-**P0**
+**P0 — Done (2026-02-15)**
 
 Make the student frontend respect all teacher config fields. Remove the "Analyzing..." spinner, conditionally render Check button, gate chat on `chat_enabled`, apply `dot_threshold` and `max_dots_shown` in `MistakeOverlay`, apply `analysis_trigger` mode in `useAutoAnalysis`.
+
+**Completion rationale**:
+- Added secure student assignment contract: `GET /assignments/:id` now requires auth + classroom membership and returns `assignment.resolved_config`.
+- Extended config schema support for `analysis_trigger=auto_page_change` in both teacher and student schema copies, with sync check passing.
+- Wired frontend to resolved config as source of truth (`check_button_visible`, `analysis_trigger`, `chat_enabled`, `dot_threshold`, `max_dots_shown`, `notification_style`, `analysis_debounce_seconds`).
+- Implemented all trigger modes in `useAutoAnalysis`: `auto_idle`, `auto_page_change`, `manual_only`, and display-only `passive`.
+- Removed the dedicated “Analyzing...” bar, added chat gating, deterministic dot filtering/capping, and reusable toast/badge notification components.
+- Added backend regression tests for assignment config contract (401/403/200 + `resolved_config`) and config enum validation.
 
 ### PR 5: Eliminate All Silent Failures
 
@@ -184,7 +189,8 @@ Create `packages/design/` with Veridian branding (green-primary #16A34A), shared
 | Assignment-driven student flow | Teacher uploads everything, students just solve |
 | Invisible analysis | No spinners; teacher config controls triggers and visibility |
 | One problem per screen (student) | Clear UX, per-problem result history |
-| Configurable analysis trigger | Default 15s idle debounce; teacher can set auto/manual/passive |
+| Configurable analysis trigger | Default 15s idle debounce; teacher can set auto/manual/passive/page-change |
+| Student assignment config contract | Student backend returns `resolved_config` behind auth + classroom membership |
 | WebSocket for real-time | Push results without polling |
 | threading for SocketIO | eventlet caused startup hangs |
 | Signed URLs via admin client | User JWTs rejected by Storage API |

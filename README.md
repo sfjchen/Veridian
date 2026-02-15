@@ -2,6 +2,16 @@
 
 Full EdTech platform: teacher side (classrooms, assignments, corpus, submissions) and student side (canvas, AI mistake analysis, Socratic chat). Shared Supabase.
 
+## Student Runtime Config (PR #4)
+
+- Student assignment behavior is now controlled by teacher `resolved_config` values returned by student backend `GET /assignments/:id`.
+- Endpoint contract is auth-protected and membership-gated (`401` unauthenticated, `403` non-member).
+- Student app honors:
+  - `analysis_trigger`: `auto_idle`, `auto_page_change`, `manual_only`, `passive`
+  - `check_button_visible`, `chat_enabled`
+  - `dot_threshold`, `max_dots_shown`
+  - `notification_style`: `silent`, `toast`, `badge`
+
 ## Repo Structure
 
 | Path | Purpose |

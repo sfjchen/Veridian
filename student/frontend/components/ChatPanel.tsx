@@ -10,11 +10,14 @@ import {
   TextInput,
   View,
 } from 'react-native';
+import { GestureDetector } from 'react-native-gesture-handler';
+import Animated from 'react-native-reanimated';
 
 import { palette, radius } from "@/constants/palette";
 import { spacing } from "@/constants/spacing";
 import { typography } from "@/constants/typography";
 import { useChat } from "@/hooks/useChat";
+import { usePanelResize } from "@/hooks/usePanelResize";
 import { hasLatex, InlineLatex } from "@/components/InlineLatex";
 import type { ChatMessage } from '@/lib/api';
 
@@ -34,6 +37,14 @@ const QUICK_ACTIONS = [
 
 const OPENER_MESSAGE = (num: number) =>
   `I see you're working on problem ${num}. What's giving you trouble?`;
+
+function DragHandle() {
+  return (
+    <View style={styles.dragHandleArea}>
+      <View style={styles.dragHandleBar} />
+    </View>
+  );
+}
 
 function ChatHeader({ problemNum, onClose }: { problemNum: number | null; onClose: () => void }) {
   return (
@@ -204,6 +215,7 @@ export function ChatPanel({ visible, onClose, assignmentId, problemNum, token }:
     token,
   );
   const [inputText, setInputText] = useState('');
+  const { animatedStyle, gesture } = usePanelResize();
 
   const handleSend = useCallback(() => {
     const trimmed = inputText.trim();
@@ -223,26 +235,30 @@ export function ChatPanel({ visible, onClose, assignmentId, problemNum, token }:
   if (!visible) return null;
 
   return (
-    <KeyboardAvoidingView
-      style={styles.container}
-      behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
-      keyboardVerticalOffset={Platform.OS === 'ios' ? 0 : 0}
-    >
-      <ChatHeader problemNum={problemNum} onClose={onClose} />
-      <QuickActions onAction={handleQuickAction} disabled={loading} />
-      <MessageList messages={messages} loading={loading} problemNum={problemNum} />
-      {error && (
-        <View style={styles.errorBar}>
-          <Text style={styles.errorText}>{error}</Text>
-        </View>
-      )}
-      <ChatInputBar
-        inputText={inputText}
-        onChangeText={setInputText}
-        onSend={handleSend}
-        loading={loading}
-      />
-    </KeyboardAvoidingView>
+    <Animated.View style={[styles.container, animatedStyle]}>
+      <GestureDetector gesture={gesture}>
+        <DragHandle />
+      </GestureDetector>
+      <KeyboardAvoidingView
+        style={styles.chatContent}
+        behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
+      >
+        <ChatHeader problemNum={problemNum} onClose={onClose} />
+        <QuickActions onAction={handleQuickAction} disabled={loading} />
+        <MessageList messages={messages} loading={loading} problemNum={problemNum} />
+        {error && (
+          <View style={styles.errorBar}>
+            <Text style={styles.errorText}>{error}</Text>
+          </View>
+        )}
+        <ChatInputBar
+          inputText={inputText}
+          onChangeText={setInputText}
+          onSend={handleSend}
+          loading={loading}
+        />
+      </KeyboardAvoidingView>
+    </Animated.View>
   );
 }
 
@@ -252,7 +268,6 @@ const styles = StyleSheet.create({
     left: 0,
     right: 0,
     bottom: 0,
-    height: "60%",
     backgroundColor: palette.card,
     borderTopLeftRadius: radius.modal,
     borderTopRightRadius: radius.modal,
@@ -261,6 +276,21 @@ const styles = StyleSheet.create({
     shadowRadius: 12,
     shadowOffset: { width: 0, height: -4 },
     elevation: 8,
+  },
+  chatContent: {
+    flex: 1,
+  },
+  dragHandleArea: {
+    height: 16,
+    alignItems: "center",
+    justifyContent: "center",
+    ...Platform.select({ web: { cursor: 'grab' } as any, default: {} }),
+  },
+  dragHandleBar: {
+    width: 36,
+    height: 4,
+    borderRadius: 2,
+    backgroundColor: palette.borderStrong,
   },
   header: {
     flexDirection: "row",

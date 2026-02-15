@@ -4,6 +4,7 @@ import { Stack, useRouter, useSegments } from 'expo-router';
 import { useEffect } from 'react';
 import { ActivityIndicator, StyleSheet, View } from 'react-native';
 import { StatusBar } from 'expo-status-bar';
+import { GestureHandlerRootView } from 'react-native-gesture-handler';
 import 'react-native-reanimated';
 
 import { ErrorBoundary } from '@/components/ErrorBoundary';
@@ -59,7 +60,7 @@ export default function RootLayout() {
   return (
     <ErrorBoundary>
       <ThemeProvider value={transparentTheme}>
-        <View style={styles.root}>
+        <GestureHandlerRootView style={styles.root}>
           <ForestBackground />
           <View style={styles.content}>
             <BackendHint />
@@ -80,7 +81,7 @@ export default function RootLayout() {
             </Stack>
             <StatusBar style="auto" />
           </View>
-        </View>
+        </GestureHandlerRootView>
       </ThemeProvider>
     </ErrorBoundary>
   );

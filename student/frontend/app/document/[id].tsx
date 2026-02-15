@@ -135,8 +135,7 @@ function CanvasView({
 
 export default function DocumentScreen() {
   const params = useLocalSearchParams<{ id: string; assignmentId?: string; classroomName?: string }>();
-  const { id, assignmentId: assignmentIdParam, classroomName } = params;
-  const assignmentId = assignmentIdParam ?? null;
+  const { id, assignmentId, classroomName } = params;
   const router = useRouter();
   const {
     getDocument,
@@ -149,7 +148,7 @@ export default function DocumentScreen() {
   const doc = id ? getDocument(id) : undefined;
 
   const assignmentOnly = !!assignmentId;
-  const { assignment, problems: assignmentProblems, loading: assignmentLoading, error: assignmentError } = useAssignment(assignmentId);
+  const { assignment, problems: assignmentProblems, loading: assignmentLoading, error: assignmentError } = useAssignment(assignmentId ?? null);
 
   const isDefault = doc ? isDefaultDocument(doc) : false;
   const problems =
@@ -182,8 +181,13 @@ export default function DocumentScreen() {
   const viewShotRef = useRef<ViewShot | null>(null);
   const [canvasDims, setCanvasDims] = useState<{ w: number; h: number } | null>(null);
 
-  const STROKES_KEY = id ? `veridian_strokes:${id}` : null;
   const pageIndex = currentPage - 1;
+
+  useEffect(() => {
+    setCanvasDims(null);
+  }, [pageIndex]);
+
+  const STROKES_KEY = id ? `veridian_strokes:${id}` : null;
   const currentStrokes = useMemo(() => strokesByPage[pageIndex] ?? [], [strokesByPage, pageIndex]);
   const currentProblem = isProblemMode ? problems[pageIndex] : null;
   const currentMistakes: Mistake[] = currentProblem
@@ -218,7 +222,11 @@ export default function DocumentScreen() {
         }
       } catch (e) {
         if (!cancelled) {
-          setStrokeLoadError(e instanceof Error ? e.message : 'Failed to load saved strokes');
+          const msg = e instanceof Error ? e.message : 'Failed to load saved strokes';
+          setStrokeLoadError(msg);
+          // #region agent log
+          fetch('http://127.0.0.1:7243/ingest/b95751e3-13de-4370-a43a-9eeabde26151', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ location: 'document/[id].tsx:stroke load', message: 'stroke load error', data: { msg }, hypothesisId: 'H5a', timestamp: Date.now() }) }).catch(() => {});
+          // #endregion
         }
       } finally {
         if (!cancelled) setStrokesLoaded(true);
@@ -234,6 +242,9 @@ export default function DocumentScreen() {
       const done = () => { saveTimeoutRef.current = null; };
       AsyncStorage.setItem(STROKES_KEY, JSON.stringify(strokesByPage)).catch(() => {
         setStrokeSaveError(true);
+        // #region agent log
+        fetch('http://127.0.0.1:7243/ingest/b95751e3-13de-4370-a43a-9eeabde26151', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ location: 'document/[id].tsx:stroke save', message: 'stroke save error', data: {}, hypothesisId: 'H5b', timestamp: Date.now() }) }).catch(() => {});
+        // #endregion
       }).finally(done);
     }, 500);
     return () => { if (saveTimeoutRef.current) clearTimeout(saveTimeoutRef.current); };
@@ -297,26 +308,33 @@ export default function DocumentScreen() {
   const goToPage = (page: number) => setCurrentPage(Math.max(1, Math.min(totalPages, page)));
 
   // --- Screenshot capture ---
-  const captureScreenshot = useCallback(async (): Promise<CaptureResult> => {
-    if (Platform.OS === 'web') {
-      if (!canvasDims) return { error: 'unavailable' };
-      try {
-        const uri = captureStrokesAsDataUri(currentStrokes, canvasDims.w, canvasDims.h);
-        return { uri };
-      } catch {
-        return { error: 'failed' };
-      }
+  const captureWeb = useCallback((): CaptureResult => {
+    if (!canvasDims) return { error: 'unavailable' };
+    try {
+      return { uri: captureStrokesAsDataUri(currentStrokes, canvasDims.w, canvasDims.h) };
+    } catch (e) {
+      const err = e instanceof Error ? e.message : String(e);
+      console.error('Web capture failed:', err);
+      return { error: 'failed' };
     }
+  }, [canvasDims, currentStrokes]);
+
+  const captureNative = useCallback(async (): Promise<CaptureResult> => {
     const viewShot = viewShotRef.current;
     if (!viewShot || typeof viewShot.capture !== 'function') return { error: 'unavailable' };
     try {
       const uri = await viewShot.capture();
-      if (!uri) return { error: 'failed' };
-      return { uri };
-    } catch {
+      return uri ? { uri } : { error: 'failed' };
+    } catch (e) {
+      const err = e instanceof Error ? e.message : String(e);
+      console.error('Native capture failed:', err);
       return { error: 'failed' };
     }
-  }, [canvasDims, currentStrokes]);
+  }, []);
+
+  const captureScreenshot = useCallback(async (): Promise<CaptureResult> => {
+    return Platform.OS === 'web' ? captureWeb() : captureNative();
+  }, [captureWeb, captureNative]);
 
   // --- Auto-analysis ---
   const debounceMs = assignment?.analysis_debounce_seconds
@@ -336,7 +354,7 @@ export default function DocumentScreen() {
     triggerNow,
     markDirty,
   } = useAutoAnalysis({
-    assignmentId: assignmentId ?? undefined,
+    assignmentId,
     problemNum: currentProblem?.num,
     isSample: isDefault,
     debounceMs,

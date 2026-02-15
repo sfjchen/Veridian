@@ -13,6 +13,7 @@ import {
 import { palette, radius } from '@/constants/palette';
 import { useClassrooms } from '@/hooks/useClassrooms';
 import type { Classroom } from '@/lib/api';
+import { supabase } from '@/lib/supabase';
 
 function ClassroomCard({
   classroom,
@@ -61,6 +62,8 @@ export default function ClassroomsScreen() {
   }
 
   if (error) {
+    const isMissingToken = /missing bearer token/i.test(error);
+    const canSignIn = !!supabase;
     return (
       <SafeAreaView style={styles.screen}>
         <View style={styles.header}>
@@ -78,15 +81,28 @@ export default function ClassroomsScreen() {
           <MaterialCommunityIcons name="alert-circle-outline" size={48} color={palette.textMuted} />
           <Text style={styles.errorText}>{error}</Text>
           <Text style={styles.emptySubtitle}>
-            Sign in or check your connection to see your classes.
+            {isMissingToken && canSignIn
+              ? 'Sign in with your student account to see your classes.'
+              : isMissingToken && !canSignIn
+                ? 'Set EXPO_PUBLIC_SUPABASE_URL and EXPO_PUBLIC_SUPABASE_ANON_KEY in student/frontend/.env, then sign in. Or set EXPO_PUBLIC_SUPABASE_ACCESS_TOKEN to a valid user JWT.'
+                : 'Sign in or check your connection to see your classes.'}
           </Text>
-          <Pressable
-            style={({ pressed }) => [styles.retryButton, pressed && { opacity: 0.7 }]}
-            onPress={refresh}
-            accessibilityRole="button"
-            accessibilityLabel="Retry loading classes">
-            <Text style={styles.retryButtonText}>Retry</Text>
-          </Pressable>
+          {isMissingToken && canSignIn ? (
+            <Pressable
+              style={({ pressed }) => [styles.signInButton, pressed && { opacity: 0.8 }]}
+              onPress={() => router.push('/sign-in')}
+              accessibilityRole="button">
+              <Text style={styles.signInButtonText}>Sign in</Text>
+            </Pressable>
+          ) : (
+            <Pressable
+              style={({ pressed }) => [styles.retryButton, pressed && { opacity: 0.7 }]}
+              onPress={refresh}
+              accessibilityRole="button"
+              accessibilityLabel="Retry loading classes">
+              <Text style={styles.retryButtonText}>Retry</Text>
+            </Pressable>
+          )}
         </View>
       </SafeAreaView>
     );
@@ -243,4 +259,12 @@ const styles = StyleSheet.create({
     marginTop: 6,
     textAlign: 'center',
   },
+  signInButton: {
+    marginTop: 16,
+    backgroundColor: palette.primary,
+    paddingVertical: 12,
+    paddingHorizontal: 24,
+    borderRadius: radius.button,
+  },
+  signInButtonText: { fontSize: 16, fontWeight: '600', color: palette.white },
 });

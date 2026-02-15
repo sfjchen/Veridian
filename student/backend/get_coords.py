@@ -52,7 +52,10 @@ try:
 except ModuleNotFoundError:
     _msvcrt = None
 
-load_dotenv()
+# Load shared env first so local .env can override
+_env_path = Path(__file__).resolve().parent.parent.parent / "environment" / ".env"
+load_dotenv(_env_path)
+load_dotenv(override=True)
 
 ANTHROPIC_API_KEY = os.getenv("ANTHROPIC_API_KEY")
 CLAUDE_MODEL = os.getenv("CLAUDE_MODEL")
@@ -870,7 +873,9 @@ def _run_mistake_coord_pipeline(
     encoded_image = base64.b64encode(image_bytes).decode("utf-8")
     messages = _build_vision_message(prompt, encoded_image, media_type or "image/png")
     raw_output = _call_claude_vision(messages, len(annotations))
-    return _parse_coord_response(raw_output, annotations, dims)
+    result = _parse_coord_response(raw_output, annotations, dims)
+    result["mistakes"] = _add_dot_coords(result["mistakes"], dims)
+    return result
 
 
 _MISTAKE_PATTERN = re.compile(r"\\mistake(?:text)?\s*\{")
@@ -931,13 +936,14 @@ def _image_bytes_to_latex(image_bytes: bytes) -> str:
 
 
 def _add_dot_coords(mistakes: List[Dict[str, Any]], image_dims: tuple[int, int]) -> List[Dict[str, Any]]:
+    """Add dot (normalized [0,1] center) to each mistake. Image coords: bottom-left origin."""
     w, h = image_dims
     for m in mistakes:
-        cx = (m.get("x_min", 0) + m.get("x_max", 0)) / 2
-        cy = (m.get("y_min", 0) + m.get("y_max", 0)) / 2
+        x_min, x_max = m.get("x_min", 0), m.get("x_max", 0)
+        y_min, y_max = m.get("y_min", 0), m.get("y_max", 0)
         m["dot"] = {
-            "x": cx / w if w else 0,
-            "y": cy / h if h else 0,
+            "x": (x_min + x_max) / 2 / w if w else 0,
+            "y": (y_min + y_max) / 2 / h if h else 0,
         }
     return mistakes
 

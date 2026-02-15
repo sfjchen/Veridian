@@ -1,17 +1,8 @@
 import { useCallback, useState } from 'react';
-import {
-  PixelRatio,
-  Pressable,
-  StyleSheet,
-  Text,
-  View,
-  type LayoutChangeEvent,
-} from 'react-native';
+import { Pressable, StyleSheet, Text, View, type LayoutChangeEvent } from 'react-native';
 
 import type { Mistake } from '@/lib/api';
 
-// Re-export Mistake from the canonical api module so existing imports from
-// MistakeOverlay continue to work after the PR #20 merge.
 export type { Mistake } from '@/lib/api';
 
 export type AnalysisResponse = {
@@ -20,47 +11,10 @@ export type AnalysisResponse = {
   error?: string;
 };
 
-// ---------------------------------------------------------------------------
-// Bounding-box overlay (PR #20) — pixel-based rectangles
-// ---------------------------------------------------------------------------
-
-type BoxOverlayProps = {
-  mistakes: Mistake[];
-  layoutWidth: number;
-  layoutHeight: number;
-};
-
-/** Backend coords: image pixels (layout * PixelRatio), bottom-left origin. Convert to layout points, top-left. */
-function toLayoutRect(
-  m: Mistake,
-  imgH: number,
-  scale: number,
-): { left: number; top: number; width: number; height: number } {
-  return {
-    left: m.x_min * scale,
-    top: (imgH - m.y_max) * scale,
-    width: (m.x_max - m.x_min) * scale,
-    height: (m.y_max - m.y_min) * scale,
-  };
-}
-
-export function BoxOverlay({ mistakes, layoutWidth, layoutHeight }: BoxOverlayProps) {
-  const pr = PixelRatio.get();
-  const imgH = layoutHeight * pr;
-  const scale = 1 / pr;
-  return (
-    <View style={StyleSheet.absoluteFill} pointerEvents="none">
-      {mistakes.map((m, i) => (
-        <View key={i} style={[styles.box, toLayoutRect(m, imgH, scale)]} />
-      ))}
-    </View>
-  );
-}
-
-// ---------------------------------------------------------------------------
-// Dot overlay (PR #11) — normalised dot positions with hint bubbles
-// ---------------------------------------------------------------------------
-
+// Red-dot overlay: dot = center of bbox, normalized [0,1]. Backend bottom-left origin;
+// frontend top-left: left = dot.x * width - R, top = (1 - dot.y) * height - R.
+// 8px radius → 16px visible dot. Combined with hitSlop=12 the total touch target
+// is 40px, close to the 44px accessibility minimum while staying unobtrusive.
 const DOT_RADIUS = 8;
 
 type TapState = { id: string; taps: number };
@@ -151,10 +105,11 @@ function HintBubble({
   let text: string;
   if (revealMode === 'progressive') {
     if (taps === 1) text = "There's a mistake here.";
-    else if (taps === 2) text = `Hint: ${mistake.tag.replace(/-/g, ' ')}`;
+    else if (taps === 2) text = mistake.tag.replace(/-/g, ' ');
     else text = mistake.explanation || mistake.tag;
   } else {
-    text = mistake.explanation || mistake.tag;
+    const tag = mistake.tag.replace(/-/g, ' ');
+    text = mistake.explanation ? `${tag}: ${mistake.explanation}` : tag;
   }
 
   return (
@@ -221,12 +176,5 @@ const styles = StyleSheet.create({
     color: '#93c5fd',
     fontSize: 12,
     fontWeight: '600',
-  },
-  // Box overlay styles
-  box: {
-    position: 'absolute',
-    borderWidth: 2,
-    borderColor: '#dc2626',
-    backgroundColor: 'rgba(220, 38, 38, 0.15)',
   },
 });

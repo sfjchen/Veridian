@@ -70,10 +70,6 @@ export function useAutoAnalysis({
         const msg = capture.error === 'unavailable' ? 'Capture unavailable' : 'Capture failed';
         setError(msg);
         onError?.(msg);
-        if (runId === runIdRef.current) {
-          setIsAnalyzing(false);
-          analyzingRef.current = false;
-        }
         return;
       }
       const result = await submitAnalysis(capture.uri, { assignmentId, problemNum, isSample });

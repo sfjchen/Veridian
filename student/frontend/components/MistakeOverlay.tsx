@@ -8,10 +8,11 @@ import {
   type LayoutChangeEvent,
 } from 'react-native';
 
-import { palette, radius } from '@/constants/palette';
-import { spacing, typography } from '@/constants/theme';
-import type { Mistake } from '@/lib/api';
-import type { DotThreshold } from '@/lib/teacherConfig';
+import { palette, radius } from "@/constants/palette";
+import { spacing } from "@/constants/spacing";
+import { typography } from "@/constants/typography";
+import type { Mistake } from "@/lib/api";
+import type { DotThreshold } from "@/lib/teacherConfig";
 
 // Re-export Mistake from the canonical api module so existing imports from
 // MistakeOverlay continue to work after the PR #20 merge.
@@ -232,6 +233,7 @@ function HintBubble({
 }
 
 const styles = StyleSheet.create({
+  // Dot overlay styles
   overlay: {
     ...StyleSheet.absoluteFillObject,
   },
@@ -244,40 +246,41 @@ const styles = StyleSheet.create({
     height: DOT_RADIUS * 2,
     borderRadius: DOT_RADIUS,
     backgroundColor: palette.error,
-    shadowColor: '#000',
+    shadowColor: "#000",
     shadowOpacity: 0.25,
     shadowRadius: 4,
     shadowOffset: { width: 0, height: 2 },
     elevation: 4,
   },
   bubble: {
-    position: 'absolute',
+    position: "absolute",
     bottom: DOT_RADIUS * 2 + spacing.xs,
     left: -80,
     width: 180,
-    backgroundColor: palette.textPrimary,
-    borderRadius: radius.button,
+    backgroundColor: "rgba(17, 24, 39, 0.92)",
+    borderRadius: radius.input,
     paddingHorizontal: spacing.sm,
     paddingVertical: spacing.xs,
     zIndex: 20,
   },
   bubbleText: {
-    ...typography.bodySmall,
-    color: palette.card,
+    ...typography.caption,
+    lineHeight: 18,
+    color: palette.white,
   },
   askLink: {
-    marginTop: spacing.xs,
-    paddingTop: spacing.xs,
+    marginTop: 6,
+    paddingTop: 6,
     borderTopWidth: StyleSheet.hairlineWidth,
     borderTopColor: palette.border,
   },
   askLinkText: {
     ...typography.caption,
-    fontWeight: '600',
-    color: palette.primaryMutedTint,
+    color: palette.link,
+    fontWeight: "600",
   },
   box: {
-    position: 'absolute',
+    position: "absolute",
     borderWidth: 2,
     borderColor: palette.error,
     backgroundColor: palette.errorBg,

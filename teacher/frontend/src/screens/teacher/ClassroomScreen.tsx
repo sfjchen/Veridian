@@ -261,14 +261,7 @@ export function TeacherClassroomScreen({ route, navigation }: { route: any; navi
               keyExtractor={(item) => item.student_id}
               refreshControl={refreshControl}
               renderItem={({ item }) => (
-                <TouchableOpacity
-                  style={styles.listItem}
-                  onPress={() => navigation.navigate("StudentMistakeDetail", {
-                    classroomId: classroom.id,
-                    studentId: item.student_id,
-                    displayName: item.display_name ?? "Student",
-                  })}
-                >
+                <View style={styles.listItem}>
                   <View style={styles.listItemContent}>
                     <Text style={styles.itemTitle}>{item.display_name ?? "Unnamed Student"}</Text>
                     <Text style={styles.itemSub}>
@@ -281,7 +274,7 @@ export function TeacherClassroomScreen({ route, navigation }: { route: any; navi
                       })}
                     </Text>
                   </View>
-                </TouchableOpacity>
+                </View>
               )}
               ListEmptyComponent={
                 <View style={styles.emptyWrap}>

@@ -40,7 +40,7 @@ export interface Assignment {
   prompt_storage_path: string | null;
   answer_key_storage_path: string | null;
   context_file_ids: string[];
-  problems: Problem[];
+  problems?: Problem[];
   due_date: string | null;
   created_at: string;
   config: Partial<AssignmentConfig>;

@@ -1,6 +1,7 @@
 import { StyleSheet, Text, View } from 'react-native';
 
 import { palette, radius } from '@/constants/palette';
+import { typography } from '@/constants/typography';
 
 export type StatusTone = 'info' | 'success' | 'error';
 
@@ -10,11 +11,11 @@ type StatusBadgeProps = {
 };
 
 function colorsForTone(tone: StatusTone): { bg: string; border: string; text: string } {
-  if (tone === 'success') {
-    return { bg: '#dcfce7', border: '#16a34a', text: '#166534' };
+  if (tone === "success") {
+    return { bg: palette.successBg, border: palette.success, text: palette.success };
   }
-  if (tone === 'error') {
-    return { bg: '#fee2e2', border: '#dc2626', text: '#991b1b' };
+  if (tone === "error") {
+    return { bg: palette.errorBg, border: palette.error, text: palette.error };
   }
   return { bg: palette.card, border: palette.borderStrong, text: palette.textSecondary };
 }
@@ -30,16 +31,16 @@ export function StatusBadge({ label, tone = 'info' }: StatusBadgeProps) {
 
 const styles = StyleSheet.create({
   badge: {
-    borderRadius: radius.button,
+    borderRadius: radius.chip,
     borderWidth: 1,
     paddingHorizontal: 10,
     paddingVertical: 6,
-    alignSelf: 'center',
-    maxWidth: '90%',
+    alignSelf: "center",
+    maxWidth: "90%",
   },
   label: {
-    fontSize: 12,
-    fontWeight: '600',
-    textAlign: 'center',
+    ...typography.caption,
+    fontWeight: "600",
+    textAlign: "center",
   },
 });

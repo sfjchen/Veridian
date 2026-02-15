@@ -137,39 +137,14 @@ export function AssignmentScreen({ route }: { route: any }) {
     }
   };
 
-  if (loading && !assignment) {
-    return (
-      <ScreenContainer maxWidth="dashboard">
-        <ActivityIndicator size="large" style={styles.loader} color={palette.primary} />
-      </ScreenContainer>
-    );
-  }
-  if (loadError && !assignment) {
-    return (
-      <ScreenContainer maxWidth="dashboard">
-        <View style={styles.errorContainer}>
-          <Text style={styles.error}>{loadError}</Text>
-          <TouchableOpacity style={styles.retryButton} onPress={() => fetchAssignment()}>
-            <Text style={styles.retryButtonText}>Retry</Text>
-          </TouchableOpacity>
-        </View>
-      </ScreenContainer>
-    );
-  }
-  if (!assignment) {
-    return (
-      <ScreenContainer maxWidth="dashboard">
-        <Text style={styles.error}>Assignment not found</Text>
-      </ScreenContainer>
-    );
-  }
+  if (loading) return <ActivityIndicator size="large" style={{ marginTop: 40 }} />;
+  if (!assignment) return <Text style={styles.error}>Assignment not found</Text>;
   const hasCompletedSubmission = submissions.some((submission) => Boolean(submission.download_url));
   const hasIncompleteSubmission = submissions.some((submission) => !submission.download_url);
 
   return (
-    <ScreenContainer maxWidth="dashboard">
-      <ScrollView style={styles.scroll} contentContainerStyle={styles.scrollContent}>
-        <Text style={styles.title}>{assignment.title}</Text>
+    <ScrollView style={styles.container}>
+      <Text style={styles.title}>{assignment.title}</Text>
       {assignment.due_date && (
         <Text style={styles.due}>
           Due: {new Date(assignment.due_date).toLocaleDateString("en-US", {
@@ -285,96 +260,85 @@ export function AssignmentScreen({ route }: { route: any }) {
 }
 
 const styles = StyleSheet.create({
-  loader: { marginTop: spacing.xxl },
-  scroll: { flex: 1 },
-  scrollContent: { paddingBottom: spacing.xxl },
-  title: { ...typography.h1 },
-  due: { ...typography.bodySmall, color: palette.textMuted, marginTop: spacing.xxs, marginBottom: spacing.md },
-  sectionTitle: { ...typography.body, fontWeight: "600" as const, marginBottom: spacing.xs },
-  assignmentContainer: { flex: 1, marginBottom: spacing.md },
+  container: { flex: 1, padding: 16, backgroundColor: palette.card },
+  title: { ...typography.h1, color: palette.textPrimary },
+  due: { ...typography.bodySmall, color: palette.textMuted, marginTop: 4, marginBottom: 16 },
+  sectionTitle: { fontSize: 16, fontWeight: "600", marginBottom: 8, color: palette.textPrimary },
+  assignmentContainer: { flex: 1, marginBottom: 16 },
   assignmentImage: {
     width: "100%",
     minHeight: 220,
     height: 320,
-    borderRadius: radius.input,
+    borderRadius: radius.button,
     backgroundColor: palette.surface,
   },
   submitButton: {
     backgroundColor: palette.primary,
     borderRadius: radius.button,
-    padding: spacing.md,
-    alignItems: "center" as const,
-    marginTop: spacing.md,
+    padding: 16,
+    alignItems: "center",
+    marginTop: 16,
   },
-  submitButtonText: { ...typography.button, color: palette.white },
-  errorContainer: { flex: 1, padding: spacing.lg, alignItems: "center" as const, justifyContent: "center" as const },
-  error: { ...typography.body, textAlign: "center" as const, color: palette.error, marginTop: spacing.xxl },
-  retryButton: {
-    marginTop: spacing.md,
-    backgroundColor: palette.primary,
-    borderRadius: radius.button,
-    paddingVertical: spacing.sm,
-    paddingHorizontal: spacing.lg,
-  },
-  retryButtonText: { ...typography.button, color: palette.white },
-  errorText: { ...typography.bodySmall, color: palette.error, marginTop: spacing.xs },
+  submitButtonText: { color: palette.white, fontSize: 16, fontWeight: "600" },
+  error: { textAlign: "center", color: palette.error, marginTop: 40 },
+  errorText: { color: palette.error, marginTop: 8 },
   pdfNotice: {
     backgroundColor: palette.warningBg,
-    borderRadius: radius.input,
-    padding: spacing.md,
-    marginBottom: spacing.md,
+    borderRadius: radius.button,
+    padding: 16,
+    marginBottom: 16,
   },
-  pdfNoticeText: { ...typography.bodySmall, color: palette.warning, marginBottom: spacing.xs },
+  pdfNoticeText: { fontSize: 14, color: "#92400E", marginBottom: 8 },
   pdfPreview: {
     width: "100%",
     minHeight: 220,
     height: 300,
-    borderRadius: radius.input,
+    borderRadius: radius.button,
     backgroundColor: palette.surface,
-    marginBottom: spacing.xs,
+    marginBottom: 8,
   },
   binaryNotice: {
-    backgroundColor: palette.primaryMutedTint,
-    borderRadius: radius.input,
-    padding: spacing.md,
-    marginBottom: spacing.md,
+    backgroundColor: "#EFF6FF",
+    borderRadius: radius.button,
+    padding: 16,
+    marginBottom: 16,
   },
-  binaryNoticeText: { ...typography.bodySmall, color: palette.textSecondary, marginBottom: spacing.xs },
+  binaryNoticeText: { fontSize: 14, color: "#1E3A8A", marginBottom: 8 },
   downloadLink: {
     backgroundColor: palette.primary,
-    borderRadius: radius.input,
-    paddingVertical: spacing.sm,
-    paddingHorizontal: spacing.md,
-    alignSelf: "flex-start" as const,
+    borderRadius: 6,
+    paddingVertical: 10,
+    paddingHorizontal: 16,
+    alignSelf: "flex-start",
   },
-  downloadLinkText: { ...typography.bodySmall, color: palette.white, fontWeight: "600" as const },
+  downloadLinkText: { color: palette.white, fontSize: 14, fontWeight: "600" },
   alreadySubmitted: {
     backgroundColor: palette.successBg,
-    borderRadius: radius.input,
-    padding: spacing.sm,
-    marginTop: spacing.md,
+    borderRadius: radius.button,
+    padding: 14,
+    marginTop: 16,
   },
-  alreadySubmittedText: { ...typography.bodySmall, color: palette.success, fontWeight: "500" as const },
-  historySection: { marginTop: spacing.lg, marginBottom: spacing.xl },
-  emptyText: { ...typography.bodySmall, color: palette.textDisabled, marginTop: spacing.xs },
+  alreadySubmittedText: { color: "#065F46", fontSize: 14, fontWeight: "500" },
+  historySection: { marginTop: 24, marginBottom: 32 },
+  emptyText: { color: palette.textDisabled, marginTop: 8 },
   submissionCard: {
     backgroundColor: palette.surface,
-    borderRadius: radius.input,
-    padding: spacing.sm,
-    marginTop: spacing.xs,
-    flexDirection: "row" as const,
-    alignItems: "center" as const,
-    justifyContent: "space-between" as const,
+    borderRadius: radius.button,
+    padding: 12,
+    marginTop: 8,
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "space-between",
   },
   submissionMeta: { flex: 1 },
-  submissionDate: { ...typography.bodySmall, color: palette.textSecondary },
+  submissionDate: { fontSize: 14, color: palette.textSecondary },
   historyDownloadButton: {
     backgroundColor: palette.primary,
-    borderRadius: radius.input,
-    paddingVertical: spacing.xs,
-    paddingHorizontal: spacing.sm,
-    marginLeft: spacing.sm,
+    borderRadius: 6,
+    paddingVertical: 8,
+    paddingHorizontal: 12,
+    marginLeft: 12,
   },
-  historyDownloadText: { ...typography.bodySmall, color: palette.white, fontWeight: "600" as const },
-  unavailableText: { ...typography.bodySmall, color: palette.textDisabled, marginLeft: spacing.sm },
+  historyDownloadText: { color: palette.white, fontSize: 13, fontWeight: "600" },
+  unavailableText: { fontSize: 13, color: palette.textDisabled, marginLeft: 12 },
 });

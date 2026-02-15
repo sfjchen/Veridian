@@ -6,7 +6,6 @@ import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import {
   ActivityIndicator,
   Alert,
-  Linking,
   Platform,
   Pressable,
   SafeAreaView,
@@ -25,8 +24,8 @@ import { StatusBadge, type StatusTone } from '@/components/notifications/StatusB
 import { ToastHost, type ToastNotice } from '@/components/notifications/ToastHost';
 import { ProblemHeader } from '@/components/ProblemHeader';
 import { SampleAlgebraContent } from '@/components/SampleAlgebraContent';
-import { elevation, palette, radius } from '@/constants/palette';
-import { spacing, typography } from '@/constants/theme';
+import { palette, radius } from "@/constants/palette";
+import { spacing } from "@/constants/spacing";
 import { useAssignment } from '@/hooks/useAssignment';
 import { useAutoAnalysis } from '@/hooks/useAutoAnalysis';
 import { useAccessToken } from '@/hooks/useAccessToken';
@@ -643,29 +642,6 @@ export default function DocumentScreen() {
         </View>
       )}
 
-      {assignmentOnly && assignment?.assignment_file_download_url && (
-        <Pressable
-          style={({ pressed }) => [styles.assignmentFileBanner, pressed && { opacity: 0.7 }]}
-          onPress={async () => {
-            const url = assignment.assignment_file_download_url!;
-            if (Platform.OS === 'web') {
-              window.open(url, '_blank');
-            } else {
-              try {
-                await Linking.openURL(url);
-              } catch {
-                showAlert('Could not open file', 'Unable to open the assignment file URL.');
-              }
-            }
-          }}
-          accessibilityRole="link"
-          accessibilityLabel="View assignment file">
-          <MaterialCommunityIcons name="file-document-outline" size={18} color={palette.primary} />
-          <Text style={styles.assignmentFileBannerText}>View Assignment File</Text>
-          <MaterialCommunityIcons name="open-in-new" size={16} color={palette.primary} />
-        </Pressable>
-      )}
-
       {badgeStatus && (
         <View style={styles.badgeBar}>
           <StatusBadge label={badgeStatus.label} tone={badgeStatus.tone} />
@@ -673,22 +649,15 @@ export default function DocumentScreen() {
       )}
 
       {analysisError !== null && !isAnalyzing && (
-        <View style={styles.errorBar}>
-          <MaterialCommunityIcons name="alert-outline" size={18} color={palette.error} />
-          <Text style={styles.errorBarText}>{analysisError}</Text>
-          <Pressable
-            style={({ pressed }) => [styles.errorBarRetry, pressed && { opacity: 0.7 }]}
-            onPress={() => { clearAnalysisError(); triggerNow(); }}
-            accessibilityRole="button"
-            accessibilityLabel="Retry analysis">
-            <Text style={styles.errorBarRetryText}>Retry</Text>
-          </Pressable>
+        <View style={styles.analyzingBar}>
+          <MaterialCommunityIcons name="alert-outline" size={18} color={palette.textMuted} />
+          <Text style={styles.analyzingText}>{analysisError}</Text>
         </View>
       )}
 
       {(strokeLoadError || strokeSaveError || docsLoadError || docsSaveError) && (
         <View style={styles.strokeErrorBar}>
-          <MaterialCommunityIcons name="alert-outline" size={18} color={palette.errorText} />
+          <MaterialCommunityIcons name="alert-outline" size={18} color={palette.error} />
           <Text style={styles.strokeErrorText}>
             {strokeLoadError ?? docsLoadError ?? docsSaveError ?? (strokeSaveError ? "Couldn't save strokes." : '')}
           </Text>
@@ -788,10 +757,10 @@ export default function DocumentScreen() {
 const styles = StyleSheet.create({
   screen: { flex: 1, backgroundColor: palette.surface },
   header: {
-    flexDirection: 'row',
-    alignItems: 'center',
+    flexDirection: "row",
+    alignItems: "center",
     paddingHorizontal: spacing.sm,
-    paddingVertical: spacing.sm,
+    paddingVertical: 10,
     backgroundColor: palette.card,
     borderBottomWidth: 1,
     borderBottomColor: palette.border,
@@ -801,28 +770,28 @@ const styles = StyleSheet.create({
     marginRight: spacing.xs,
     minWidth: 44,
     minHeight: 44,
-    justifyContent: 'center',
-    alignItems: 'center',
+    justifyContent: "center",
+    alignItems: "center",
   },
   title: {
     flex: 1,
-    ...typography.body,
-    fontWeight: '600',
+    fontSize: 17,
+    fontWeight: "600",
     color: palette.textPrimary,
   },
   checkButton: {
     minWidth: 72,
-    minHeight: 44,
     backgroundColor: palette.primary,
     borderRadius: radius.button,
-    justifyContent: 'center',
-    alignItems: 'center',
+    justifyContent: "center",
+    alignItems: "center",
     paddingHorizontal: spacing.sm,
-    paddingVertical: spacing.sm,
+    paddingVertical: 10,
   },
   checkButtonText: {
-    ...typography.buttonSmall,
-    color: palette.textOnPrimary,
+    color: palette.white,
+    fontSize: 14,
+    fontWeight: "700",
   },
   problemHeaderWrap: {
     paddingHorizontal: spacing.sm,
@@ -831,56 +800,32 @@ const styles = StyleSheet.create({
     borderBottomWidth: 1,
     borderBottomColor: palette.border,
   },
-  assignmentFileBanner: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: spacing.xs,
-    paddingVertical: spacing.sm,
-    paddingHorizontal: spacing.md,
-    backgroundColor: palette.card,
-    borderBottomWidth: 1,
-    borderBottomColor: palette.border,
-  },
-  assignmentFileBannerText: {
-    flex: 1,
-    ...typography.buttonSmall,
-    color: palette.primary,
-  },
   badgeBar: {
-    paddingVertical: spacing.xs,
+    paddingVertical: 6,
     paddingHorizontal: spacing.sm,
     backgroundColor: palette.card,
     borderBottomWidth: 1,
     borderBottomColor: palette.border,
   },
-  errorBar: {
-    flexDirection: 'row',
-    alignItems: 'center',
+  analyzingBar: {
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "center",
     gap: spacing.xs,
-    paddingVertical: spacing.sm,
-    paddingHorizontal: spacing.sm,
-    backgroundColor: palette.errorBg,
+    paddingVertical: spacing.xxs,
+    backgroundColor: palette.card,
     borderBottomWidth: 1,
     borderBottomColor: palette.border,
   },
-  errorBarText: {
-    flex: 1,
-    ...typography.bodySmall,
-    color: palette.error,
-  },
-  errorBarRetry: {
-    paddingVertical: spacing.xxs,
-    paddingHorizontal: spacing.sm,
-  },
-  errorBarRetryText: {
-    ...typography.buttonSmall,
-    color: palette.primary,
+  analyzingText: {
+    fontSize: 13,
+    color: palette.textMuted,
   },
   strokeErrorBar: {
-    flexDirection: 'row',
-    alignItems: 'center',
+    flexDirection: "row",
+    alignItems: "center",
     gap: spacing.xs,
-    paddingVertical: spacing.xs,
+    paddingVertical: 6,
     paddingHorizontal: spacing.sm,
     backgroundColor: palette.errorBg,
     borderBottomWidth: 1,
@@ -888,15 +833,15 @@ const styles = StyleSheet.create({
   },
   strokeErrorText: {
     flex: 1,
-    ...typography.bodySmall,
+    fontSize: 13,
     color: palette.error,
   },
   strokeErrorDismiss: { paddingVertical: spacing.xxs, paddingHorizontal: spacing.xs },
-  strokeErrorDismissText: { ...typography.buttonSmall, color: palette.primary },
+  strokeErrorDismissText: { fontSize: 13, fontWeight: "600", color: palette.primary },
   pagerBar: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'center',
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "center",
     paddingVertical: spacing.xs,
     paddingHorizontal: spacing.md,
     backgroundColor: palette.card,
@@ -907,7 +852,7 @@ const styles = StyleSheet.create({
   pageBtn: { padding: spacing.xxs },
   pageBtnDisabled: { opacity: 0.6 },
   pageText: {
-    ...typography.body,
+    fontSize: 15,
     fontWeight: '600',
     color: palette.textSecondary,
     minWidth: 120,
@@ -916,9 +861,9 @@ const styles = StyleSheet.create({
   pageStrip: {
     flexDirection: 'row',
     flexWrap: 'wrap',
-    gap: spacing.xs,
-    paddingHorizontal: spacing.sm,
-    paddingVertical: spacing.xs,
+    gap: 6,
+    paddingHorizontal: 12,
+    paddingVertical: 6,
     backgroundColor: palette.card,
     borderBottomWidth: 1,
     borderBottomColor: palette.border,
@@ -939,17 +884,17 @@ const styles = StyleSheet.create({
     borderColor: palette.primary,
   },
   pageThumbText: {
-    ...typography.caption,
+    fontSize: 13,
     fontWeight: '600',
     color: palette.textSecondary,
   },
   pageThumbTextActive: {
-    color: palette.textOnPrimary,
+    color: palette.white,
   },
   contentWrap: {
     flex: 1,
-    padding: spacing.sm,
-    gap: spacing.xs,
+    padding: 12,
+    gap: 8,
     position: 'relative',
   },
   canvasFull: {
@@ -967,9 +912,10 @@ const styles = StyleSheet.create({
     padding: 24,
   },
   webPdfPlaceholderText: {
-    ...typography.body,
+    fontSize: 15,
     color: palette.textMuted,
     textAlign: 'center',
+    lineHeight: 22,
   },
   inkOverlay: {
     ...StyleSheet.absoluteFillObject,
@@ -980,30 +926,35 @@ const styles = StyleSheet.create({
   },
   inkCanvas: { flex: 1 },
   loadingText: {
-    marginTop: spacing.sm,
-    ...typography.body,
+    marginTop: 12,
+    fontSize: 15,
     color: palette.textMuted,
   },
   errorText: {
-    ...typography.body,
-    color: palette.error,
+    fontSize: 16,
+    color: palette.textSecondary,
     textAlign: 'center',
   },
   backButtonText: {
-    ...typography.button,
+    fontSize: 15,
+    fontWeight: '600',
     color: palette.primary,
   },
   chatFab: {
     position: 'absolute',
-    bottom: spacing.lg,
-    right: spacing.lg,
+    bottom: 24,
+    right: 24,
     width: 52,
     height: 52,
     borderRadius: 26,
     backgroundColor: palette.primary,
     alignItems: 'center',
     justifyContent: 'center',
-    ...(elevation.shadowMd as object),
+    shadowColor: '#000',
+    shadowOpacity: 0.2,
+    shadowRadius: 6,
+    shadowOffset: { width: 0, height: 3 },
+    elevation: 6,
     zIndex: 50,
   },
 });

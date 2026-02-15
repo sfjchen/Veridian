@@ -11,8 +11,10 @@ import {
   View,
 } from 'react-native';
 
-import { palette, radius } from '@/constants/palette';
-import { useChat } from '@/hooks/useChat';
+import { palette, radius } from "@/constants/palette";
+import { spacing } from "@/constants/spacing";
+import { typography } from "@/constants/typography";
+import { useChat } from "@/hooks/useChat";
 import type { ChatMessage } from '@/lib/api';
 
 type ChatPanelProps = {
@@ -217,32 +219,31 @@ export function ChatPanel({ visible, onClose, assignmentId, problemNum, token }:
 
 const styles = StyleSheet.create({
   container: {
-    position: 'absolute',
+    position: "absolute",
     left: 0,
     right: 0,
     bottom: 0,
-    height: '60%',
+    height: "60%",
     backgroundColor: palette.card,
-    borderTopLeftRadius: 16,
-    borderTopRightRadius: 16,
-    shadowColor: '#000',
+    borderTopLeftRadius: radius.modal,
+    borderTopRightRadius: radius.modal,
+    shadowColor: "#000",
     shadowOpacity: 0.15,
     shadowRadius: 12,
     shadowOffset: { width: 0, height: -4 },
     elevation: 8,
   },
   header: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'space-between',
-    paddingHorizontal: 16,
-    paddingVertical: 14,
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "space-between",
+    paddingHorizontal: spacing.md,
+    paddingVertical: spacing.sm,
     borderBottomWidth: 1,
     borderBottomColor: palette.border,
   },
   headerTitle: {
-    fontSize: 16,
-    fontWeight: '700',
+    ...typography.button,
     color: palette.textPrimary,
   },
   closeBtn: {
@@ -250,25 +251,25 @@ const styles = StyleSheet.create({
     height: 32,
     borderRadius: 16,
     backgroundColor: palette.surface,
-    alignItems: 'center',
-    justifyContent: 'center',
+    alignItems: "center",
+    justifyContent: "center",
   },
   closeBtnText: {
-    fontSize: 14,
-    fontWeight: '700',
+    ...typography.bodySmall,
+    fontWeight: "700",
     color: palette.textSecondary,
   },
   quickActions: {
-    flexDirection: 'row',
-    flexWrap: 'wrap',
-    gap: 8,
-    paddingHorizontal: 16,
-    paddingVertical: 10,
+    flexDirection: "row",
+    flexWrap: "wrap",
+    gap: spacing.xs,
+    paddingHorizontal: spacing.md,
+    paddingVertical: spacing.xs,
     borderBottomWidth: 1,
     borderBottomColor: palette.border,
   },
   quickActionBtn: {
-    paddingHorizontal: 12,
+    paddingHorizontal: spacing.sm,
     paddingVertical: 6,
     borderRadius: radius.button,
     borderWidth: 1,
@@ -276,29 +277,29 @@ const styles = StyleSheet.create({
     backgroundColor: palette.surface,
   },
   quickActionText: {
-    fontSize: 13,
+    ...typography.caption,
     color: palette.textSecondary,
-    fontWeight: '500',
+    fontWeight: "500",
   },
   messageList: {
     flex: 1,
   },
   messageListContent: {
-    padding: 16,
+    padding: spacing.md,
     gap: 10,
   },
   messageBubble: {
-    maxWidth: '80%',
-    paddingHorizontal: 14,
+    maxWidth: "80%",
+    paddingHorizontal: spacing.sm,
     paddingVertical: 10,
-    borderRadius: 14,
+    borderRadius: radius.card,
   },
   studentBubble: {
-    alignSelf: 'flex-end',
+    alignSelf: "flex-end",
     backgroundColor: palette.primary,
   },
   assistantBubble: {
-    alignSelf: 'flex-start',
+    alignSelf: "flex-start",
     backgroundColor: palette.surface,
   },
   studentText: {
@@ -312,18 +313,18 @@ const styles = StyleSheet.create({
     lineHeight: 20,
   },
   errorBar: {
-    paddingHorizontal: 16,
+    paddingHorizontal: spacing.md,
     paddingVertical: 6,
     backgroundColor: palette.errorBg,
   },
   errorText: {
-    fontSize: 13,
-    color: palette.errorText,
+    ...typography.caption,
+    color: palette.error,
   },
   inputBar: {
-    flexDirection: 'row',
-    alignItems: 'flex-end',
-    paddingHorizontal: 12,
+    flexDirection: "row",
+    alignItems: "flex-end",
+    paddingHorizontal: spacing.sm,
     paddingVertical: 10,
     borderTopWidth: 1,
     borderTopColor: palette.border,
@@ -337,26 +338,26 @@ const styles = StyleSheet.create({
     borderRadius: radius.button,
     borderWidth: 1,
     borderColor: palette.border,
-    paddingHorizontal: 14,
+    paddingHorizontal: spacing.sm,
     paddingVertical: 10,
-    fontSize: 14,
+    ...typography.bodySmall,
     color: palette.textPrimary,
   },
   sendBtn: {
     backgroundColor: palette.primary,
     borderRadius: radius.button,
-    paddingHorizontal: 16,
+    paddingHorizontal: spacing.md,
     paddingVertical: 10,
-    justifyContent: 'center',
-    alignItems: 'center',
+    justifyContent: "center",
+    alignItems: "center",
     minHeight: 40,
   },
   sendBtnDisabled: {
     opacity: 0.4,
   },
   sendBtnText: {
-    color: palette.white,
-    fontSize: 14,
-    fontWeight: '700',
+    ...typography.bodySmall,
+    color: palette.textOnPrimary,
+    fontWeight: "700",
   },
 });

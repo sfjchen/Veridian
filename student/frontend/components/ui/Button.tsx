@@ -43,6 +43,7 @@ interface ButtonProps {
   loading?: boolean;
   style?: ViewStyle;
   fullWidth?: boolean;
+  accessibilityLabel?: string;
 }
 
 export function Button({
@@ -54,12 +55,15 @@ export function Button({
   loading = false,
   style,
   fullWidth,
+  accessibilityLabel,
 }: ButtonProps) {
   const isDisabled = disabled || loading;
   return (
     <Pressable
       onPress={onPress}
       disabled={isDisabled}
+      accessibilityRole="button"
+      accessibilityLabel={accessibilityLabel}
       style={({ pressed }) => [
         styles.base,
         variantStyles[variant],
@@ -70,7 +74,6 @@ export function Button({
         !isDisabled && pressed && styles.pressed,
         style,
       ]}
-      accessibilityRole="button"
     >
       {loading ? (
         <ActivityIndicator

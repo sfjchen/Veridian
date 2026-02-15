@@ -21,7 +21,7 @@ export function StudentDashboardScreen({ navigation }: { navigation: any }) {
   const { signOut } = useAuth();
 
   return (
-    <ScreenContainer maxWidth="dashboard">
+    <View style={styles.container}>
       <View style={styles.header}>
         <Text style={styles.title}>My Classes</Text>
         <TouchableOpacity
@@ -45,7 +45,7 @@ export function StudentDashboardScreen({ navigation }: { navigation: any }) {
           keyExtractor={(item: Classroom) => item.id}
           renderItem={({ item }: { item: Classroom }) => (
             <TouchableOpacity
-              style={[styles.card, elevation.shadowSm]}
+              style={styles.card}
               onPress={() => navigation.navigate("StudentClassroom", { classroom: item })}
               accessibilityRole="button"
               accessibilityLabel={`Open class ${item.name}`}
@@ -61,20 +61,30 @@ export function StudentDashboardScreen({ navigation }: { navigation: any }) {
           }
         />
       )}
-    </ScreenContainer>
+    </View>
   );
 }
 
 const styles = StyleSheet.create({
-  header: { flexDirection: "row" as const, justifyContent: "space-between" as const, alignItems: "center" as const, marginBottom: spacing.md },
-  title: { ...typography.h1 },
-  logoutText: { ...typography.bodySmall, color: palette.error, fontWeight: "600" as const },
-  loader: { marginTop: spacing.xxl },
+  container: { flex: 1, padding: 16, backgroundColor: palette.surface },
+  header: {
+    flexDirection: "row",
+    justifyContent: "space-between",
+    alignItems: "center",
+    marginBottom: 16,
+  },
+  title: { ...typography.h1, color: palette.textPrimary },
+  logoutText: { color: palette.error, fontSize: 14, fontWeight: "600" },
+  loader: { marginTop: 40 },
   card: {
     backgroundColor: palette.card,
     borderRadius: radius.card,
-    padding: spacing.md,
-    marginBottom: spacing.sm,
+    padding: 16,
+    marginBottom: 12,
+    shadowColor: "#000",
+    shadowOpacity: 0.05,
+    shadowRadius: 4,
+    elevation: 2,
   },
   cardTitle: { ...typography.h2 },
   emptyWrap: { paddingVertical: spacing.xxl, paddingHorizontal: spacing.lg, alignItems: "center" as const },

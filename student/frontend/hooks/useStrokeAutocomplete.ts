@@ -9,15 +9,13 @@ import { latexToText } from '@/lib/latex-to-text';
 export type AutocompleteState = {
   suggestion: string | null;
   targetLineBBox: BBox | null;
-  targetLineKey: string | null;
 };
 
-const EMPTY: AutocompleteState = { suggestion: null, targetLineBBox: null, targetLineKey: null };
+const EMPTY: AutocompleteState = { suggestion: null, targetLineBBox: null };
 
 type AutocompleteOpts = {
   problemContext?: string;
   canvasDims?: { w: number; h: number } | null;
-  completedLineKeys?: Set<string>;
 };
 
 export function useStrokeAutocomplete(opts: AutocompleteOpts) {
@@ -25,25 +23,27 @@ export function useStrokeAutocomplete(opts: AutocompleteOpts) {
   optsRef.current = opts;
   const controllerRef = useRef<AbortController | null>(null);
   const requestIdRef = useRef(0);
+  const activeSuggestionLineKeyRef = useRef<string | null>(null);
   const [autocomplete, setAutocomplete] = useState<AutocompleteState>(EMPTY);
 
-  const dismiss = useCallback(() => setAutocomplete(EMPTY), []);
+  const dismiss = useCallback(() => {
+    activeSuggestionLineKeyRef.current = null;
+    setAutocomplete(EMPTY);
+  }, []);
 
   const onStrokeComplete = useCallback((strokes: Stroke[], completedStrokeId: string) => {
     if (Platform.OS !== 'web') return;
-    const { problemContext, canvasDims, completedLineKeys } = optsRef.current;
+    const { problemContext, canvasDims } = optsRef.current;
     if (!canvasDims || strokes.length === 0) return;
 
     const { targetLine } = buildLines(strokes, completedStrokeId);
     if (!targetLine) return;
 
     const lineKey = lineKeyFromStrokeIds(targetLine.strokeIds);
-    if (completedLineKeys?.has(lineKey)) return;
-
-    // Dismiss if new stroke is on the same line as current suggestion
-    setAutocomplete((prev) =>
-      prev.targetLineKey === lineKey ? EMPTY : prev,
-    );
+    if (activeSuggestionLineKeyRef.current === lineKey) {
+      activeSuggestionLineKeyRef.current = null;
+      setAutocomplete(EMPTY);
+    }
 
     controllerRef.current?.abort();
     const controller = new AbortController();
@@ -57,10 +57,10 @@ export function useStrokeAutocomplete(opts: AutocompleteOpts) {
         if (requestIdRef.current !== reqId) return;
         console.log(`[autocomplete] (${ms}ms): ${suggestion || '(empty)'}`);
         if (!suggestion) return;
+        activeSuggestionLineKeyRef.current = lineKey;
         setAutocomplete({
           suggestion: latexToText(suggestion),
           targetLineBBox: targetLine.bbox,
-          targetLineKey: lineKey,
         });
       })
       .catch((err) => {

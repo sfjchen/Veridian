@@ -40,7 +40,8 @@ def _verify_token(token: str) -> str | None:
             if data is not None:
                 user = getattr(data, "user", None)
         return str(getattr(user, "id", None) or user.get("id", "")) or None
-    except Exception:
+    except Exception as exc:
+        log.warning("WebSocket token verification failed: %s", exc)
         return None
 
 

@@ -1,18 +1,23 @@
 import { MaterialCommunityIcons } from '@expo/vector-icons';
 import { useRouter } from 'expo-router';
+import { useState } from 'react';
 import {
   ActivityIndicator,
   FlatList,
+  Modal,
   Pressable,
   SafeAreaView,
   StyleSheet,
   Text,
+  TextInput,
   View,
 } from 'react-native';
 
 import { palette, radius } from '@/constants/palette';
+import { useAccessToken } from '@/hooks/useAccessToken';
 import { useClassrooms } from '@/hooks/useClassrooms';
 import type { Classroom } from '@/lib/api';
+import { joinClassroom } from '@/lib/api';
 import { supabase } from '@/lib/supabase';
 
 function ClassroomCard({
@@ -46,9 +51,96 @@ function ClassroomCard({
   );
 }
 
+function JoinClassModal({
+  visible,
+  onClose,
+  onJoined,
+  token,
+}: {
+  visible: boolean;
+  onClose: () => void;
+  onJoined: () => void;
+  token: string | undefined;
+}) {
+  const [code, setCode] = useState('');
+  const [joining, setJoining] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+
+  const handleJoin = async () => {
+    if (!token) {
+      setError('You must be signed in to join a class.');
+      return;
+    }
+    setError(null);
+    setJoining(true);
+    try {
+      await joinClassroom(code.trim(), token);
+      setCode('');
+      onClose();
+      onJoined();
+    } catch (e) {
+      setError(e instanceof Error ? e.message : 'Failed to join classroom');
+    } finally {
+      setJoining(false);
+    }
+  };
+
+  const handleClose = () => {
+    setCode('');
+    setError(null);
+    onClose();
+  };
+
+  return (
+    <Modal visible={visible} transparent animationType="fade" onRequestClose={handleClose}>
+      <Pressable style={styles.modalOverlay} onPress={handleClose}>
+        <Pressable style={styles.modalContent} onPress={() => {}}>
+          <Text style={styles.modalTitle}>Join a class</Text>
+          <Text style={styles.modalSubtitle}>Enter the class code from your teacher.</Text>
+          <TextInput
+            style={styles.modalInput}
+            placeholder="Class code"
+            placeholderTextColor={palette.textMuted}
+            value={code}
+            onChangeText={setCode}
+            autoCapitalize="characters"
+            autoCorrect={false}
+            editable={!joining}
+          />
+          {error ? <Text style={styles.modalError}>{error}</Text> : null}
+          <View style={styles.modalActions}>
+            <Pressable
+              style={({ pressed }) => [styles.modalCancel, pressed && { opacity: 0.7 }]}
+              onPress={handleClose}
+              disabled={joining}>
+              <Text style={styles.modalCancelText}>Cancel</Text>
+            </Pressable>
+            <Pressable
+              style={({ pressed }) => [
+                styles.modalJoin,
+                (!code.trim() || joining) && styles.buttonDisabled,
+                pressed && code.trim() && !joining && { opacity: 0.8 },
+              ]}
+              onPress={handleJoin}
+              disabled={!code.trim() || joining}>
+              {joining ? (
+                <ActivityIndicator size="small" color={palette.white} />
+              ) : (
+                <Text style={styles.modalJoinText}>Join</Text>
+              )}
+            </Pressable>
+          </View>
+        </Pressable>
+      </Pressable>
+    </Modal>
+  );
+}
+
 export default function ClassroomsScreen() {
   const router = useRouter();
   const { classrooms, loading, error, refresh } = useClassrooms();
+  const accessToken = useAccessToken() ?? undefined;
+  const [joinModalVisible, setJoinModalVisible] = useState(false);
 
   if (loading) {
     return (
@@ -112,21 +204,38 @@ export default function ClassroomsScreen() {
     <SafeAreaView style={styles.screen}>
       <View style={styles.header}>
         <Text style={styles.title}>Classes</Text>
-        <Pressable
-          style={({ pressed }) => [styles.workspaceButton, pressed && { opacity: 0.7 }]}
-          onPress={() => router.push('/WorkspaceScreen')}
-          accessibilityRole="button"
-          accessibilityLabel="Whiteboard">
-          <MaterialCommunityIcons name="draw" size={20} color={palette.primary} />
-          <Text style={styles.workspaceButtonText}>Workspace</Text>
-        </Pressable>
+        <View style={styles.headerActions}>
+          <Pressable
+            style={({ pressed }) => [styles.joinButton, pressed && { opacity: 0.7 }]}
+            onPress={() => setJoinModalVisible(true)}
+            accessibilityRole="button"
+            accessibilityLabel="Join a class">
+            <MaterialCommunityIcons name="plus" size={20} color={palette.primary} />
+            <Text style={styles.joinButtonText}>Join Class</Text>
+          </Pressable>
+          <Pressable
+            style={({ pressed }) => [styles.workspaceButton, pressed && { opacity: 0.7 }]}
+            onPress={() => router.push('/WorkspaceScreen')}
+            accessibilityRole="button"
+            accessibilityLabel="Whiteboard">
+            <MaterialCommunityIcons name="draw" size={20} color={palette.primary} />
+            <Text style={styles.workspaceButtonText}>Workspace</Text>
+          </Pressable>
+        </View>
       </View>
 
       {classrooms.length === 0 ? (
         <View style={styles.empty}>
           <MaterialCommunityIcons name="school-outline" size={64} color={palette.borderStrong} />
           <Text style={styles.emptyTitle}>No classes yet</Text>
-          <Text style={styles.emptySubtitle}>Sign in to see your classes or join a class with a code.</Text>
+          <Text style={styles.emptySubtitle}>Join a class with a code from your teacher.</Text>
+          <Pressable
+            style={({ pressed }) => [styles.joinCtaButton, pressed && { opacity: 0.8 }]}
+            onPress={() => setJoinModalVisible(true)}
+            accessibilityRole="button">
+            <MaterialCommunityIcons name="plus" size={20} color={palette.white} />
+            <Text style={styles.joinCtaText}>Join a Class</Text>
+          </Pressable>
         </View>
       ) : (
         <FlatList
@@ -146,6 +255,13 @@ export default function ClassroomsScreen() {
           contentContainerStyle={styles.listContent}
         />
       )}
+
+      <JoinClassModal
+        visible={joinModalVisible}
+        onClose={() => setJoinModalVisible(false)}
+        onJoined={refresh}
+        token={accessToken}
+      />
     </SafeAreaView>
   );
 }
@@ -165,10 +281,31 @@ const styles = StyleSheet.create({
     borderBottomColor: palette.border,
     backgroundColor: palette.card,
   },
+  headerActions: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 8,
+  },
   title: {
     fontSize: 22,
     fontWeight: '700',
     color: palette.textPrimary,
+  },
+  joinButton: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 4,
+    backgroundColor: palette.card,
+    paddingVertical: 10,
+    paddingHorizontal: 12,
+    borderRadius: radius.button,
+    borderWidth: 1,
+    borderColor: palette.borderStrong,
+  },
+  joinButtonText: {
+    color: palette.primary,
+    fontSize: 14,
+    fontWeight: '600',
   },
   workspaceButton: {
     flexDirection: 'row',
@@ -259,6 +396,21 @@ const styles = StyleSheet.create({
     marginTop: 6,
     textAlign: 'center',
   },
+  joinCtaButton: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 6,
+    marginTop: 20,
+    backgroundColor: palette.primary,
+    paddingVertical: 12,
+    paddingHorizontal: 20,
+    borderRadius: radius.button,
+  },
+  joinCtaText: {
+    fontSize: 16,
+    fontWeight: '600',
+    color: palette.white,
+  },
   signInButton: {
     marginTop: 16,
     backgroundColor: palette.primary,
@@ -267,4 +419,75 @@ const styles = StyleSheet.create({
     borderRadius: radius.button,
   },
   signInButtonText: { fontSize: 16, fontWeight: '600', color: palette.white },
+  buttonDisabled: { opacity: 0.5 },
+  modalOverlay: {
+    flex: 1,
+    backgroundColor: 'rgba(0,0,0,0.5)',
+    justifyContent: 'center',
+    alignItems: 'center',
+    padding: 24,
+  },
+  modalContent: {
+    width: '100%',
+    maxWidth: 400,
+    backgroundColor: palette.card,
+    borderRadius: radius.card,
+    padding: 24,
+  },
+  modalTitle: {
+    fontSize: 18,
+    fontWeight: '700',
+    color: palette.textPrimary,
+    marginBottom: 4,
+  },
+  modalSubtitle: {
+    fontSize: 14,
+    color: palette.textMuted,
+    marginBottom: 16,
+  },
+  modalInput: {
+    height: 48,
+    borderWidth: 1,
+    borderColor: palette.border,
+    borderRadius: radius.button,
+    paddingHorizontal: 14,
+    fontSize: 18,
+    fontWeight: '600',
+    color: palette.textPrimary,
+    letterSpacing: 2,
+    textAlign: 'center',
+    marginBottom: 12,
+  },
+  modalError: {
+    fontSize: 14,
+    color: palette.errorText,
+    marginBottom: 12,
+    textAlign: 'center',
+  },
+  modalActions: {
+    flexDirection: 'row',
+    justifyContent: 'flex-end',
+    gap: 12,
+    marginTop: 4,
+  },
+  modalCancel: {
+    paddingVertical: 10,
+    paddingHorizontal: 16,
+  },
+  modalCancelText: {
+    fontSize: 15,
+    fontWeight: '500',
+    color: palette.textMuted,
+  },
+  modalJoin: {
+    paddingVertical: 10,
+    paddingHorizontal: 20,
+    backgroundColor: palette.primary,
+    borderRadius: radius.button,
+  },
+  modalJoinText: {
+    fontSize: 15,
+    fontWeight: '600',
+    color: palette.white,
+  },
 });

@@ -33,7 +33,7 @@ from assignment_service import (
     get_resolved_config,
 )
 from auth_middleware import require_auth, require_auth_or_sample, require_auth_or_sample_chat
-from classroom_service import list_assignments_for_classroom, list_classrooms_for_student
+from classroom_service import join_classroom_by_code, list_assignments_for_classroom, list_classrooms_for_student
 from chat import generate_chat_response
 from chat_service import SAMPLE_ALGEBRA_ASSIGNMENT_ID, get_chat_history
 from dotenv import load_dotenv
@@ -84,7 +84,6 @@ log = logging.getLogger(__name__)
 client = Anthropic(api_key=ANTHROPIC_API_KEY)
 app = Flask(__name__)
 CORS(app)
-log = logging.getLogger(__name__)
 socketio = init_socketio(app)
 
 # -- Chat rate limiting: max 10 messages per minute per student --
@@ -1296,10 +1295,10 @@ def handwriting_autocomplete() -> Any:
     try:
         suggestion, ms = _gpt_autocomplete(b64_clean, problem_context)
     except Exception as exc:
-        print(f"[autocomplete] Error: {exc}")
+        log.error("Autocomplete failed: %s", exc)
         return jsonify({"error": f"Autocomplete failed: {exc}"}), 502
 
-    print(f"[autocomplete] ({ms}ms): {suggestion or '(empty)'}")
+    log.info("Autocomplete (%dms): %s", ms, suggestion or "(empty)")
     return jsonify({"suggestion": suggestion, "ms": ms})
 
 
@@ -1396,8 +1395,8 @@ def _extract_mistakes_with_coords(
     try:
         coords = _run_mistake_coord_pipeline(image_bytes, annotated_tex, mimetype)
         mistakes = coords.get("mistakes", [])
-    except (ValueError, RuntimeError):
-        pass
+    except (ValueError, RuntimeError) as exc:
+        log.warning("Coordinate pipeline failed (returning count without coords): %s", exc)
     return (mistake_count, mistakes)
 
 
@@ -1545,6 +1544,25 @@ def analyze_solution() -> Any:
 def list_classrooms() -> Any:
     classrooms = list_classrooms_for_student(g.user_id)
     return jsonify(classrooms)
+
+
+@app.post("/classrooms/join")
+@require_auth
+def join_classroom() -> Any:
+    payload = request.get_json(silent=True) or {}
+    class_code = str(payload.get("class_code", "")).strip()
+    if not class_code:
+        return jsonify({"error": "class_code is required."}), 400
+    try:
+        classroom = join_classroom_by_code(g.user_id, class_code)
+    except ValueError as exc:
+        msg = str(exc)
+        if "Invalid class code" in msg:
+            return jsonify({"error": msg}), 404
+        if "Already joined" in msg:
+            return jsonify({"error": msg}), 409
+        return jsonify({"error": msg}), 400
+    return jsonify({"classroom": classroom}), 201
 
 
 @app.get("/classrooms/<classroom_id>/assignments")

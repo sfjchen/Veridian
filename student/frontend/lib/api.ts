@@ -2,6 +2,30 @@ import type { ResolvedConfig } from '@/lib/teacherConfig';
 
 const BASE_URL = (process.env.EXPO_PUBLIC_BACKEND_URL ?? '').replace(/\/$/, '');
 
+/** Wraps fetch to surface network/CORS errors with a helpful message instead of raw TypeError. */
+async function safeFetch(url: string, init?: RequestInit): Promise<Response> {
+  try {
+    return await fetch(url, init);
+  } catch (e) {
+    if (e instanceof TypeError) {
+      throw new Error(
+        `Network error: unable to reach the server. Check your connection and that the backend is running.`,
+      );
+    }
+    throw e;
+  }
+}
+
+/** Reads a JSON error body from a failed response, falling back to a generic message. */
+async function extractErrorMessage(res: Response, fallback: string): Promise<string> {
+  try {
+    const body = await res.json();
+    return body.error ?? fallback;
+  } catch {
+    return fallback;
+  }
+}
+
 /** Prefer passing the logged-in user's token (e.g. from Supabase session) when available; env token is for dev/sample. */
 export function getAuthHeaders(accessToken?: string): Record<string, string> {
   const token = accessToken ?? process.env.EXPO_PUBLIC_SUPABASE_ACCESS_TOKEN?.trim();
@@ -80,12 +104,11 @@ export type ChatResponse = {
 };
 
 export async function fetchClassrooms(token?: string): Promise<Classroom[]> {
-  const res = await fetch(`${BASE_URL}/classrooms`, {
+  const res = await safeFetch(`${BASE_URL}/classrooms`, {
     headers: getAuthHeaders(token),
   });
   if (!res.ok) {
-    const body = await res.json().catch(() => ({}));
-    throw new Error(body.error ?? `Failed to fetch classrooms (${res.status})`);
+    throw new Error(await extractErrorMessage(res, `Failed to fetch classrooms (${res.status})`));
   }
   const data = await res.json();
   const list = data.classrooms ?? data;
@@ -96,12 +119,11 @@ export async function fetchAssignments(
   classroomId: string,
   token?: string,
 ): Promise<AssignmentListItem[]> {
-  const res = await fetch(`${BASE_URL}/classrooms/${classroomId}/assignments`, {
+  const res = await safeFetch(`${BASE_URL}/classrooms/${classroomId}/assignments`, {
     headers: getAuthHeaders(token),
   });
   if (!res.ok) {
-    const body = await res.json().catch(() => ({}));
-    throw new Error(body.error ?? `Failed to fetch assignments (${res.status})`);
+    throw new Error(await extractErrorMessage(res, `Failed to fetch assignments (${res.status})`));
   }
   const data = await res.json();
   const list = data.assignments ?? data;
@@ -109,12 +131,11 @@ export async function fetchAssignments(
 }
 
 export async function fetchAssignment(assignmentId: string, token?: string): Promise<Assignment> {
-  const res = await fetch(`${BASE_URL}/assignments/${assignmentId}`, {
+  const res = await safeFetch(`${BASE_URL}/assignments/${assignmentId}`, {
     headers: getAuthHeaders(token),
   });
   if (!res.ok) {
-    const body = await res.json().catch(() => ({}));
-    throw new Error(body.error ?? `Failed to fetch assignment (${res.status})`);
+    throw new Error(await extractErrorMessage(res, `Failed to fetch assignment (${res.status})`));
   }
   const data = await res.json();
   return data.assignment;
@@ -126,14 +147,15 @@ export async function sendChatMessage(
   message: string,
   token?: string,
 ): Promise<ChatResponse> {
-  const res = await fetch(`${BASE_URL}/chat`, {
+  const res = await safeFetch(`${BASE_URL}/chat`, {
     method: 'POST',
     headers: { 'Content-Type': 'application/json', ...getAuthHeaders(token) },
     body: JSON.stringify({ assignment_id: assignmentId, problem_num: problemNum, message }),
   });
-  const body = await res.json();
-  if (!res.ok) throw new Error(body.error ?? `Chat failed (${res.status})`);
-  return body;
+  if (!res.ok) {
+    throw new Error(await extractErrorMessage(res, `Chat failed (${res.status})`));
+  }
+  return await res.json();
 }
 
 export async function fetchChatHistory(
@@ -141,12 +163,27 @@ export async function fetchChatHistory(
   problemNum: number,
   token?: string,
 ): Promise<ChatMessage[]> {
-  const res = await fetch(`${BASE_URL}/chat/${assignmentId}/${problemNum}`, {
+  const res = await safeFetch(`${BASE_URL}/chat/${assignmentId}/${problemNum}`, {
     headers: getAuthHeaders(token),
   });
+  if (!res.ok) {
+    throw new Error(await extractErrorMessage(res, `Failed to fetch chat history (${res.status})`));
+  }
   const body = await res.json();
-  if (!res.ok) throw new Error(body.error ?? `Failed to fetch chat history (${res.status})`);
   return body.messages ?? [];
+}
+
+export async function joinClassroom(classCode: string, token?: string): Promise<Classroom> {
+  const res = await safeFetch(`${BASE_URL}/classrooms/join`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json', ...getAuthHeaders(token) },
+    body: JSON.stringify({ class_code: classCode }),
+  });
+  if (!res.ok) {
+    throw new Error(await extractErrorMessage(res, `Failed to join classroom (${res.status})`));
+  }
+  const body = await res.json();
+  return body.classroom;
 }
 
 export type AutocompleteResult = { suggestion: string; ms: number };
@@ -156,15 +193,16 @@ export async function fetchAutocomplete(
   problemContext: string,
   signal?: AbortSignal,
 ): Promise<AutocompleteResult> {
-  const res = await fetch(`${BASE_URL}/handwriting-ocr`, {
+  const res = await safeFetch(`${BASE_URL}/handwriting-ocr`, {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
     body: JSON.stringify({ image: canvasImage, problem_context: problemContext }),
     signal,
   });
-  const body = await res.json();
-  if (!res.ok) throw new Error(body.error ?? `Autocomplete failed (${res.status})`);
-  return body;
+  if (!res.ok) {
+    throw new Error(await extractErrorMessage(res, `Autocomplete failed (${res.status})`));
+  }
+  return await res.json();
 }
 
 function dataUriToBlob(dataUri: string): Blob {
@@ -178,7 +216,7 @@ function dataUriToBlob(dataUri: string): Blob {
 
 export async function submitAnalysis(
   imageUri: string,
-  opts: { assignmentId?: string; problemNum?: number; isSample?: boolean; token?: string },
+  opts: { assignmentId?: string; problemNum?: number; isSample?: boolean; sampleSlug?: string; token?: string },
 ): Promise<AnalysisResult> {
   const formData = new FormData();
 
@@ -197,13 +235,15 @@ export async function submitAnalysis(
   if (opts.assignmentId) formData.append('assignment_id', opts.assignmentId);
   if (opts.problemNum != null) formData.append('problem_num', String(opts.problemNum));
   if (opts.isSample) formData.append('is_sample', 'true');
+  if (opts.sampleSlug) formData.append('sample_slug', opts.sampleSlug);
 
-  const res = await fetch(`${BASE_URL}/analyze-solution`, {
+  const res = await safeFetch(`${BASE_URL}/analyze-solution`, {
     method: 'POST',
     headers: getAuthHeaders(opts.token),
     body: formData,
   });
-  const body = await res.json();
-  if (!res.ok) throw new Error(body.error ?? `Analysis failed (${res.status})`);
-  return body;
+  if (!res.ok) {
+    throw new Error(await extractErrorMessage(res, `Analysis failed (${res.status})`));
+  }
+  return await res.json();
 }

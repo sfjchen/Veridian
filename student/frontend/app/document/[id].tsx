@@ -27,11 +27,11 @@ import { SampleAlgebraContent } from '@/components/SampleAlgebraContent';
 import { palette, radius } from '@/constants/palette';
 import { useAssignment } from '@/hooks/useAssignment';
 import { useAutoAnalysis } from '@/hooks/useAutoAnalysis';
+import { useAccessToken } from '@/hooks/useAccessToken';
 import { useDocuments, isDefaultDocument } from '@/hooks/useDocuments';
-import type { AnalysisResult, Mistake } from '@/lib/api';
+import { submitAnalysis, type AnalysisResult, type Mistake } from '@/lib/api';
 import type { CaptureResult } from '@/lib/capture-types';
 import { captureStrokesAsDataUri } from '@/lib/capture-web';
-import { buildAnalysisFormData } from '@/lib/image-upload';
 import { PDF_VIEWER_HTML } from '@/lib/pdf-viewer-html';
 import { SAMPLE_ALGEBRA_HTML } from '@/lib/sample-algebra-html';
 import {
@@ -68,12 +68,6 @@ type CanvasViewProps = {
   onAskAboutMistake?: (mistake: Mistake) => void;
   onCanvasLayout?: (width: number, height: number) => void;
 };
-
-function isNetworkError(err: Error): boolean {
-  if (err.name === 'TypeError' || err.name === 'NetworkError') return true;
-  const msg = err.message.toLowerCase();
-  return msg.includes('fetch') || msg.includes('network') || msg.includes('failed to') || msg.includes('connection');
-}
 
 function showAlert(title: string, message: string) {
   if (Platform.OS === 'web' && typeof window !== 'undefined' && window.alert) {
@@ -158,6 +152,7 @@ export default function DocumentScreen() {
   const { id, assignmentId: assignmentIdParam, classroomName } = params;
   const assignmentId = assignmentIdParam ?? null;
   const router = useRouter();
+  const token = useAccessToken() ?? undefined;
   const {
     getDocument,
     loading: docsLoading,
@@ -250,14 +245,9 @@ export default function DocumentScreen() {
 
   const notifyError = useCallback(
     (message: string) => {
-      if (config.notification_style === 'toast') {
-        pushToast(message, 'error');
-      }
-      if (config.notification_style === 'badge') {
-        setBadgeState({ label: message, tone: 'error' });
-      }
+      showAlert('Analysis failed', message);
     },
-    [config.notification_style, pushToast],
+    [],
   );
 
   useEffect(() => {
@@ -395,6 +385,7 @@ export default function DocumentScreen() {
     assignmentId: assignmentId ?? undefined,
     problemNum: currentProblem?.num,
     isSample: isDefault,
+    token,
     debounceMs: config.analysis_debounce_seconds * 1000,
     enabled: isProblemMode && !!canvasDims,
     mode: analysisTrigger,
@@ -481,39 +472,19 @@ export default function DocumentScreen() {
     }
 
     const uri = result.uri;
-    const apiUrl = process.env.EXPO_PUBLIC_BACKEND_URL ?? '';
-    if (!apiUrl) {
-      showAlert('Submit failed', 'Set EXPO_PUBLIC_BACKEND_URL in .env and restart Expo.');
-      return;
-    }
-
-    const extra: Record<string, string> = isDefault
-      ? { is_sample: 'true', sample_slug: 'high-school-algebra-01' }
-      : {};
-    const formData = await buildAnalysisFormData(uri, extra);
     try {
-      const res = await fetch(`${apiUrl.replace(/\/$/, '')}/analyze-solution`, { method: 'POST', body: formData });
-      const body = await res.json();
-      if (res.ok) {
-        const count = body.mistake_count ?? 0;
-        showAlert('Analysis Complete', count === 0 ? 'No mistakes found!' : `Found ${count} mistake${count !== 1 ? 's' : ''}.`);
-      } else {
-        showAlert('Analysis failed', body.error ?? 'Unable to analyze work.');
-      }
+      const body = await submitAnalysis(uri, {
+        isSample: isDefault,
+        sampleSlug: isDefault ? 'high-school-algebra-01' : undefined,
+        token,
+      });
+      const count = body.mistake_count ?? 0;
+      showAlert('Analysis Complete', count === 0 ? 'No mistakes found!' : `Found ${count} mistake${count !== 1 ? 's' : ''}.`);
     } catch (e) {
       const err = e instanceof Error ? e : new Error(String(e));
-      if (isNetworkError(err)) {
-        showAlert(
-          'Submit failed',
-          Platform.OS === 'android'
-            ? 'Cannot reach server. On Android emulator use EXPO_PUBLIC_BACKEND_URL=http://10.0.2.2:8000 in .env'
-            : 'Check that the Flask server is running (python get_coords.py) and .env has EXPO_PUBLIC_BACKEND_URL. Restart Expo after changing .env.',
-        );
-      } else {
-        showAlert('Submit failed', 'Check that the Flask server is running.');
-      }
+      showAlert('Analysis failed', err.message);
     }
-  }, [isProblemMode, analysisTrigger, triggerNow, captureScreenshot, isDefault]);
+  }, [isProblemMode, analysisTrigger, triggerNow, captureScreenshot, isDefault, token]);
 
   const handleAskAboutMistake = useCallback(
     (_mistake: Mistake) => {

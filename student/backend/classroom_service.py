@@ -77,6 +77,12 @@ def join_classroom_by_code(student_id: str, class_code: str) -> Dict[str, Any]:
     return classroom
 
 
+_STUDENT_ASSIGNMENT_FIELDS = (
+    "id, classroom_id, title, due_date, config, "
+    "prompt_storage_path, problems, created_at, updated_at"
+)
+
+
 def list_assignments_for_classroom(
     classroom_id: str, student_id: str
 ) -> List[Dict[str, Any]]:
@@ -85,7 +91,7 @@ def list_assignments_for_classroom(
         return []
     response = (
         supabase.table(ASSIGNMENTS_TABLE)
-        .select("*")
+        .select(_STUDENT_ASSIGNMENT_FIELDS)
         .eq("classroom_id", classroom_id)
         .order("created_at", desc=True)
         .execute()

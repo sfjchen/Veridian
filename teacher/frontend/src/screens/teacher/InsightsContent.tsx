@@ -55,11 +55,14 @@ export function InsightsContent({ classroomId, navigation }: { classroomId: stri
   const { overview, loading: overviewLoading, error: overviewError, refresh: refreshOverview } = useClassroomOverview(classroomId);
   const { trends, loading: trendsLoading, error: trendsError, refresh: refreshTrends } = useClassroomTrends(classroomId);
 
-  const refreshAll = useCallback(async () => {
-    await Promise.all([refreshOverview(), refreshFaq(), refreshHeatmap(), refreshTrends()]);
-  }, [refreshOverview, refreshFaq, refreshHeatmap, refreshTrends]);
+  const refreshActive = useCallback(async () => {
+    const refreshMap: Record<SubTab, () => Promise<void>> = {
+      overview: refreshOverview, faq: refreshFaq, mistakes: refreshHeatmap, trends: refreshTrends,
+    };
+    await refreshMap[subTab]();
+  }, [subTab, refreshOverview, refreshFaq, refreshHeatmap, refreshTrends]);
 
-  useFocusEffect(useCallback(() => { refreshAll(); }, [refreshAll]));
+  useFocusEffect(useCallback(() => { refreshActive(); }, [refreshActive]));
 
   const handleRefresh = useCallback(async () => {
     const refreshMap: Record<SubTab, () => Promise<void>> = {

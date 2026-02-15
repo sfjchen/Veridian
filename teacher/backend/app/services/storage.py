@@ -2,7 +2,7 @@ from app.services.supabase_client import get_supabase_admin_client
 
 
 def _validate_path(path: str) -> None:
-    if ".." in path or path.startswith("/"):
+    if not path or ".." in path or path.startswith("/") or "\x00" in path:
         raise ValueError(f"Invalid storage path: {path}")
 
 

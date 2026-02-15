@@ -90,6 +90,7 @@ log = logging.getLogger(__name__)
 
 client = Anthropic(api_key=ANTHROPIC_API_KEY)
 app = Flask(__name__)
+app.config["MAX_CONTENT_LENGTH"] = 16 * 1024 * 1024  # 16 MB upload limit
 CORS(app)
 socketio = init_socketio(app)
 
@@ -99,6 +100,7 @@ socketio = init_socketio(app)
 # for production deployments.
 _CHAT_RATE_LIMIT = 10
 _CHAT_RATE_WINDOW = 60
+_CHAT_MAX_MESSAGE_LENGTH = 5000
 _chat_timestamps: Dict[str, List[float]] = defaultdict(list)
 _chat_lock = threading.Lock()
 
@@ -406,7 +408,7 @@ def _ensure_persist_dlq_bootstrapped() -> None:
         try:
             _replay_persist_dead_letters()
         except Exception as exc:
-            log.error("Failed to replay persisted-result dead letters: %s", exc)
+            log.error("Failed to replay persisted-result dead letters: %s", exc, exc_info=True)
             return
         _result_dlq_bootstrapped = True
 
@@ -754,14 +756,7 @@ def _infer_image_media_type(image_bytes: bytes) -> str:
     except UnidentifiedImageError as exc:
         raise ValueError(f"Invalid image format: {exc}") from exc
 
-    fmt_to_mime = {
-        "PNG": "image/png",
-        "JPEG": "image/jpeg",
-        "JPG": "image/jpeg",
-        "WEBP": "image/webp",
-        "GIF": "image/gif",
-    }
-    mime_type = fmt_to_mime.get(fmt)
+    mime_type = _FMT_TO_MIME.get(fmt)
     if not mime_type:
         raise ValueError(f"Unsupported image format: {fmt or 'unknown'}")
     return mime_type
@@ -874,14 +869,15 @@ def _parse_coord_response(
 
 def _run_mistake_coord_pipeline(
     image_bytes: bytes, latex: str, media_type: str
-) -> Dict[str, List[Dict[str, Any]]]:
+) -> Dict[str, Any]:
     annotations, dims = _parse_and_validate_annotations(latex, image_bytes)
     prompt = _build_vision_prompt(annotations, dims)
     encoded_image = base64.b64encode(image_bytes).decode("utf-8")
     messages = _build_vision_message(prompt, encoded_image, media_type or "image/png")
     raw_output = _call_claude_vision(messages, len(annotations))
-    result = _parse_coord_response(raw_output, annotations, dims)
+    result: Dict[str, Any] = _parse_coord_response(raw_output, annotations, dims)
     result["mistakes"] = _add_dot_coords(result["mistakes"], dims)
+    result["_image_dims"] = dims
     return result
 
 
@@ -896,41 +892,25 @@ def _count_mistake_annotations_approx(latex: str) -> int:
     return len(_MISTAKE_PATTERN.findall(latex))
 
 
-_FMT_TO_SUFFIX = {"PNG": ".png", "JPEG": ".jpg", "JPG": ".jpg", "WEBP": ".webp", "GIF": ".gif"}
 _FMT_TO_MIME = {"PNG": "image/png", "JPEG": "image/jpeg", "JPG": "image/jpeg", "WEBP": "image/webp", "GIF": "image/gif"}
 
 
-def _fmt_to_suffix(fmt: str) -> str:
-    key = (fmt or "").upper()
-    if key not in _FMT_TO_SUFFIX:
-        raise ValueError(f"Unsupported image format: {fmt or 'unknown'}. Use PNG, JPEG, WEBP, or GIF.")
-    return _FMT_TO_SUFFIX[key]
-
-
-def _downscale_image_for_ocr(image_bytes: bytes) -> bytes:
-    max_side = int(os.getenv("MATH_OCR_MAX_IMAGE_SIDE", "1024"))
-    with Image.open(BytesIO(image_bytes)) as im:
-        w, h = im.size
-        if max(w, h) <= max_side:
-            return image_bytes
-        original_format = im.format or "PNG"
-        scale = max_side / max(w, h)
-        new_w, new_h = int(w * scale), int(h * scale)
-        resized = im.resize((new_w, new_h), Image.LANCZOS)
-        out = BytesIO()
-        resized.save(out, format=original_format)
-        return out.getvalue()
-
-
 def _image_bytes_to_latex(image_bytes: bytes) -> str:
+    max_side = int(os.getenv("MATH_OCR_MAX_IMAGE_SIDE", "1024"))
     try:
         with Image.open(BytesIO(image_bytes)) as im:
             fmt = (im.format or "PNG").upper()
+            w, h = im.size
+            if max(w, h) > max_side:
+                scale = max_side / max(w, h)
+                resized = im.resize((int(w * scale), int(h * scale)), Image.LANCZOS)
+                out = BytesIO()
+                resized.save(out, format=fmt)
+                image_bytes = out.getvalue()
     except UnidentifiedImageError as exc:
         raise ValueError(f"Invalid image format: {exc}") from exc
 
     mime_type = _FMT_TO_MIME.get(fmt, "image/png")
-    image_bytes = _downscale_image_for_ocr(image_bytes)
 
     _ocr_debug = os.getenv("MATH_OCR_DEBUG", "") or os.getenv("DEBUG", "")
     t0 = time.perf_counter()
@@ -1183,7 +1163,7 @@ def mistake_coords_from_artifacts() -> Any:
             result=coords_payload,
         )
     except Exception as exc:
-        log.error("Failed to create coord run: %s", exc)
+        log.error("Failed to create coord run: %s", exc, exc_info=True)
         run_payload = None
 
     response = {"mistakes": coords_payload["mistakes"]}
@@ -1287,15 +1267,13 @@ def handwriting_autocomplete() -> Any:
     try:
         suggestion, ms = _gpt_autocomplete(b64_clean, problem_context)
     except Exception as exc:
-        log.error("Autocomplete failed: %s", exc)
+        log.error("Autocomplete failed: %s", exc, exc_info=True)
         return jsonify({"error": f"Autocomplete failed: {exc}"}), 502
 
     log.info("Autocomplete (%dms): %s", ms, suggestion or "(empty)")
     return jsonify({"suggestion": suggestion, "ms": ms})
 
 
-# TODO(teacher-backend): MVP-only sample defaults. In production, reference_tex comes from
-# assignments.answer_key_storage_path (bucket: "assignments", path: "{classroom_id}/{assignment_id}/answer_key").
 _DEFAULT_REFERENCE_TEX = r"""
 1. \; 2x + 5 = 13 \implies 2x = 8 \implies x = 4
 2. \; 3(x - 4) = 15 \implies 3x - 12 = 15 \implies 3x = 27 \implies x = 9
@@ -1304,8 +1282,6 @@ _DEFAULT_REFERENCE_TEX = r"""
 5. \; x + y = 10,\; 2x - y = 2 \implies 3x = 12 \implies x = 4,\; y = 6
 """.strip()
 
-# TODO(teacher-backend): MVP-only sample defaults. In production, context_tex comes from
-# assignments.context_file_ids -> corpus_files.storage_path (bucket: "corpus", path: "{classroom_id}/{file_uuid}").
 _DEFAULT_CONTEXT_TEX = r"""
 Algebra worksheet: solve single-variable linear equations and simplify expressions.
 Topics: basic linear equations, distributive property, combining like terms, systems of equations.
@@ -1374,9 +1350,9 @@ def _run_analysis(image_bytes: bytes, params: AnalysisParams) -> Dict[str, Any]:
 
 def _extract_mistakes_with_coords(
     annotated_tex: str, image_bytes: bytes, mimetype: str
-) -> tuple[int, List[Dict[str, Any]]]:
+) -> tuple[int, List[Dict[str, Any]], tuple[int, int] | None]:
     if not _has_mistake_annotations(annotated_tex):
-        return (0, [])
+        return (0, [], None)
 
     try:
         parsed = extract_mistake_annotations(annotated_tex)
@@ -1385,12 +1361,14 @@ def _extract_mistakes_with_coords(
         mistake_count = _count_mistake_annotations_approx(annotated_tex) or 0
 
     mistakes: List[Dict[str, Any]] = []
+    dims: tuple[int, int] | None = None
     try:
         coords = _run_mistake_coord_pipeline(image_bytes, annotated_tex, mimetype)
         mistakes = coords.get("mistakes", [])
+        dims = coords.get("_image_dims")
     except (ValueError, RuntimeError) as exc:
         log.warning("Coordinate pipeline failed (returning count without coords): %s", exc)
-    return (mistake_count, mistakes)
+    return (mistake_count, mistakes, dims)
 
 
 def _parse_analysis_request() -> tuple[bytes, str, ContextLookup, bool]:
@@ -1423,16 +1401,19 @@ def _parse_analysis_request() -> tuple[bytes, str, ContextLookup, bool]:
 
 
 def _postprocess_mistakes(
-    mistakes: List[Dict[str, Any]], image_bytes: bytes, hint_level: str
+    mistakes: List[Dict[str, Any]], image_bytes: bytes, hint_level: str,
+    cached_dims: tuple[int, int] | None = None,
 ) -> List[Dict[str, Any]]:
     if not mistakes:
         return mistakes
     try:
-        with Image.open(BytesIO(image_bytes)) as im:
-            dims = im.size
+        dims = cached_dims
+        if dims is None:
+            with Image.open(BytesIO(image_bytes)) as im:
+                dims = im.size
         mistakes = _add_dot_coords(mistakes, dims)
     except Exception as exc:
-        log.error("Failed to compute dot coordinates: %s", exc)
+        log.error("Failed to compute dot coordinates: %s", exc, exc_info=True)
     return _filter_by_hint_level(mistakes, hint_level)
 
 
@@ -1509,9 +1490,9 @@ def analyze_solution() -> Any:
     timing = dict(result.pop("_timing", {}))
     t_coords = time.perf_counter()
     annotated_tex = result["annotated_tex"]
-    mistake_count, mistakes = _extract_mistakes_with_coords(annotated_tex, image_bytes, mimetype)
+    mistake_count, mistakes, cached_dims = _extract_mistakes_with_coords(annotated_tex, image_bytes, mimetype)
     timing["coords_ms"] = int((time.perf_counter() - t_coords) * 1000)
-    mistakes = _postprocess_mistakes(mistakes, image_bytes, hint_level)
+    mistakes = _postprocess_mistakes(mistakes, image_bytes, hint_level, cached_dims=cached_dims)
 
     if _profile_enabled():
         _profile_log_timing(timing)
@@ -1605,13 +1586,14 @@ def get_assignment_endpoint(assignment_id: str) -> Any:
     assignment = get_assignment(assignment_id)
     if assignment is None:
         return jsonify({"error": "Assignment not found."}), 404
-    if not can_student_access_assignment(assignment_id, g.user_id, g.user_role):
+    if not can_student_access_assignment(assignment_id, g.user_id, g.user_role, assignment=assignment):
         return jsonify({"error": "Access denied"}), 403
     try:
-        resolved_config = get_resolved_config(assignment_id)
+        resolved_config = get_resolved_config(assignment_id, assignment=assignment)
     except ValueError as exc:
         return jsonify({"error": str(exc)}), 400
     payload = dict(assignment)
+    payload.pop("answer_key_storage_path", None)
     payload["resolved_config"] = resolved_config
     if assignment.get("prompt_storage_path"):
         payload["assignment_file_download_url"] = _assignment_download_url(assignment["prompt_storage_path"])
@@ -1626,7 +1608,7 @@ def get_assignment_problems(assignment_id: str) -> Any:
     assignment = get_assignment(assignment_id)
     if assignment is None:
         return jsonify({"error": "Assignment not found."}), 404
-    if not can_student_access_assignment(assignment_id, g.user_id, g.user_role):
+    if not can_student_access_assignment(assignment_id, g.user_id, g.user_role, assignment=assignment):
         return jsonify({"error": "Access denied"}), 403
     problems = assignment.get("problems", [])
     if not isinstance(problems, list):
@@ -1667,6 +1649,8 @@ def chat_send() -> Any:
 
     if not assignment_id or problem_num is None or not message:
         return jsonify({"error": "assignment_id, problem_num, and message are required."}), 400
+    if len(message) > _CHAT_MAX_MESSAGE_LENGTH:
+        return jsonify({"error": f"Message too long. Maximum {_CHAT_MAX_MESSAGE_LENGTH} characters."}), 400
     if not _is_valid_assignment_identifier(assignment_id):
         return jsonify({"error": "Invalid assignment_id format."}), 400
 

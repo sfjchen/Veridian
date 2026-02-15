@@ -11,7 +11,7 @@ export interface AssignmentConfig {
   check_button_visible: boolean;
   dot_threshold: "notational" | "mechanical" | "procedural" | "conceptual";
   max_dots_shown: number;
-  analysis_trigger: "auto_idle" | "manual_only" | "passive";
+  analysis_trigger: "auto_idle" | "auto_page_change" | "manual_only" | "passive";
   analysis_debounce_seconds: number;
   notification_style: "silent" | "toast" | "badge";
   chat_enabled: boolean;

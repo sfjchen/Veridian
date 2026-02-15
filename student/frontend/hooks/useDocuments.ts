@@ -45,7 +45,8 @@ async function pruneStaleDocuments(docs: DocumentMeta[]): Promise<DocumentMeta[]
       try {
         const info = await FileSystem.getInfoAsync(doc.uri);
         return info.exists ? doc : null;
-      } catch {
+      } catch (e) {
+        console.warn('[useDocuments] Failed to check file existence:', doc.uri, e);
         return null;
       }
     }),

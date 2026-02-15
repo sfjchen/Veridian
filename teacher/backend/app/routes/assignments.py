@@ -140,7 +140,13 @@ def list_assignments(classroom_id: str) -> Tuple[Response, int]:
         "classroom_id", classroom_id
     ).order("created_at", desc=True).execute()
 
-    return jsonify(assignments.data), 200
+    records = assignments.data
+    if g.user_role != "teacher":
+        records = [
+            {k: v for k, v in rec.items() if k != "answer_key_storage_path"}
+            for rec in records
+        ]
+    return jsonify(records), 200
 
 
 @assignments_bp.route("/assignments/<assignment_id>", methods=["GET"])
@@ -199,6 +205,8 @@ def get_assignment(assignment_id: str) -> Tuple[Response, int]:
     elif is_teacher:
         result["answer_key_download_url"] = None
 
+    if not is_teacher:
+        result.pop("answer_key_storage_path", None)
     return jsonify(result), 200
 
 

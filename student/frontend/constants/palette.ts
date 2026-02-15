@@ -6,7 +6,7 @@ import { Platform } from 'react-native';
  */
 
 export const palette = {
-  primary: '#111827',
+  primary: '#16A34A',
   primaryMutedTint: '#f5f7fb',
   surface: '#f3f4f6',
   card: '#ffffff',
@@ -27,6 +27,26 @@ export const palette = {
   errorText: '#dc2626',
   link: '#2563eb',
   overlay: 'rgba(0,0,0,0.4)',
+  success: '#10B981',
+  successBg: '#F0FDF4',
+  warning: '#F59E0B',
+  warningBg: '#FEF3C7',
+  primaryMuted: '#ECFDF5',
+  forestCanopy: '#0F7B3A',
+  forestLeaf: '#22C55E',
+  forestBark: '#8B7355',
+  forestMist: '#E8F5E9',
+  forestGradientStart: '#E8F5E9',
+  forestGradientEnd: '#f9fafb',
+  forestSky: '#F0F7F0',
+  forestSunGlow: '#D8ECBE',
+  forestLayer1: '#C8DCC8',
+  forestLayer2: '#AED0AE',
+  forestLayer3: '#88BE88',
+  forestLayer4: '#58A258',
+  forestLayer5: '#358435',
+  forestLayer6: '#1C6420',
+  forestLayer7: '#0C3010',
 } as const;
 
 export const radius = {

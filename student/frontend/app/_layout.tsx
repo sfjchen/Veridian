@@ -7,6 +7,7 @@ import { StatusBar } from 'expo-status-bar';
 import 'react-native-reanimated';
 
 import { ErrorBoundary } from '@/components/ErrorBoundary';
+import { ForestBackground } from '@/components/forest';
 import { palette } from '@/constants/palette';
 import { useColorScheme } from '@/hooks/use-color-scheme';
 import { useAuth } from '@/hooks/useAuth';
@@ -51,19 +52,24 @@ export default function RootLayout() {
   return (
     <ErrorBoundary>
       <ThemeProvider value={colorScheme === 'dark' ? DarkTheme : DefaultTheme}>
-        <BackendHint />
-        <Stack>
-          <Stack.Screen name="(tabs)" options={{ headerShown: false }} />
-          <Stack.Screen
-            name="assignments/[classroomId]"
-            options={{ headerShown: false }}
-          />
-          <Stack.Screen name="WorkspaceScreen" options={{ title: 'Workspace', headerShown: true }} />
-          <Stack.Screen name="note/[id]" options={{ headerShown: false }} />
-          <Stack.Screen name="sign-in" options={{ title: 'Sign in', headerShown: false }} />
-          <Stack.Screen name="sign-up" options={{ headerShown: false }} />
-        </Stack>
-        <StatusBar style="auto" />
+        <View style={styles.root}>
+          <ForestBackground />
+          <View style={styles.content}>
+            <BackendHint />
+            <Stack>
+              <Stack.Screen name="(tabs)" options={{ headerShown: false }} />
+              <Stack.Screen
+                name="assignments/[classroomId]"
+                options={{ headerShown: false }}
+              />
+              <Stack.Screen name="WorkspaceScreen" options={{ title: 'Workspace', headerShown: true }} />
+              <Stack.Screen name="note/[id]" options={{ headerShown: false }} />
+              <Stack.Screen name="sign-in" options={{ title: 'Sign in', headerShown: false }} />
+              <Stack.Screen name="sign-up" options={{ headerShown: false }} />
+            </Stack>
+            <StatusBar style="auto" />
+          </View>
+        </View>
       </ThemeProvider>
     </ErrorBoundary>
   );
@@ -75,5 +81,12 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
     alignItems: 'center',
     backgroundColor: palette.surface,
+  },
+  root: {
+    flex: 1,
+  },
+  content: {
+    flex: 1,
+    backgroundColor: 'rgba(255,255,255,0.85)',
   },
 });

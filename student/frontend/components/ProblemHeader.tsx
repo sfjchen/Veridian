@@ -47,7 +47,7 @@ function WebLatexView({ statementTex }: { statementTex: string }) {
       <iframe
         src={blobUrl}
         style={{ width: '100%', height: 56, border: 'none', overflow: 'hidden' } as any}
-        sandbox="allow-scripts"
+        sandbox="allow-scripts allow-same-origin"
         title="Problem Statement"
       />
     </View>

@@ -1,5 +1,5 @@
 import React, { useState } from "react";
-import { Modal, StyleSheet, Text, TouchableOpacity, View } from "react-native";
+import { StyleSheet, Text, TouchableOpacity, View } from "react-native";
 import * as DocumentPicker from "expo-document-picker";
 import { Button, Card, Input, ScreenContainer, Section } from "../../components/ui";
 import { LeafAccent } from "../../components/forest";
@@ -108,12 +108,13 @@ export function CreateAssignmentScreen({ route, navigation }: { route: any; navi
   const [detectedProblems, setDetectedProblems] = useState<DetectedProblem[] | null>(null);
   const [convertedAssignmentId, setConvertedAssignmentId] = useState<string | null>(null);
   const [publishing, setPublishing] = useState(false);
-  const [quickTitleModalVisible, setQuickTitleModalVisible] = useState(false);
-  const [quickTitleDraft, setQuickTitleDraft] = useState("");
+  const [quickTitle, setQuickTitle] = useState("");
+  const [quickFile, setQuickFile] = useState<PickedFile | null>(null);
+  const [quickAnswerKeyFile, setQuickAnswerKeyFile] = useState<PickedFile | null>(null);
 
   const pickFile = async (setter: (f: PickedFile) => void) => {
     const result = await DocumentPicker.getDocumentAsync({
-      type: ["application/pdf", "text/*", "image/*"],
+      type: ["application/pdf", "text/*", "image/*", "application/x-tex", "application/x-latex"],
       copyToCacheDirectory: true,
     });
     if (result.canceled) return;
@@ -126,34 +127,10 @@ export function CreateAssignmentScreen({ route, navigation }: { route: any; navi
     });
   };
 
-  const handleQuickUploadTap = () => {
-    setQuickTitleDraft("");
-    setQuickTitleModalVisible(true);
-  };
+  const handleQuickCreate = async () => {
+    if (!quickTitle.trim() || !quickFile) return;
 
-  const handleQuickUploadSubmit = async () => {
-    const assignmentTitle = quickTitleDraft.trim();
-    if (!assignmentTitle) {
-      alert("Error", "Title is required");
-      return;
-    }
-    setQuickTitleModalVisible(false);
-
-    const result = await DocumentPicker.getDocumentAsync({
-      type: ["application/pdf", "text/*"],
-      copyToCacheDirectory: true,
-    });
-    if (result.canceled) return;
-
-    const asset = result.assets[0];
-    const picked: PickedFile = {
-      name: asset.name,
-      uri: asset.uri,
-      mimeType: asset.mimeType ?? "application/octet-stream",
-      file: asset.file,
-    };
-    const fileName = picked.name.toLowerCase();
-
+    const fileName = quickFile.name.toLowerCase();
     if (!fileName.endsWith(".pdf") && !fileName.endsWith(".tex")) {
       alert("Error", "Please select a PDF or TEX file");
       return;
@@ -163,7 +140,7 @@ export function CreateAssignmentScreen({ route, navigation }: { route: any; navi
     let socketHandle: ConversionSocketHandle | null = null;
 
     setConverting(true);
-    setConversionFileName(picked.name);
+    setConversionFileName(quickFile.name);
     setConversionStatus(INITIAL_CONVERSION_STATUS);
     try {
       try {
@@ -191,10 +168,9 @@ export function CreateAssignmentScreen({ route, navigation }: { route: any; navi
         });
       }
 
-      // Create FormData
       const formData = new FormData();
-      formData.append("file", toMultipartFile(picked) as any);
-      formData.append("title", assignmentTitle);
+      formData.append("file", toMultipartFile(quickFile) as any);
+      formData.append("title", quickTitle.trim());
       formData.append("job_id", jobId);
       if (selectedContextFiles.length > 0) {
         formData.append("context_file_ids", JSON.stringify(selectedContextFiles));
@@ -204,6 +180,19 @@ export function CreateAssignmentScreen({ route, navigation }: { route: any; navi
         `/classrooms/${classroomId}/assignments/from-file`,
         formData
       );
+
+      // Upload answer key if provided
+      if (quickAnswerKeyFile && data.id) {
+        const akFileName = quickAnswerKeyFile.name.toLowerCase();
+        if (akFileName.endsWith(".pdf") || akFileName.endsWith(".tex")) {
+          const akFormData = new FormData();
+          akFormData.append("file", toMultipartFile(quickAnswerKeyFile) as any);
+          await apiMultipart(
+            `/assignments/${data.id}/convert-answer-key`,
+            akFormData
+          );
+        }
+      }
 
       setDetectedProblems(data.problems || []);
       setConvertedAssignmentId(data.id);
@@ -220,11 +209,6 @@ export function CreateAssignmentScreen({ route, navigation }: { route: any; navi
       setConversionFileName("");
       setConversionStatus(INITIAL_CONVERSION_STATUS);
     }
-  };
-
-  const handleQuickUploadCancel = () => {
-    setQuickTitleModalVisible(false);
-    setQuickTitleDraft("");
   };
 
   const handlePublish = async () => {
@@ -354,32 +338,6 @@ export function CreateAssignmentScreen({ route, navigation }: { route: any; navi
         connected={conversionStatus.connected}
       />
 
-      <Modal visible={quickTitleModalVisible} transparent animationType="fade">
-        <TouchableOpacity
-          style={styles.modalOverlay}
-          activeOpacity={1}
-          onPress={handleQuickUploadCancel}
-        >
-          <TouchableOpacity activeOpacity={1} onPress={() => {}} style={styles.modalContent}>
-            <Text style={styles.modalTitle}>Assignment title</Text>
-            <Input
-              placeholder="Enter title"
-              value={quickTitleDraft}
-              onChangeText={setQuickTitleDraft}
-              autoFocus
-            />
-            <View style={styles.modalActions}>
-              <Button variant="ghost" onPress={handleQuickUploadCancel}>
-                Cancel
-              </Button>
-              <Button onPress={handleQuickUploadSubmit} disabled={!quickTitleDraft.trim()}>
-                Continue
-              </Button>
-            </View>
-          </TouchableOpacity>
-        </TouchableOpacity>
-      </Modal>
-
       <View style={styles.content}>
         <View style={styles.titleRow}>
           <LeafAccent size={24} />
@@ -388,12 +346,29 @@ export function CreateAssignmentScreen({ route, navigation }: { route: any; navi
 
         {/* Quick Upload Section */}
         <Section title="Quick Create from PDF/TEX">
-          <Card onPress={handleQuickUploadTap} style={styles.quickUploadCard}>
-            <Text style={styles.quickUploadTitle}>📄 Upload PDF or TEX File</Text>
-            <Text style={styles.quickUploadSubtitle}>
-              Automatically detect problems and create assignment
+          <Input
+            placeholder="Assignment title"
+            value={quickTitle}
+            onChangeText={setQuickTitle}
+          />
+          <Card onPress={() => pickFile(setQuickFile)} style={styles.fileCard}>
+            <Text style={styles.filePickerText}>
+              {quickFile ? quickFile.name : "Select Assignment File (PDF/TEX)"}
             </Text>
           </Card>
+          <Card onPress={() => pickFile(setQuickAnswerKeyFile)} style={styles.fileCard}>
+            <Text style={styles.filePickerText}>
+              {quickAnswerKeyFile ? quickAnswerKeyFile.name : "Select Answer Key (PDF/TEX)"}
+            </Text>
+          </Card>
+          <Button
+            onPress={handleQuickCreate}
+            disabled={!quickTitle.trim() || !quickFile || converting}
+            loading={converting}
+            fullWidth
+          >
+            Quick Create
+          </Button>
         </Section>
 
         <View style={styles.divider}>
@@ -512,22 +487,6 @@ const styles = StyleSheet.create({
   content: { paddingVertical: spacing.lg },
   titleRow: { flexDirection: "row", alignItems: "center", gap: spacing.xs, marginBottom: spacing.lg },
   title: { ...typography.h1, color: palette.textPrimary },
-  quickUploadCard: {
-    padding: spacing.lg,
-    backgroundColor: palette.primaryMutedTint,
-    borderWidth: 2,
-    borderColor: palette.primary,
-    borderStyle: "dashed",
-  },
-  quickUploadTitle: {
-    ...typography.heading2,
-    color: palette.primary,
-    marginBottom: spacing.xs,
-  },
-  quickUploadSubtitle: {
-    ...typography.body,
-    color: palette.textSecondary,
-  },
   divider: {
     flexDirection: "row",
     alignItems: "center",
@@ -596,29 +555,4 @@ const styles = StyleSheet.create({
   expandToggleText: { ...typography.buttonSmall, color: palette.link },
   configSection: { marginBottom: spacing.md },
   submitButton: { marginTop: spacing.xs },
-  modalOverlay: {
-    flex: 1,
-    backgroundColor: "rgba(0,0,0,0.5)",
-    justifyContent: "center",
-    alignItems: "center",
-    padding: spacing.lg,
-  },
-  modalContent: {
-    width: "100%",
-    maxWidth: 400,
-    backgroundColor: palette.card,
-    borderRadius: 8,
-    padding: spacing.lg,
-  },
-  modalTitle: {
-    ...typography.heading2,
-    color: palette.textPrimary,
-    marginBottom: spacing.md,
-  },
-  modalActions: {
-    flexDirection: "row",
-    justifyContent: "flex-end",
-    gap: spacing.sm,
-    marginTop: spacing.md,
-  },
 });

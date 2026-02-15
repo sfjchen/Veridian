@@ -374,7 +374,7 @@ def create_assignment_from_file(classroom_id: str) -> Tuple[Response, int]:
         "prompt_storage_path": prompt_path,
         "prompt_latex": result.latex_content,
         "problems": [dict(p) for p in result.problems],
-        "published": False,  # Draft by default - teacher reviews before publishing
+        "published": True,
     }
     if due_date:
         insert_data["due_date"] = due_date

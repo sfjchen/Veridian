@@ -5,7 +5,23 @@ const BASE_URL = (process.env.EXPO_PUBLIC_BACKEND_URL ?? '').replace(/\/$/, '');
 /** Wraps fetch to surface network/CORS errors with a helpful message instead of raw TypeError. */
 async function safeFetch(url: string, init?: RequestInit): Promise<Response> {
   try {
-    return await fetch(url, init);
+    const res = await fetch(url, init);
+    if (res.status === 401 && init?.headers) {
+      // Token may not have loaded yet — wait and retry once
+      await new Promise(r => setTimeout(r, 500));
+      const { supabase } = await import('@/lib/supabase');
+      const { data: { session } } = await supabase.auth.getSession();
+      if (session?.access_token) {
+        const headers = init.headers instanceof Headers
+          ? Object.fromEntries(init.headers.entries())
+          : Array.isArray(init.headers)
+            ? Object.fromEntries(init.headers)
+            : { ...init.headers };
+        headers['Authorization'] = `Bearer ${session.access_token}`;
+        return await fetch(url, { ...init, headers });
+      }
+    }
+    return res;
   } catch (e) {
     if (e instanceof TypeError) {
       throw new Error(

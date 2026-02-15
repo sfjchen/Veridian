@@ -294,6 +294,27 @@ export function TeacherAssignmentScreen({ route, navigation }: { route: any; nav
     }
   };
 
+  const handleDeleteAssignment = () => {
+    alert(
+      "Delete Assignment",
+      "Are you sure you want to delete this assignment? This cannot be undone.",
+      [
+        { text: "Cancel" },
+        {
+          text: "Delete",
+          onPress: async () => {
+            try {
+              await api(`/assignments/${assignmentId}`, { method: "DELETE" });
+              navigation.goBack();
+            } catch (e: any) {
+              alert("Error", e.message);
+            }
+          },
+        },
+      ]
+    );
+  };
+
   const handleReupload = async () => {
     setReuploading(true);
     try {
@@ -508,6 +529,11 @@ export function TeacherAssignmentScreen({ route, navigation }: { route: any; nav
                   >
                     Upload Answer Key (PDF/TEX)
                   </Button>
+                  {uploadingAnswerKey && (
+                    <Text style={styles.convertHint}>
+                      Converting answer key... This may take up to a minute.
+                    </Text>
+                  )}
                 </View>
               )}
               {detectedSolutions && (
@@ -535,6 +561,14 @@ export function TeacherAssignmentScreen({ route, navigation }: { route: any; nav
                   ))
                 )}
               </View>
+              <TouchableOpacity
+                style={styles.deleteButton}
+                onPress={handleDeleteAssignment}
+                accessibilityRole="button"
+                accessibilityLabel="Delete assignment"
+              >
+                <Text style={styles.deleteButtonText}>Delete Assignment</Text>
+              </TouchableOpacity>
             </View>
           )}
 
@@ -696,155 +730,6 @@ export function TeacherAssignmentScreen({ route, navigation }: { route: any; nav
             </Card>
           )}
         </View>
-
-        <Section title="Files">
-        <Card style={styles.fileCard}>
-                  <Text style={styles.fileLabel}>Assignment File</Text>
-                  {assignment.assignment_file_download_url ? (
-                    <Button size="sm" onPress={() => handleOpenFile(assignment.assignment_file_download_url!)}>
-                      View / Download
-                    </Button>
-                  ) : (
-                    <Text style={styles.noFile}>Not uploaded</Text>
-                  )}
-                </Card>
-                <Card style={styles.fileCard}>
-                  <Text style={styles.fileLabel}>Answer Key</Text>
-                  {assignment.answer_key_download_url ? (
-                    <Button size="sm" onPress={() => handleOpenFile(assignment.answer_key_download_url!)}>
-                      View / Download
-                    </Button>
-                  ) : (
-                    <Text style={styles.noFile}>Not uploaded</Text>
-                  )}
-                </Card>
-              </Section>
-
-              {!reuploadUrls ? (
-                <Button variant="secondary" onPress={handleReupload} disabled={reuploading} loading={reuploading} style={styles.reuploadButton}>
-                  Re-upload Files
-                </Button>
-              ) : (
-                <View style={styles.reuploadSection}>
-                  {reuploadUrls.assignment_file_upload_url && (
-                    <>
-                      <Text style={styles.sectionTitle}>Replace Assignment File</Text>
-                      <FileUploader
-                        uploadUrl={reuploadUrls.assignment_file_upload_url}
-                        label="Select New Assignment File"
-                        onUploadComplete={() => {
-                          alert("Success", "Assignment file replaced");
-                          setReuploadUrls(null);
-                          setLoading(true);
-                          fetchAssignment();
-                        }}
-                      />
-                    </>
-                  )}
-                  {reuploadUrls.answer_key_upload_url && (
-                    <>
-                      <Text style={styles.sectionTitle}>Replace Answer Key</Text>
-                      <FileUploader
-                        uploadUrl={reuploadUrls.answer_key_upload_url}
-                        label="Select New Answer Key"
-                        onUploadComplete={() => {
-                          alert("Success", "Answer key replaced");
-                          setReuploadUrls(null);
-                          setLoading(true);
-                          fetchAssignment();
-                        }}
-                      />
-                    </>
-                  )}
-                  <Button variant="secondary" onPress={() => setReuploadUrls(null)} style={styles.cancelReupload}>
-                    Cancel Re-upload
-                  </Button>
-                </View>
-              )}
-
-              {isPdf && (
-                <Card style={styles.convertSection}>
-                  <Text style={styles.sectionTitle}>PDF Detected</Text>
-                  {pdfPreviewUri && (
-                    <Image source={{ uri: pdfPreviewUri }} style={styles.pdfPreview} resizeMode="contain" />
-                  )}
-                  <Text style={styles.convertHint}>
-                    Convert the uploaded PDF to LaTeX for in-app math rendering.
-                  </Text>
-                  <Button onPress={handleConvertPdf} disabled={converting} loading={converting}>
-                    Convert PDF to LaTeX
-                  </Button>
-                </Card>
-              )}
-
-              <Section title="Student Submissions">
-                {submissionsLoading ? (
-                  <ActivityIndicator color={palette.primary} />
-                ) : submissionsError ? (
-                  <Text style={styles.errorText}>{submissionsError}</Text>
-                ) : submissions.length === 0 ? (
-                  <Text style={styles.noContent}>No submissions yet</Text>
-                ) : (
-                  submissions.map((submission: Submission) => (
-                    <Card key={submission.id} style={styles.submissionCard}>
-                      <View style={styles.listItemContent}>
-                        <Text style={styles.itemTitle}>
-                          {submission.student_display_name ?? `Student ${submission.student_id.slice(0, 8)}`}
-                        </Text>
-                        <Text style={styles.itemSub}>
-                          Submitted {new Date(submission.submitted_at).toLocaleString("en-US", {
-                            year: "numeric",
-                            month: "short",
-                            day: "numeric",
-                            hour: "numeric",
-                            minute: "2-digit",
-                            timeZone: "UTC",
-                          })}
-                        </Text>
-                      </View>
-                      <View style={styles.submissionActions}>
-                        <Button
-                          size="sm"
-                          variant="secondary"
-                          onPress={() => navigation.navigate("StudentWorkReview", {
-                            assignmentId,
-                            studentId: submission.student_id,
-                            studentDisplayName: submission.student_display_name ?? `Student ${submission.student_id.slice(0, 8)}`
-                          })}
-                        >
-                          Review
-                        </Button>
-                        {submission.download_url ? (
-                          <Button size="sm" onPress={() => handleOpenFile(submission.download_url!)}>
-                            Open
-                          </Button>
-                        ) : (
-                          <Text style={styles.noFile}>Unavailable</Text>
-                        )}
-                      </View>
-                    </Card>
-                  ))
-                )}
-              </Section>
-
-              {assignmentContent && (
-                <View style={styles.contentPreview}>
-                  <Text style={styles.sectionTitle}>Assignment Preview (LaTeX)</Text>
-                  <LatexRenderer latex={assignmentContent} />
-                </View>
-              )}
-              {imagePreviewUrl && (
-                <View style={styles.contentPreview}>
-                  <Text style={styles.sectionTitle}>Assignment Preview (Image)</Text>
-                  <Image source={{ uri: imagePreviewUrl }} style={styles.assignmentImage} resizeMode="contain" />
-                </View>
-              )}
-              {binaryDownloadUrl && (
-                <Card style={styles.binaryNotice}>
-                  <Text style={styles.binaryNoticeText}>This file type cannot be previewed in-app.</Text>
-              <Button size="sm" onPress={() => handleOpenFile(binaryDownloadUrl)}>Download File</Button>
-            </Card>
-          )}
         </>
       )}
         </View>
@@ -1024,4 +909,12 @@ const styles = StyleSheet.create({
     marginTop: spacing.sm,
   },
   tryStudentButtonText: { ...typography.button, color: palette.textOnPrimary },
+  deleteButton: {
+    backgroundColor: palette.error,
+    borderRadius: radius.button,
+    padding: 14,
+    alignItems: "center",
+    marginTop: spacing.xl,
+  },
+  deleteButtonText: { color: palette.white, fontSize: 16, fontWeight: "600" },
 });

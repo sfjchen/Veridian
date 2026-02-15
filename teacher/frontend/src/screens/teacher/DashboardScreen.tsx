@@ -1,5 +1,6 @@
 import React, { useState, useEffect, useRef } from "react";
 import { Animated, FlatList, Modal, StyleSheet, Text, TouchableOpacity, View, ViewStyle } from "react-native";
+import { useFocusEffect } from "@react-navigation/native";
 import { useClassrooms } from "../../hooks/useClassrooms";
 import { useToast } from "../../contexts/ToastContext";
 import { alert } from "../../lib/alert";
@@ -37,6 +38,13 @@ function StaggeredCard({ index, style, children }: { index: number; style?: View
 
 export function TeacherDashboardScreen({ navigation }: { navigation: { navigate: (a: string, b: { classroom: { id: string; name: string; class_code: string } }) => void } }) {
   const { classrooms, loading, error, create, refresh } = useClassrooms();
+
+  useFocusEffect(
+    React.useCallback(() => {
+      refresh();
+    }, [refresh])
+  );
+
   const { showToast } = useToast();
   const [modalVisible, setModalVisible] = useState(false);
   const [newName, setNewName] = useState("");

@@ -93,7 +93,18 @@ export function TeacherClassroomScreen({ route, navigation }: { route: any; navi
   };
 
   const handleOpenCorpusFile = (file: CorpusFile) => {
-    if (file.download_url) Linking.openURL(file.download_url);
+    if (!file.download_url) return;
+    alert(
+      file.display_name,
+      `Type: ${file.file_type}\nUploaded to this classroom's course texts.`,
+      [
+        { text: "Close" },
+        {
+          text: "Download",
+          onPress: () => Linking.openURL(file.download_url!),
+        },
+      ]
+    );
   };
 
   const handleSaveConfig = async () => {
@@ -319,20 +330,30 @@ export function TeacherClassroomScreen({ route, navigation }: { route: any; navi
               refreshControl={refreshControl}
               renderItem={({ item, index }) => (
                 <StaggeredFade index={index}>
-                  <View style={styles.listItem}>
-                  <View style={styles.listItemContent}>
-                    <Text style={styles.itemTitle}>{item.display_name ?? "Unnamed Student"}</Text>
-                    <Text style={styles.itemSub}>
-                      Joined{" "}
-                      {new Date(item.joined_at).toLocaleDateString("en-US", {
-                        year: "numeric",
-                        month: "short",
-                        day: "numeric",
-                        timeZone: "UTC",
-                      })}
-                    </Text>
-                  </View>
-                </View>
+                  <TouchableOpacity
+                    style={styles.listItem}
+                    onPress={() => navigation.navigate("StudentSubmissions", {
+                      classroomId: classroom.id,
+                      studentId: item.student_id,
+                      studentDisplayName: item.display_name ?? "Unnamed Student",
+                    })}
+                    accessibilityRole="button"
+                    accessibilityLabel={`View submissions for ${item.display_name ?? "Unnamed Student"}`}
+                  >
+                    <View style={styles.listItemContent}>
+                      <Text style={styles.itemTitle}>{item.display_name ?? "Unnamed Student"}</Text>
+                      <Text style={styles.itemSub}>
+                        Joined{" "}
+                        {new Date(item.joined_at).toLocaleDateString("en-US", {
+                          year: "numeric",
+                          month: "short",
+                          day: "numeric",
+                          timeZone: "UTC",
+                        })}
+                      </Text>
+                    </View>
+                    <Text style={styles.chevron}>&gt;</Text>
+                  </TouchableOpacity>
                 </StaggeredFade>
               )}
               ListEmptyComponent={

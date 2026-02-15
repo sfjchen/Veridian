@@ -63,7 +63,7 @@ function WebLatexRenderer({ latex, style }: Props) {
       <iframe
         src={blobUrl}
         style={{ width: "100%", minHeight: 300, border: "none", flex: 1 } as any}
-        sandbox="allow-scripts"
+        sandbox="allow-scripts allow-same-origin"
         title="LaTeX Preview"
       />
     </View>

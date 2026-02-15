@@ -81,6 +81,17 @@ function showAlert(title: string, message: string) {
   }
 }
 
+function showConfirm(title: string, message: string, onConfirm: () => void) {
+  if (Platform.OS === 'web' && typeof window !== 'undefined') {
+    if (window.confirm(`${title}\n\n${message}`)) onConfirm();
+  } else {
+    Alert.alert(title, message, [
+      { text: 'Cancel', style: 'cancel' },
+      { text: 'Confirm', onPress: onConfirm },
+    ]);
+  }
+}
+
 function analysisSummaryText(result: AnalysisResult): string {
   const count = result.mistake_count ?? result.mistakes?.length ?? 0;
   if (count === 0) return 'No mistakes found.';
@@ -542,29 +553,22 @@ export default function DocumentScreen() {
 
   const handleSubmit = useCallback(() => {
     if (!assignmentId || isSubmitted) return;
-    Alert.alert(
+    showConfirm(
       'Submit Assignment',
       'Are you sure you want to submit this assignment? You can still access it after submission.',
-      [
-        { text: 'Cancel', style: 'cancel' },
-        {
-          text: 'Submit',
-          style: 'default',
-          onPress: async () => {
-            setIsSubmitting(true);
-            try {
-              await submitAssignment(assignmentId, token);
-              setIsSubmitted(true);
-              pushToast('Assignment submitted successfully', 'success');
-            } catch (e) {
-              const err = e instanceof Error ? e : new Error(String(e));
-              showAlert('Submission failed', err.message);
-            } finally {
-              setIsSubmitting(false);
-            }
-          },
-        },
-      ],
+      async () => {
+        setIsSubmitting(true);
+        try {
+          await submitAssignment(assignmentId, token);
+          setIsSubmitted(true);
+          pushToast('Assignment submitted successfully', 'success');
+        } catch (e) {
+          const err = e instanceof Error ? e : new Error(String(e));
+          showAlert('Submission failed', err.message);
+        } finally {
+          setIsSubmitting(false);
+        }
+      },
     );
   }, [assignmentId, isSubmitted, token, pushToast]);
 

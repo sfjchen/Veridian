@@ -30,6 +30,12 @@ interface PickedFile {
   file?: File;
 }
 
+interface NativeMultipartFile {
+  uri: string;
+  name: string;
+  type: string;
+}
+
 interface ConversionStatus {
   stage: string;
   progress: number;
@@ -63,6 +69,17 @@ function formatConversionStage(stage: string): string {
     return "Conversion failed";
   }
   return "Converting file...";
+}
+
+function toMultipartFile(file: PickedFile): File | NativeMultipartFile {
+  if (file.file) {
+    return file.file;
+  }
+  return {
+    uri: file.uri,
+    name: file.name,
+    type: file.mimeType,
+  };
 }
 
 export function CreateAssignmentScreen({ route, navigation }: { route: any; navigation: any }) {
@@ -110,7 +127,13 @@ export function CreateAssignmentScreen({ route, navigation }: { route: any; navi
     });
     if (result.canceled) return;
 
-    const picked = result.assets[0];
+    const asset = result.assets[0];
+    const picked: PickedFile = {
+      name: asset.name,
+      uri: asset.uri,
+      mimeType: asset.mimeType ?? "application/octet-stream",
+      file: asset.file,
+    };
     const fileName = picked.name.toLowerCase();
 
     // Validate file type
@@ -160,7 +183,7 @@ export function CreateAssignmentScreen({ route, navigation }: { route: any; navi
 
       // Create FormData
       const formData = new FormData();
-      formData.append("file", picked.file as any);
+      formData.append("file", toMultipartFile(picked) as any);
       formData.append("title", assignmentTitle.trim());
       formData.append("job_id", jobId);
       const token = await api.getToken();

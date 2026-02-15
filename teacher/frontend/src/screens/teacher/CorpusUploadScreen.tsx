@@ -24,6 +24,12 @@ interface PickedFile {
   file?: File;
 }
 
+interface NativeMultipartFile {
+  uri: string;
+  name: string;
+  type: string;
+}
+
 interface ConversionStatus {
   stage: string;
   progress: number;
@@ -64,6 +70,17 @@ function inferFileType(name: string, mimeType: string): string | null {
   if (mimeType.includes("pdf")) return "pdf";
   if (mimeType.includes("text")) return "txt";
   return null;
+}
+
+function toMultipartFile(file: PickedFile): File | NativeMultipartFile {
+  if (file.file) {
+    return file.file;
+  }
+  return {
+    uri: file.uri,
+    name: file.name,
+    type: file.mimeType,
+  };
 }
 
 export function CorpusUploadScreen({ route, navigation }: { route: any; navigation: any }) {
@@ -154,7 +171,7 @@ export function CorpusUploadScreen({ route, navigation }: { route: any; navigati
 
         // Create FormData for PDF upload with conversion
         const formData = new FormData();
-        formData.append("file", file.file as any);
+        formData.append("file", toMultipartFile(file) as any);
         formData.append("display_name", displayName.trim());
         formData.append("job_id", jobId);
         const token = await api.getToken();

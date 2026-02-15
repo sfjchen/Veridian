@@ -21,6 +21,8 @@ export interface ConversionSocketHandle {
 }
 
 const CONNECT_TIMEOUT_MS = 5000;
+const SUBSCRIBE_RETRY_INTERVAL_MS = 500;
+const SUBSCRIBE_RETRY_MAX_ATTEMPTS = 12;
 
 export async function openConversionSocket(
   options: OpenConversionSocketOptions
@@ -41,12 +43,47 @@ export async function openConversionSocket(
 
     let settled = false;
     let timeoutId: ReturnType<typeof setTimeout> | null = null;
+    let subscribeRetryId: ReturnType<typeof setInterval> | null = null;
+    let subscribeAttempts = 0;
+    let hasReceivedProgress = false;
 
     const clearTimeoutId = () => {
       if (timeoutId) {
         clearTimeout(timeoutId);
         timeoutId = null;
       }
+    };
+
+    const clearSubscribeRetryId = () => {
+      if (subscribeRetryId) {
+        clearInterval(subscribeRetryId);
+        subscribeRetryId = null;
+      }
+    };
+
+    const subscribeToJob = () => {
+      if (!socket.connected) {
+        return;
+      }
+      socket.emit("subscribe", { job_id: jobId });
+    };
+
+    const startSubscribeRetry = () => {
+      subscribeAttempts = 0;
+      clearSubscribeRetryId();
+      subscribeToJob();
+      subscribeRetryId = setInterval(() => {
+        if (!socket.connected || hasReceivedProgress) {
+          clearSubscribeRetryId();
+          return;
+        }
+        subscribeAttempts += 1;
+        if (subscribeAttempts >= SUBSCRIBE_RETRY_MAX_ATTEMPTS) {
+          clearSubscribeRetryId();
+          return;
+        }
+        subscribeToJob();
+      }, SUBSCRIBE_RETRY_INTERVAL_MS);
     };
 
     const cleanupConnectListeners = () => {
@@ -56,7 +93,8 @@ export async function openConversionSocket(
 
     const handleConnect = () => {
       onConnected(true);
-      socket.emit("subscribe", { job_id: jobId });
+      hasReceivedProgress = false;
+      startSubscribeRetry();
       if (settled) {
         return;
       }
@@ -65,6 +103,7 @@ export async function openConversionSocket(
       cleanupConnectListeners();
       resolve({
         close: () => {
+          clearSubscribeRetryId();
           socket.emit("unsubscribe", { job_id: jobId });
           socket.disconnect();
           onConnected(false);
@@ -79,6 +118,7 @@ export async function openConversionSocket(
       }
       settled = true;
       clearTimeoutId();
+      clearSubscribeRetryId();
       cleanupConnectListeners();
       socket.disconnect();
       reject(error);
@@ -86,11 +126,14 @@ export async function openConversionSocket(
 
     socket.on("conversion_progress", (event: ConversionProgressEvent) => {
       if (event.job_id === jobId) {
+        hasReceivedProgress = true;
+        clearSubscribeRetryId();
         onProgress(event);
       }
     });
 
     socket.on("disconnect", () => {
+      clearSubscribeRetryId();
       onConnected(false);
     });
 
@@ -103,6 +146,7 @@ export async function openConversionSocket(
       }
       settled = true;
       cleanupConnectListeners();
+      clearSubscribeRetryId();
       socket.disconnect();
       reject(new Error("Timed out connecting to conversion progress server"));
     }, CONNECT_TIMEOUT_MS);

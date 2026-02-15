@@ -168,6 +168,7 @@ def create_assignment(classroom_id: str) -> Tuple[Response, int]:
         "title": title,
         "context_file_ids": context_file_ids,
         "due_date": data.get("due_date"),
+        "published": True,
     }
     if prompt_path:
         insert_data["prompt_storage_path"] = prompt_path

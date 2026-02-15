@@ -2,6 +2,7 @@ import { ActivityIndicator, Platform, Pressable, StyleSheet, Text, View } from '
 import { WebView } from 'react-native-webview';
 
 import { palette, radius } from '@/constants/palette';
+import { spacing, typography } from '@/constants/theme';
 
 type ProblemHeaderProps =
   | { problemNum: number; statementTex: string; onDone?: never; loading?: never }
@@ -79,22 +80,22 @@ const styles = StyleSheet.create({
     borderRadius: radius.card,
     borderWidth: 1,
     borderColor: palette.border,
-    paddingHorizontal: 16,
-    paddingVertical: 10,
+    paddingHorizontal: spacing.md,
+    paddingVertical: spacing.sm,
   },
   label: {
-    fontSize: 12,
+    ...typography.caption,
     fontWeight: '600',
     color: palette.textMuted,
-    marginBottom: 4,
+    marginBottom: spacing.xxs,
     textAlign: 'center',
   },
   statement: {
+    ...typography.h1,
     fontSize: 22,
-    color: palette.textPrimary,
-    fontWeight: '600',
-    textAlign: 'center',
     lineHeight: 30,
+    color: palette.textPrimary,
+    textAlign: 'center',
   },
   webViewWrap: {
     height: 56,
@@ -106,33 +107,33 @@ const styles = StyleSheet.create({
   row: {
     flexDirection: 'row',
     alignItems: 'stretch',
-    gap: 12,
+    gap: spacing.sm,
   },
   promptLabel: {
-    fontSize: 12,
+    ...typography.caption,
     color: palette.textMuted,
-    marginBottom: 4,
+    marginBottom: spacing.xxs,
     textAlign: 'center',
   },
   promptText: {
+    ...typography.h1,
     fontSize: 26,
     lineHeight: 32,
     color: palette.textPrimary,
-    fontWeight: '600',
     textAlign: 'center',
   },
   doneButton: {
     minWidth: 92,
+    minHeight: 44,
     borderRadius: radius.card,
     backgroundColor: palette.primary,
     alignItems: 'center',
     justifyContent: 'center',
-    paddingHorizontal: 16,
+    paddingHorizontal: spacing.md,
   },
   doneButtonDisabled: { opacity: 0.7 },
   doneText: {
-    color: palette.white,
-    fontSize: 16,
-    fontWeight: '700',
+    ...typography.button,
+    color: palette.textOnPrimary,
   },
 });

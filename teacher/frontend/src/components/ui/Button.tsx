@@ -43,6 +43,7 @@ interface ButtonProps {
   loading?: boolean;
   style?: ViewStyle;
   fullWidth?: boolean;
+  accessibilityLabel?: string;
 }
 
 export function Button({
@@ -54,6 +55,7 @@ export function Button({
   loading = false,
   style,
   fullWidth,
+  accessibilityLabel,
 }: ButtonProps) {
   const isDisabled = disabled || loading;
   return (
@@ -72,6 +74,7 @@ export function Button({
         style,
       ]}
       accessibilityRole="button"
+      accessibilityLabel={accessibilityLabel}
     >
       {loading ? (
         <ActivityIndicator
@@ -102,7 +105,7 @@ const styles = StyleSheet.create({
     justifyContent: "center",
     minHeight: MIN_TOUCH,
   },
-  sizeSm: { paddingVertical: spacing.xs, paddingHorizontal: spacing.md, minHeight: 36 },
+  sizeSm: { paddingVertical: spacing.xs, paddingHorizontal: spacing.md, minHeight: MIN_TOUCH },
   sizeLg: { paddingVertical: spacing.md, paddingHorizontal: spacing.xl, minHeight: 52 },
   fullWidth: { width: "100%" },
   disabled: { opacity: 0.6 },

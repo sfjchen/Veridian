@@ -1,38 +1,28 @@
-import { MaterialCommunityIcons } from "@expo/vector-icons";
-import { useLocalSearchParams, useRouter } from "expo-router";
+import { MaterialCommunityIcons } from '@expo/vector-icons';
+import { useLocalSearchParams, useRouter } from 'expo-router';
 import {
+  ActivityIndicator,
   Pressable,
+  SafeAreaView,
   StyleSheet,
   Text,
   View,
-} from "react-native";
+} from 'react-native';
 
-import {
-  Button,
-  EmptyState,
-  ErrorState,
-  ScreenContainer,
-  SkeletonCard,
-} from "@/components/ui";
-import { palette, radius } from "@/constants/palette";
-import { spacing } from "@/constants/spacing";
-import { typography } from "@/constants/typography";
-import { useAssignments } from "@/hooks/useAssignments";
-import type { AssignmentListItem } from "@/lib/api";
+import { EmptyState } from '@/components/ui/EmptyState';
+import { ErrorState } from '@/components/ui/ErrorState';
+import { palette, radius } from '@/constants/palette';
+import { spacing, typography } from '@/constants/theme';
+import { useAssignments } from '@/hooks/useAssignments';
+import type { AssignmentListItem } from '@/lib/api';
 
 function formatDueDate(dueDate: string | null): string {
-  if (!dueDate) return "";
+  if (!dueDate) return '';
   try {
     const d = new Date(dueDate);
-    return isNaN(d.getTime())
-      ? ""
-      : d.toLocaleDateString(undefined, {
-          month: "short",
-          day: "numeric",
-          year: "numeric",
-        });
+    return isNaN(d.getTime()) ? '' : d.toLocaleDateString(undefined, { month: 'short', day: 'numeric', year: 'numeric' });
   } catch {
-    return "";
+    return '';
   }
 }
 
@@ -51,8 +41,7 @@ function AssignmentRow({
         pressed && { backgroundColor: palette.rowPressed, opacity: 0.9 },
       ]}
       onPress={onPress}
-      accessibilityRole="button"
-    >
+      accessibilityRole="button">
       <View style={styles.rowIcon}>
         <MaterialCommunityIcons name="file-document-outline" size={28} color={palette.textMuted} />
       </View>
@@ -84,8 +73,7 @@ export default function AssignmentsScreen() {
       style={({ pressed }) => [styles.backWrap, pressed && { opacity: 0.7 }]}
       onPress={() => router.back()}
       accessibilityRole="button"
-      accessibilityLabel="Back to classes"
-    >
+      accessibilityLabel="Back to classes">
       <MaterialCommunityIcons name="arrow-left" size={24} color={palette.primary} />
       <Text style={styles.backText}>Back</Text>
     </Pressable>
@@ -93,62 +81,57 @@ export default function AssignmentsScreen() {
 
   if (!classroomId) {
     return (
-      <ScreenContainer>
+      <SafeAreaView style={styles.screen}>
         <View style={styles.header}>
           {backAction}
-          <Text style={styles.title} numberOfLines={1}>
-            Assignments
-          </Text>
+          <Text style={styles.title} numberOfLines={1}>Assignments</Text>
           <View style={styles.headerSpacer} />
         </View>
-        <ErrorState message="Missing classroom" />
-      </ScreenContainer>
+        <View style={styles.centered}>
+          <Text style={styles.errorText}>Missing classroom</Text>
+        </View>
+      </SafeAreaView>
     );
   }
 
-  const title = classroomName ?? "Assignments";
+  const title = classroomName ?? 'Assignments';
 
   if (loading) {
     return (
-      <ScreenContainer>
+      <SafeAreaView style={styles.screen}>
         <View style={styles.header}>
           {backAction}
-          <Text style={styles.title} numberOfLines={1}>
-            {title}
-          </Text>
+          <Text style={styles.title} numberOfLines={1}>{title}</Text>
           <View style={styles.headerSpacer} />
         </View>
-        <View style={styles.skeletonList}>
-          <SkeletonCard />
-          <SkeletonCard />
-          <SkeletonCard />
+        <View style={styles.centered}>
+          <ActivityIndicator size="large" color={palette.primary} />
+          <Text style={styles.loadingText}>Loading assignments…</Text>
         </View>
-      </ScreenContainer>
+      </SafeAreaView>
     );
   }
 
   if (error) {
     return (
-      <ScreenContainer>
+      <SafeAreaView style={styles.screen}>
         <View style={styles.header}>
           {backAction}
-          <Text style={styles.title} numberOfLines={1}>
-            {title}
-          </Text>
+          <Text style={styles.title} numberOfLines={1}>{title}</Text>
           <View style={styles.headerSpacer} />
         </View>
-        <ErrorState message={error} onRetry={refresh} />
-      </ScreenContainer>
+        <View style={styles.centered}>
+          <ErrorState message={error} onRetry={refresh} />
+        </View>
+      </SafeAreaView>
     );
   }
 
   return (
-    <ScreenContainer>
+    <SafeAreaView style={styles.screen}>
       <View style={styles.header}>
         {backAction}
-        <Text style={styles.title} numberOfLines={1}>
-          {title}
-        </Text>
+        <Text style={styles.title} numberOfLines={1}>{title}</Text>
         <View style={styles.headerSpacer} />
       </View>
 
@@ -156,6 +139,7 @@ export default function AssignmentsScreen() {
         <EmptyState
           title="No assignments yet"
           description="Assignments from your teacher will appear here."
+          icon={<MaterialCommunityIcons name="file-document-outline" size={64} color={palette.borderStrong} />}
         />
       ) : (
         <View style={styles.listContent}>
@@ -165,7 +149,7 @@ export default function AssignmentsScreen() {
               assignment={a}
               onPress={() =>
                 router.push({
-                  pathname: "/document/[id]",
+                  pathname: '/document/[id]',
                   params: {
                     id: a.id,
                     assignmentId: a.id,
@@ -177,23 +161,24 @@ export default function AssignmentsScreen() {
           ))}
         </View>
       )}
-    </ScreenContainer>
+    </SafeAreaView>
   );
 }
 
 const styles = StyleSheet.create({
+  screen: { flex: 1, backgroundColor: palette.surface },
   header: {
-    flexDirection: "row",
-    alignItems: "center",
+    flexDirection: 'row',
+    alignItems: 'center',
     paddingHorizontal: spacing.sm,
-    paddingVertical: 10,
+    paddingVertical: spacing.sm,
     backgroundColor: palette.card,
     borderBottomWidth: 1,
     borderBottomColor: palette.border,
   },
   backWrap: {
-    flexDirection: "row",
-    alignItems: "center",
+    flexDirection: 'row',
+    alignItems: 'center',
     marginRight: spacing.sm,
     padding: spacing.xs,
     minHeight: 44,
@@ -207,32 +192,57 @@ const styles = StyleSheet.create({
   title: {
     flex: 1,
     ...typography.body,
-    fontWeight: "600",
+    fontWeight: '600',
     color: palette.textPrimary,
   },
   headerSpacer: { width: 88 },
   listContent: { padding: spacing.md, paddingBottom: spacing.xl },
   row: {
-    flexDirection: "row",
-    alignItems: "center",
+    flexDirection: 'row',
+    alignItems: 'center',
     backgroundColor: palette.card,
-    padding: 14,
+    padding: spacing.sm,
     borderRadius: radius.card,
     marginBottom: spacing.sm,
     borderWidth: 1,
     borderColor: palette.border,
+    borderTopWidth: 3,
+    borderTopColor: palette.primary,
   },
   rowIcon: { marginRight: spacing.sm },
   rowContent: { flex: 1, minWidth: 0 },
   rowTitle: {
     ...typography.body,
-    fontWeight: "500",
+    fontWeight: '500',
     color: palette.textSecondary,
   },
   rowDue: {
     ...typography.caption,
+    fontSize: 13,
     color: palette.textMuted,
-    marginTop: 2,
+    marginTop: spacing.xxs,
   },
-  skeletonList: { padding: spacing.md },
+  centered: {
+    flex: 1,
+    justifyContent: 'center',
+    alignItems: 'center',
+    gap: spacing.sm,
+  },
+  loadingText: { ...typography.body, color: palette.textMuted },
+  errorText: { ...typography.body, color: palette.error, textAlign: 'center' },
+  retryButton: {
+    marginTop: spacing.xxs,
+    paddingVertical: spacing.sm,
+    paddingHorizontal: spacing.md,
+    backgroundColor: palette.primary,
+    borderRadius: radius.button,
+    minHeight: 44,
+    justifyContent: 'center',
+  },
+  retryButtonText: {
+    ...typography.buttonSmall,
+    color: palette.textOnPrimary,
+  },
+  emptyTitle: { ...typography.h2, color: palette.textSecondary },
+  emptySubtitle: { ...typography.bodySmall, color: palette.textMuted, marginTop: spacing.xs, textAlign: 'center' },
 });

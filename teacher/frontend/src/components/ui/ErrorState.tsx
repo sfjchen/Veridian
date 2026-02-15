@@ -15,7 +15,7 @@ export function ErrorState({ message, onRetry }: ErrorStateProps) {
     <View style={styles.container}>
       <Text style={styles.message}>{message}</Text>
       {onRetry ? (
-        <Button onPress={onRetry} variant="primary" size="sm" style={styles.button}>
+        <Button onPress={onRetry} variant="primary" size="sm" style={styles.button} accessibilityLabel="Retry">
           Retry
         </Button>
       ) : null}

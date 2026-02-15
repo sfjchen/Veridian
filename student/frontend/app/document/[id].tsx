@@ -25,8 +25,8 @@ import { StatusBadge, type StatusTone } from '@/components/notifications/StatusB
 import { ToastHost, type ToastNotice } from '@/components/notifications/ToastHost';
 import { ProblemHeader } from '@/components/ProblemHeader';
 import { SampleAlgebraContent } from '@/components/SampleAlgebraContent';
-import { palette, radius } from "@/constants/palette";
-import { spacing } from "@/constants/spacing";
+import { elevation, palette, radius } from '@/constants/palette';
+import { spacing, typography } from '@/constants/theme';
 import { useAssignment } from '@/hooks/useAssignment';
 import { useAutoAnalysis } from '@/hooks/useAutoAnalysis';
 import { useAccessToken } from '@/hooks/useAccessToken';
@@ -673,15 +673,22 @@ export default function DocumentScreen() {
       )}
 
       {analysisError !== null && !isAnalyzing && (
-        <View style={styles.analyzingBar}>
-          <MaterialCommunityIcons name="alert-outline" size={18} color={palette.textMuted} />
-          <Text style={styles.analyzingText}>{analysisError}</Text>
+        <View style={styles.errorBar}>
+          <MaterialCommunityIcons name="alert-outline" size={18} color={palette.error} />
+          <Text style={styles.errorBarText}>{analysisError}</Text>
+          <Pressable
+            style={({ pressed }) => [styles.errorBarRetry, pressed && { opacity: 0.7 }]}
+            onPress={() => { clearAnalysisError(); triggerNow(); }}
+            accessibilityRole="button"
+            accessibilityLabel="Retry analysis">
+            <Text style={styles.errorBarRetryText}>Retry</Text>
+          </Pressable>
         </View>
       )}
 
       {(strokeLoadError || strokeSaveError || docsLoadError || docsSaveError) && (
         <View style={styles.strokeErrorBar}>
-          <MaterialCommunityIcons name="alert-outline" size={18} color={palette.error} />
+          <MaterialCommunityIcons name="alert-outline" size={18} color={palette.errorText} />
           <Text style={styles.strokeErrorText}>
             {strokeLoadError ?? docsLoadError ?? docsSaveError ?? (strokeSaveError ? "Couldn't save strokes." : '')}
           </Text>
@@ -781,10 +788,10 @@ export default function DocumentScreen() {
 const styles = StyleSheet.create({
   screen: { flex: 1, backgroundColor: palette.surface },
   header: {
-    flexDirection: "row",
-    alignItems: "center",
+    flexDirection: 'row',
+    alignItems: 'center',
     paddingHorizontal: spacing.sm,
-    paddingVertical: 10,
+    paddingVertical: spacing.sm,
     backgroundColor: palette.card,
     borderBottomWidth: 1,
     borderBottomColor: palette.border,
@@ -794,28 +801,28 @@ const styles = StyleSheet.create({
     marginRight: spacing.xs,
     minWidth: 44,
     minHeight: 44,
-    justifyContent: "center",
-    alignItems: "center",
+    justifyContent: 'center',
+    alignItems: 'center',
   },
   title: {
     flex: 1,
-    fontSize: 17,
-    fontWeight: "600",
+    ...typography.body,
+    fontWeight: '600',
     color: palette.textPrimary,
   },
   checkButton: {
     minWidth: 72,
+    minHeight: 44,
     backgroundColor: palette.primary,
     borderRadius: radius.button,
-    justifyContent: "center",
-    alignItems: "center",
+    justifyContent: 'center',
+    alignItems: 'center',
     paddingHorizontal: spacing.sm,
-    paddingVertical: 10,
+    paddingVertical: spacing.sm,
   },
   checkButtonText: {
-    color: palette.white,
-    fontSize: 14,
-    fontWeight: "700",
+    ...typography.buttonSmall,
+    color: palette.textOnPrimary,
   },
   problemHeaderWrap: {
     paddingHorizontal: spacing.sm,
@@ -827,45 +834,53 @@ const styles = StyleSheet.create({
   assignmentFileBanner: {
     flexDirection: 'row',
     alignItems: 'center',
-    gap: 8,
-    paddingVertical: 10,
-    paddingHorizontal: 16,
+    gap: spacing.xs,
+    paddingVertical: spacing.sm,
+    paddingHorizontal: spacing.md,
     backgroundColor: palette.card,
     borderBottomWidth: 1,
     borderBottomColor: palette.border,
   },
   assignmentFileBannerText: {
     flex: 1,
-    fontSize: 14,
-    fontWeight: '600',
+    ...typography.buttonSmall,
     color: palette.primary,
   },
   badgeBar: {
-    paddingVertical: 6,
+    paddingVertical: spacing.xs,
     paddingHorizontal: spacing.sm,
     backgroundColor: palette.card,
     borderBottomWidth: 1,
     borderBottomColor: palette.border,
   },
-  analyzingBar: {
-    flexDirection: "row",
-    alignItems: "center",
-    justifyContent: "center",
+  errorBar: {
+    flexDirection: 'row',
+    alignItems: 'center',
     gap: spacing.xs,
-    paddingVertical: spacing.xxs,
-    backgroundColor: palette.card,
+    paddingVertical: spacing.sm,
+    paddingHorizontal: spacing.sm,
+    backgroundColor: palette.errorBg,
     borderBottomWidth: 1,
     borderBottomColor: palette.border,
   },
-  analyzingText: {
-    fontSize: 13,
-    color: palette.textMuted,
+  errorBarText: {
+    flex: 1,
+    ...typography.bodySmall,
+    color: palette.error,
+  },
+  errorBarRetry: {
+    paddingVertical: spacing.xxs,
+    paddingHorizontal: spacing.sm,
+  },
+  errorBarRetryText: {
+    ...typography.buttonSmall,
+    color: palette.primary,
   },
   strokeErrorBar: {
-    flexDirection: "row",
-    alignItems: "center",
+    flexDirection: 'row',
+    alignItems: 'center',
     gap: spacing.xs,
-    paddingVertical: 6,
+    paddingVertical: spacing.xs,
     paddingHorizontal: spacing.sm,
     backgroundColor: palette.errorBg,
     borderBottomWidth: 1,
@@ -873,15 +888,15 @@ const styles = StyleSheet.create({
   },
   strokeErrorText: {
     flex: 1,
-    fontSize: 13,
+    ...typography.bodySmall,
     color: palette.error,
   },
   strokeErrorDismiss: { paddingVertical: spacing.xxs, paddingHorizontal: spacing.xs },
-  strokeErrorDismissText: { fontSize: 13, fontWeight: "600", color: palette.primary },
+  strokeErrorDismissText: { ...typography.buttonSmall, color: palette.primary },
   pagerBar: {
-    flexDirection: "row",
-    alignItems: "center",
-    justifyContent: "center",
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
     paddingVertical: spacing.xs,
     paddingHorizontal: spacing.md,
     backgroundColor: palette.card,
@@ -892,7 +907,7 @@ const styles = StyleSheet.create({
   pageBtn: { padding: spacing.xxs },
   pageBtnDisabled: { opacity: 0.6 },
   pageText: {
-    fontSize: 15,
+    ...typography.body,
     fontWeight: '600',
     color: palette.textSecondary,
     minWidth: 120,
@@ -901,9 +916,9 @@ const styles = StyleSheet.create({
   pageStrip: {
     flexDirection: 'row',
     flexWrap: 'wrap',
-    gap: 6,
-    paddingHorizontal: 12,
-    paddingVertical: 6,
+    gap: spacing.xs,
+    paddingHorizontal: spacing.sm,
+    paddingVertical: spacing.xs,
     backgroundColor: palette.card,
     borderBottomWidth: 1,
     borderBottomColor: palette.border,
@@ -924,17 +939,17 @@ const styles = StyleSheet.create({
     borderColor: palette.primary,
   },
   pageThumbText: {
-    fontSize: 13,
+    ...typography.caption,
     fontWeight: '600',
     color: palette.textSecondary,
   },
   pageThumbTextActive: {
-    color: palette.white,
+    color: palette.textOnPrimary,
   },
   contentWrap: {
     flex: 1,
-    padding: 12,
-    gap: 8,
+    padding: spacing.sm,
+    gap: spacing.xs,
     position: 'relative',
   },
   canvasFull: {
@@ -952,10 +967,9 @@ const styles = StyleSheet.create({
     padding: 24,
   },
   webPdfPlaceholderText: {
-    fontSize: 15,
+    ...typography.body,
     color: palette.textMuted,
     textAlign: 'center',
-    lineHeight: 22,
   },
   inkOverlay: {
     ...StyleSheet.absoluteFillObject,
@@ -966,35 +980,30 @@ const styles = StyleSheet.create({
   },
   inkCanvas: { flex: 1 },
   loadingText: {
-    marginTop: 12,
-    fontSize: 15,
+    marginTop: spacing.sm,
+    ...typography.body,
     color: palette.textMuted,
   },
   errorText: {
-    fontSize: 16,
-    color: palette.textSecondary,
+    ...typography.body,
+    color: palette.error,
     textAlign: 'center',
   },
   backButtonText: {
-    fontSize: 15,
-    fontWeight: '600',
+    ...typography.button,
     color: palette.primary,
   },
   chatFab: {
     position: 'absolute',
-    bottom: 24,
-    right: 24,
+    bottom: spacing.lg,
+    right: spacing.lg,
     width: 52,
     height: 52,
     borderRadius: 26,
     backgroundColor: palette.primary,
     alignItems: 'center',
     justifyContent: 'center',
-    shadowColor: '#000',
-    shadowOpacity: 0.2,
-    shadowRadius: 6,
-    shadowOffset: { width: 0, height: 3 },
-    elevation: 6,
+    ...(elevation.shadowMd as object),
     zIndex: 50,
   },
 });

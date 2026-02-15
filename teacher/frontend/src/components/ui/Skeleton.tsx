@@ -1,6 +1,7 @@
 import React, { useEffect, useRef, useState } from "react";
 import { Animated, DimensionValue, StyleSheet, View, ViewStyle } from "react-native";
 import { palette, radius } from "../../constants/palette";
+import { motion } from "../../constants/motion";
 import { spacing } from "../../constants/spacing";
 
 interface SkeletonProps {
@@ -21,8 +22,8 @@ export function Skeleton({ width, height = 20, style }: SkeletonProps) {
     if (!mounted) return;
     const loop = Animated.loop(
       Animated.sequence([
-        Animated.timing(opacity, { toValue: 0.6, useNativeDriver: true, duration: 600 }),
-        Animated.timing(opacity, { toValue: 0.3, useNativeDriver: true, duration: 600 }),
+        Animated.timing(opacity, { toValue: 0.6, useNativeDriver: true, duration: motion.slow }),
+        Animated.timing(opacity, { toValue: 0.3, useNativeDriver: true, duration: motion.slow }),
       ])
     );
     loop.start();

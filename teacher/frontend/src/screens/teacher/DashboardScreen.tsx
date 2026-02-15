@@ -50,7 +50,7 @@ export function TeacherDashboardScreen({ navigation }: { navigation: { navigate:
       listFade.setValue(0);
       Animated.timing(listFade, {
         toValue: 1,
-        duration: 250,
+        duration: motion.normal,
         useNativeDriver: true,
       }).start();
     }
@@ -80,7 +80,7 @@ export function TeacherDashboardScreen({ navigation }: { navigation: { navigate:
       <View style={styles.header}>
         <Text style={styles.hero}>My Classrooms</Text>
         <View style={styles.headerActions}>
-          <Button onPress={openModal} variant="primary" size="sm">
+          <Button onPress={openModal} variant="primary" size="sm" accessibilityLabel="New classroom">
             + New classroom
           </Button>
         </View>
@@ -108,10 +108,10 @@ export function TeacherDashboardScreen({ navigation }: { navigation: { navigate:
                   autoFocus
                 />
                 <View style={styles.modalActions}>
-                  <Button variant="secondary" onPress={closeModal} style={styles.modalButton}>
+                  <Button variant="secondary" onPress={closeModal} style={styles.modalButton} accessibilityLabel="Cancel">
                     Cancel
                   </Button>
-                  <Button onPress={handleCreate} disabled={creating} loading={creating} style={styles.modalButton}>
+                  <Button onPress={handleCreate} disabled={creating} loading={creating} style={styles.modalButton} accessibilityLabel="Create classroom">
                     Create
                   </Button>
                 </View>

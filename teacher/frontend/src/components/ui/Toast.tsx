@@ -1,6 +1,7 @@
 import React, { useEffect, useRef } from "react";
 import { Animated, StyleSheet, Text, View } from "react-native";
-import { palette, radius } from "../../constants/palette";
+import { palette } from "../../constants/palette";
+import { motion } from "../../constants/motion";
 import { spacing } from "../../constants/spacing";
 import { typography } from "../../constants/typography";
 
@@ -21,13 +22,13 @@ export function Toast({ message, visible, onHide }: ToastProps) {
     Animated.sequence([
       Animated.timing(opacity, {
         toValue: 1,
-        duration: 200,
+        duration: motion.fast,
         useNativeDriver: true,
       }),
       Animated.delay(TOAST_DURATION_MS),
       Animated.timing(opacity, {
         toValue: 0,
-        duration: 200,
+        duration: motion.fast,
         useNativeDriver: true,
       }),
     ]).start(() => onHide());
@@ -57,7 +58,7 @@ const styles = StyleSheet.create({
     backgroundColor: palette.successBg,
     paddingVertical: spacing.sm,
     paddingHorizontal: spacing.lg,
-    borderRadius: radius.button,
+    borderRadius: 8,
     borderWidth: 1,
     borderColor: palette.success,
   },

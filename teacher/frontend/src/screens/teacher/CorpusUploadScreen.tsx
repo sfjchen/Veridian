@@ -118,7 +118,7 @@ export function CorpusUploadScreen({ route, navigation }: { route: any; navigati
           />
         </Section>
 
-        <Button onPress={handleUpload} loading={uploading} disabled={uploading} fullWidth>
+        <Button onPress={handleUpload} loading={uploading} disabled={uploading} fullWidth accessibilityLabel="Upload file">
           Upload File
         </Button>
       </View>

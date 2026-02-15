@@ -1,4 +1,4 @@
-from flask import Flask, jsonify
+from flask import Flask, Response, jsonify
 from flask_cors import CORS
 from .config import Config
 
@@ -35,15 +35,15 @@ def create_app() -> Flask:
     app.register_blueprint(api_docs_bp)
 
     @app.errorhandler(404)
-    def not_found(e):
+    def not_found(e: Exception) -> tuple[Response, int]:
         return jsonify(error="Not found"), 404
 
     @app.errorhandler(405)
-    def method_not_allowed(e):
+    def method_not_allowed(e: Exception) -> tuple[Response, int]:
         return jsonify(error="Method not allowed"), 405
 
     @app.errorhandler(500)
-    def internal_error(e):
+    def internal_error(e: Exception) -> tuple[Response, int]:
         return jsonify(error="Internal server error"), 500
 
     return app

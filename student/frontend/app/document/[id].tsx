@@ -425,7 +425,7 @@ export default function DocumentScreen() {
         showAlert('Submit failed', 'Check that the Flask server is running.');
       }
     }
-  }, [isProblemMode, triggerNow, captureScreenshot, isDefault]);
+  }, [isProblemMode, triggerNow, captureScreenshot, isDefault, accessToken]);
 
   // --- Chat panel ---
   const handleAskAboutMistake = useCallback(

@@ -697,7 +697,7 @@ const styles = StyleSheet.create({
     marginBottom: spacing.md,
     alignItems: "center",
   },
-  previewBannerText: { ...typography.bodySmall, fontWeight: "600", color: "#92400E" },
+  previewBannerText: { ...typography.bodySmall, fontWeight: "600", color: palette.warning },
 
   title: { ...typography.h1, color: palette.textPrimary, flex: 1 },
   due: { ...typography.bodySmall, color: palette.textMuted, marginTop: spacing.xxs, marginBottom: spacing.md },
@@ -761,19 +761,27 @@ const styles = StyleSheet.create({
   errorText: { ...typography.body, color: palette.error, textAlign: "center", marginTop: spacing.xs },
 
   configFallbackHint: {
-    fontSize: 12, color: "#92400E", backgroundColor: "#FEF3C7",
-    padding: 8, borderRadius: 6, marginBottom: 8,
+    ...typography.caption,
+    color: palette.warning,
+    backgroundColor: palette.warningBg,
+    padding: spacing.xs,
+    borderRadius: radius.input,
+    marginBottom: spacing.xs,
   },
   configSummary: {
-    backgroundColor: "#F9FAFB", borderRadius: 8, padding: 14, marginBottom: 16,
+    backgroundColor: palette.surface,
+    borderRadius: radius.card,
+    padding: spacing.sm,
+    marginBottom: spacing.md,
   },
   configRow: {
-    flexDirection: "row", justifyContent: "space-between",
-    paddingVertical: 4,
+    flexDirection: "row",
+    justifyContent: "space-between",
+    paddingVertical: spacing.xxs,
   },
-  configKey: { fontSize: 13, color: "#6B7280", textTransform: "capitalize" },
-  configKeyOverridden: { color: "#4F46E5", fontWeight: "600" },
-  configValue: { fontSize: 13, fontWeight: "500", color: "#374151" },
+  configKey: { ...typography.bodySmall, color: palette.textMuted, textTransform: "capitalize" as const },
+  configKeyOverridden: { color: palette.primary, fontWeight: "600" as const },
+  configValue: { ...typography.bodySmall, fontWeight: "500" as const, color: palette.textSecondary },
 
   disabledButton: {
     backgroundColor: palette.border,
@@ -782,10 +790,13 @@ const styles = StyleSheet.create({
     alignItems: "center",
     marginTop: spacing.lg,
   },
-  disabledButtonText: { color: "#6B7280", fontSize: 16, fontWeight: "600" },
+  disabledButtonText: { ...typography.button, color: palette.textMuted },
   tryStudentButton: {
-    backgroundColor: "#4F46E5", borderRadius: 8, padding: 16,
-    alignItems: "center", marginTop: 12,
+    backgroundColor: palette.primary,
+    borderRadius: radius.button,
+    padding: spacing.md,
+    alignItems: "center",
+    marginTop: spacing.sm,
   },
   tryStudentButtonText: { color: "#fff", fontSize: 16, fontWeight: "600" },
 

@@ -40,7 +40,7 @@ from auth_middleware import (
 )
 from classroom_service import join_classroom_by_code, list_assignments_for_classroom, list_classrooms_for_student
 from chat import generate_chat_response
-from context_loader import resolve_assignment_context
+from context_loader import load_solution_for_problem, resolve_assignment_context
 from chat_service import SAMPLE_ALGEBRA_ASSIGNMENT_ID, get_chat_history
 from dotenv import load_dotenv
 from flask import Flask, g, jsonify, request
@@ -1320,8 +1320,11 @@ def _resolve_assignment_context(
     config = get_resolved_config(assignment_id)
     hint_level = config.get("hint_level", "guided")
 
+    # Per-problem solution_tex is the best reference; fall back to whole answer key
+    solution_tex = load_solution_for_problem(assignment, problem_num, hint_level)
     ref_tex, corpus_text, warnings = resolve_assignment_context(assignment, hint_level)
-    reference = ref_tex or form_ref
+    reference = solution_tex or ref_tex or form_ref
+
     context_parts = []
     if statement:
         context_parts.append(f"Problem {problem_num}: {statement}")

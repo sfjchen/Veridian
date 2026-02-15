@@ -135,6 +135,12 @@ def load_answer_key(
     if hint_level == "minimal":
         return ContextResult()
 
+    # Prefer converted LaTeX (higher quality than raw PDF extraction)
+    answer_key_latex = assignment.get("answer_key_latex")
+    if answer_key_latex and answer_key_latex.strip():
+        return ContextResult(text=answer_key_latex)
+
+    # Fall back to downloading the original file from storage
     storage_path = assignment.get("answer_key_storage_path")
     if not storage_path:
         return ContextResult()
@@ -147,6 +153,22 @@ def load_answer_key(
 
     text, warnings = _fetch_and_extract_file(ASSIGNMENTS_BUCKET, storage_path, file_type)
     return ContextResult(text=text, warnings=warnings)
+
+
+def load_solution_for_problem(
+    assignment: Dict[str, Any], problem_num: int, hint_level: str,
+) -> Optional[str]:
+    """Load the solution_tex for a specific problem from the solutions array."""
+    if hint_level == "minimal":
+        return None
+    solutions = assignment.get("solutions")
+    if not isinstance(solutions, list):
+        return None
+    for s in solutions:
+        if isinstance(s, dict) and s.get("num") == problem_num:
+            tex = s.get("solution_tex", "")
+            return tex if tex.strip() else None
+    return None
 
 
 # ---------------------------------------------------------------------------

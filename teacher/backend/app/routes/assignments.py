@@ -853,11 +853,21 @@ def convert_answer_key(assignment_id: str) -> Tuple[Response, int]:
     finally:
         complete_conversion_job(job_id)
 
-    # Update assignment with answer key LaTeX and solutions
+    # Upload original answer key file to storage
+    classroom_id = record["classroom_id"]
+    answer_key_path = f"{classroom_id}/{assignment_id}/answer_key.{file_type}"
+    try:
+        upload_file_bytes(ASSIGNMENTS_BUCKET, answer_key_path, file_bytes)
+    except ValueError:
+        log.exception("Failed to upload answer key file for assignment %s", assignment_id)
+        return jsonify({"error": "Failed to upload answer key file"}), 500
+
+    # Update assignment with answer key LaTeX, solutions, and storage path
     try:
         updated = client.table("assignments").update({
             "answer_key_latex": result["latex_content"],
             "solutions": [dict(s) for s in result["solutions"]],
+            "answer_key_storage_path": answer_key_path,
         }).eq("id", assignment_id).execute()
     except APIError:
         log.exception("Failed to update assignment %s with answer key", assignment_id)

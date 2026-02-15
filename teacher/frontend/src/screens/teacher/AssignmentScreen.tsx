@@ -2,6 +2,7 @@ import React, { useState, useEffect, useCallback, useRef } from "react";
 import {
   View,
   Text,
+  TextInput,
   TouchableOpacity,
   StyleSheet,
   Image,
@@ -17,6 +18,7 @@ import { createPdfPreviewDataUri, looksLikeImage, looksLikePdf, looksLikeText } 
 import { useSubmissions } from "../../hooks/useSubmissions";
 import { LatexRenderer } from "../../components/LatexRenderer";
 import { FileUploader } from "../../components/FileUploader";
+import { DateField } from "../../components/DateField";
 import { ProblemEditor } from "../../components/ProblemEditor";
 import { AssignmentConfig, AssignmentDetail, Problem, Submission } from "../../types";
 import { alert } from "../../lib/alert";
@@ -254,134 +256,322 @@ export function TeacherAssignmentScreen({ route, navigation }: { route: any; nav
         <View style={{ flex: 1 }}>
           <View style={styles.modeToggle}>
             <TouchableOpacity
-              style={[styles.modeButton, viewMode === "teacher" && styles.modeButtonActive]}
-              onPress={() => setViewMode("teacher")}
-              accessibilityRole="tab"
-              accessibilityLabel="Teacher view"
-              accessibilityState={{ selected: viewMode === "teacher" }}
-            >
-              <Text style={[styles.modeText, viewMode === "teacher" && styles.modeTextActive]}>
-                Teacher View
-              </Text>
-            </TouchableOpacity>
-            <TouchableOpacity
-              style={[styles.modeButton, viewMode === "student" && styles.modeButtonActive]}
-              onPress={() => setViewMode("student")}
-              accessibilityRole="tab"
-              accessibilityLabel="Student view"
-              accessibilityState={{ selected: viewMode === "student" }}
-            >
-              <Text style={[styles.modeText, viewMode === "student" && styles.modeTextActive]}>
-                Student View
-              </Text>
-            </TouchableOpacity>
-          </View>
+          style={[styles.modeButton, viewMode === "teacher" && styles.modeButtonActive]}
+          onPress={() => setViewMode("teacher")}
+          accessibilityRole="tab"
+          accessibilityLabel="Teacher view"
+          accessibilityState={{ selected: viewMode === "teacher" }}
+        >
+          <Text style={[styles.modeText, viewMode === "teacher" && styles.modeTextActive]}>
+            Teacher View
+          </Text>
+        </TouchableOpacity>
+        <TouchableOpacity
+          style={[styles.modeButton, viewMode === "student" && styles.modeButtonActive]}
+          onPress={() => setViewMode("student")}
+          accessibilityRole="tab"
+          accessibilityLabel="Student view"
+          accessibilityState={{ selected: viewMode === "student" }}
+        >
+          <Text style={[styles.modeText, viewMode === "student" && styles.modeTextActive]}>
+            Student View
+          </Text>
+        </TouchableOpacity>
+      </View>
 
-          {viewMode === "student" ? (
+      {viewMode === "student" ? (
+        /* Student Preview */
+        <View>
+          <Text style={styles.previewBanner}>Student Preview</Text>
+          <Text style={styles.title}>{assignment.title}</Text>
+          {assignment.due_date && (
+            <Text style={styles.due}>
+              Due: {new Date(assignment.due_date).toLocaleDateString("en-US", {
+                year: "numeric", month: "short", day: "numeric", timeZone: "UTC",
+              })}
+            </Text>
+          )}
+          {assignmentContent ? (
+            <View style={styles.contentPreview}>
+              <Text style={styles.sectionTitle}>Problem</Text>
+              <LatexRenderer latex={assignmentContent} />
+            </View>
+          ) : imagePreviewUrl ? (
+            <View style={styles.contentPreview}>
+              <Text style={styles.sectionTitle}>Problem</Text>
+              <Image source={{ uri: imagePreviewUrl }} style={styles.assignmentImage} resizeMode="contain" />
+            </View>
+          ) : isPdf ? (
             <View>
-              {assignmentContent ? (
-                <View style={styles.contentPreview}>
-                  <Text style={styles.sectionTitle}>Problem</Text>
-                  <LatexRenderer latex={assignmentContent} />
-                </View>
-              ) : imagePreviewUrl ? (
-                <View style={styles.contentPreview}>
-                  <Text style={styles.sectionTitle}>Problem</Text>
-                  <Image source={{ uri: imagePreviewUrl }} style={styles.assignmentImage} resizeMode="contain" />
-                </View>
-              ) : isPdf ? (
-                <View>
-                  {pdfPreviewUri && (
-                    <Image source={{ uri: pdfPreviewUri }} style={styles.pdfPreview} resizeMode="contain" />
-                  )}
-                  <Text style={styles.noContent}>PDF uploaded — convert to LaTeX in Teacher View to preview</Text>
-                </View>
-              ) : binaryDownloadUrl ? (
-                <View style={styles.binaryNotice}>
-                  <Text style={styles.binaryNoticeText}>This file type cannot be previewed in-app.</Text>
-                  <Button size="sm" onPress={() => handleOpenFile(binaryDownloadUrl)}>Download File</Button>
-                </View>
-              ) : (
-                <Text style={styles.noContent}>No assignment file uploaded</Text>
+              {pdfPreviewUri && (
+                <Image source={{ uri: pdfPreviewUri }} style={styles.pdfPreview} resizeMode="contain" />
               )}
-              <View style={styles.disabledButton}>
-                <Text style={styles.disabledButtonText}>Submit Solution (disabled in preview)</Text>
-              </View>
-              <TouchableOpacity
-                style={styles.tryStudentButton}
-                onPress={() => navigation.navigate("StudentExperience", { assignmentId })}
-              >
-                <Text style={styles.tryStudentButtonText}>Try Full Student Experience</Text>
+              <Text style={styles.noContent}>PDF uploaded — convert to LaTeX in Teacher View to preview</Text>
+            </View>
+          ) : binaryDownloadUrl ? (
+            <View style={styles.binaryNotice}>
+              <Text style={styles.binaryNoticeText}>This file type cannot be previewed in-app.</Text>
+              <TouchableOpacity style={styles.downloadButton} onPress={() => handleOpenFile(binaryDownloadUrl)}>
+                <Text style={styles.downloadButtonText}>Download File</Text>
               </TouchableOpacity>
             </View>
           ) : (
+            <Text style={styles.noContent}>No assignment file uploaded</Text>
+          )}
+          <View style={styles.disabledButton}>
+            <Text style={styles.disabledButtonText}>Submit Solution (disabled in preview)</Text>
+          </View>
+          <TouchableOpacity
+            style={styles.tryStudentButton}
+            onPress={() => navigation.navigate("StudentExperience", { assignmentId })}
+          >
+            <Text style={styles.tryStudentButtonText}>Try Full Student Experience</Text>
+          </TouchableOpacity>
+        </View>
+      ) : (
+        /* Teacher View */
+        <View>
+          {editing ? (
             <View>
-              {editing ? (
-                <Section title="Edit Assignment">
-                  <Input
-                    placeholder="Assignment title"
-                    value={editTitle}
-                    onChangeText={setEditTitle}
-                  />
-                  <Input
-                    placeholder="Due date (YYYY-MM-DD, optional)"
-                    value={editDueDate}
-                    onChangeText={setEditDueDate}
-                  />
-                  <Text style={styles.sectionTitle}>Problems</Text>
-                  <ProblemEditor problems={editProblems} onChange={setEditProblems} />
-                  <Row gap={spacing.sm} style={styles.editActions}>
-                    <Button onPress={handleSave} disabled={saving} loading={saving}>
-                      Save
-                    </Button>
-                    <Button
-                      variant="secondary"
-                      onPress={() => {
-                        setEditing(false);
-                        setEditTitle(assignment.title);
-                        setEditDueDate(assignment.due_date ? assignment.due_date.split("T")[0] : "");
-                        setEditProblems(assignment.problems ?? []);
-                      }}
-                    >
-                      Cancel
-                    </Button>
-                  </Row>
-                </Section>
-              ) : (
-                <View>
-                  <Row gap={spacing.sm} style={styles.headerRow}>
-                    <Text style={styles.title}>{assignment.title}</Text>
-                    <TouchableOpacity style={styles.editChip} onPress={() => setEditing(true)}>
-                      <Text style={styles.editChipText}>Edit</Text>
-                    </TouchableOpacity>
-                  </Row>
-                  {assignment.due_date && (
-                    <Text style={styles.due}>
-                      Due: {new Date(assignment.due_date).toLocaleDateString("en-US", {
-                        year: "numeric", month: "short", day: "numeric", timeZone: "UTC",
-                      })}
-                    </Text>
-                  )}
-                  {(assignment.problems?.length ?? 0) > 0 && (
-                    <View style={styles.problemsSummary}>
-                      <Text style={styles.sectionTitle}>
-                        Problems ({assignment.problems.length})
+              <Text style={styles.sectionTitle}>Edit Assignment</Text>
+              <TextInput
+                style={styles.input}
+                placeholder="Assignment title"
+                value={editTitle}
+                onChangeText={setEditTitle}
+                accessibilityLabel="Assignment title"
+              />
+              <DateField
+                value={editDueDate}
+                onChange={setEditDueDate}
+                placeholder="Due date (optional)"
+                accessibilityLabel="Due date"
+              />
+              <Text style={styles.sectionTitle}>Problems</Text>
+              <ProblemEditor problems={editProblems} onChange={setEditProblems} />
+              <View style={styles.editActions}>
+                <TouchableOpacity
+                  style={[styles.actionButton, styles.saveButton]}
+                  onPress={handleSave}
+                  disabled={saving}
+                  accessibilityRole="button"
+                  accessibilityLabel={saving ? "Saving" : "Save changes"}
+                >
+                  <Text style={styles.actionButtonText}>{saving ? "Saving..." : "Save"}</Text>
+                </TouchableOpacity>
+                <TouchableOpacity
+                  style={[styles.actionButton, styles.cancelButton]}
+                  onPress={() => {
+                    setEditing(false);
+                    setEditTitle(assignment.title);
+                    setEditDueDate(assignment.due_date ? assignment.due_date.split("T")[0] : "");
+                    setEditConfig(assignment.config ?? {});
+                    setEditProblems(assignment.problems ?? []);
+                  }}
+                  accessibilityRole="button"
+                  accessibilityLabel="Cancel edit"
+                >
+                  <Text style={styles.cancelButtonText}>Cancel</Text>
+                </TouchableOpacity>
+              </View>
+            </View>
+          ) : (
+            <View>
+              <View style={styles.headerRow}>
+                <Text style={styles.title}>{assignment.title}</Text>
+                <TouchableOpacity
+                  style={styles.editChip}
+                  onPress={() => setEditing(true)}
+                  accessibilityRole="button"
+                  accessibilityLabel="Edit assignment"
+                >
+                  <Text style={styles.editChipText}>Edit</Text>
+                </TouchableOpacity>
+              </View>
+              {assignment.due_date && (
+                <Text style={styles.due}>
+                  Due: {new Date(assignment.due_date).toLocaleDateString("en-US", {
+                    year: "numeric", month: "short", day: "numeric", timeZone: "UTC",
+                  })}
+                </Text>
+              )}
+              {(assignment.problems?.length ?? 0) > 0 && (
+                <View style={styles.problemsSummary}>
+                  <Text style={styles.sectionTitle}>Problems ({assignment.problems.length})</Text>
+                  {assignment.problems.map((p) => (
+                    <View key={p.num} style={styles.problemRow}>
+                      <Text style={styles.problemNum}>#{p.num}</Text>
+                      <Text style={styles.problemTex} numberOfLines={2}>
+                        {p.statement_tex || "(no statement)"}
                       </Text>
-                      {assignment.problems.map((p) => (
-                        <View key={p.num} style={styles.problemRow}>
-                          <Text style={styles.problemNum}>#{p.num}</Text>
-                          <Text style={styles.problemTex} numberOfLines={2}>
-                            {p.statement_tex || "(no statement)"}
-                          </Text>
-                        </View>
-                      ))}
                     </View>
-                  )}
+                  ))}
                 </View>
               )}
+              <View style={styles.configSummary}>
+                <Text style={styles.sectionTitle}>Config</Text>
+                {Object.entries(assignment.config ?? {}).length === 0 ? (
+                  <Text style={styles.noFile}>No assignment-specific overrides</Text>
+                ) : (
+                  Object.entries(assignment.config ?? {}).map(([key, value]) => (
+                    <View key={key} style={styles.configRow}>
+                      <Text style={styles.configKey}>{key}</Text>
+                      <Text style={styles.configValue}>{String(value)}</Text>
+                    </View>
+                  ))
+                )}
+              </View>
+            </View>
+          )}
 
-              <Section title="Files">
-                <Card style={styles.fileCard}>
+          {/* Files Section */}
+          <Text style={[styles.sectionTitle, { marginTop: 24 }]}>Files</Text>
+
+          <View style={styles.fileCard}>
+            <Text style={styles.fileLabel}>Assignment File</Text>
+            {assignment.assignment_file_download_url ? (
+              <TouchableOpacity
+                style={styles.downloadButton}
+                onPress={() => handleOpenFile(assignment.assignment_file_download_url!)}
+              >
+                <Text style={styles.downloadButtonText}>View / Download</Text>
+              </TouchableOpacity>
+            ) : (
+              <Text style={styles.noFile}>Not uploaded</Text>
+            )}
+          </View>
+
+          <View style={styles.fileCard}>
+            <Text style={styles.fileLabel}>Answer Key</Text>
+            {assignment.answer_key_download_url ? (
+              <TouchableOpacity
+                style={styles.downloadButton}
+                onPress={() => handleOpenFile(assignment.answer_key_download_url!)}
+              >
+                <Text style={styles.downloadButtonText}>View / Download</Text>
+              </TouchableOpacity>
+            ) : (
+              <Text style={styles.noFile}>Not uploaded</Text>
+            )}
+          </View>
+
+          {/* Re-upload Section */}
+          {!reuploadUrls ? (
+            <Button variant="secondary" onPress={handleReupload} disabled={reuploading} loading={reuploading} style={styles.reuploadButton}>
+              Re-upload Files
+            </Button>
+          ) : (
+            <View style={styles.reuploadSection}>
+              {reuploadUrls.assignment_file_upload_url && (
+                <>
+                  <Text style={styles.sectionTitle}>Replace Assignment File</Text>
+                  <FileUploader
+                    uploadUrl={reuploadUrls.assignment_file_upload_url}
+                    label="Select New Assignment File"
+                    onUploadComplete={() => {
+                      alert("Success", "Assignment file replaced");
+                      setReuploadUrls(null);
+                      setLoading(true);
+                      fetchAssignment();
+                    }}
+                  />
+                </>
+              )}
+              {reuploadUrls.answer_key_upload_url && (
+                <>
+                  <Text style={styles.sectionTitle}>Replace Answer Key</Text>
+                  <FileUploader
+                    uploadUrl={reuploadUrls.answer_key_upload_url}
+                    label="Select New Answer Key"
+                    onUploadComplete={() => {
+                      alert("Success", "Answer key replaced");
+                      setReuploadUrls(null);
+                      setLoading(true);
+                      fetchAssignment();
+                    }}
+                  />
+                </>
+              )}
+              <Button variant="secondary" onPress={() => setReuploadUrls(null)} style={styles.cancelReupload}>
+                Cancel Re-upload
+              </Button>
+            </View>
+          )}
+
+          {isPdf && (
+            <Card style={styles.convertSection}>
+              <Text style={styles.sectionTitle}>PDF Detected</Text>
+              {pdfPreviewUri && (
+                <Image source={{ uri: pdfPreviewUri }} style={styles.pdfPreview} resizeMode="contain" />
+              )}
+              <Text style={styles.convertHint}>
+                Convert the uploaded PDF to LaTeX for in-app math rendering.
+              </Text>
+              <Button onPress={handleConvertPdf} disabled={converting} loading={converting}>
+                Convert PDF to LaTeX
+              </Button>
+            </Card>
+          )}
+
+          <Section title="Student Submissions">
+            {submissionsLoading ? (
+              <ActivityIndicator color={palette.primary} />
+            ) : submissionsError ? (
+              <Text style={styles.errorText}>{submissionsError}</Text>
+            ) : submissions.length === 0 ? (
+              <Text style={styles.noContent}>No submissions yet</Text>
+            ) : (
+              submissions.map((submission: Submission) => (
+                <Card key={submission.id} style={styles.submissionCard}>
+                  <View style={styles.listItemContent}>
+                    <Text style={styles.itemTitle}>
+                      {submission.student_display_name ?? `Student ${submission.student_id.slice(0, 8)}`}
+                    </Text>
+                    <Text style={styles.itemSub}>
+                      Submitted {new Date(submission.submitted_at).toLocaleString("en-US", {
+                        year: "numeric",
+                        month: "short",
+                        day: "numeric",
+                        hour: "numeric",
+                        minute: "2-digit",
+                        timeZone: "UTC",
+                      })}
+                    </Text>
+                  </View>
+                  {submission.download_url ? (
+                    <Button size="sm" onPress={() => handleOpenFile(submission.download_url!)}>
+                      Open
+                    </Button>
+                  ) : (
+                    <Text style={styles.noFile}>Unavailable</Text>
+                  )}
+                </Card>
+              ))
+            )}
+          </Section>
+
+          {assignmentContent && (
+            <View style={styles.contentPreview}>
+              <Text style={styles.sectionTitle}>Assignment Preview (LaTeX)</Text>
+              <LatexRenderer latex={assignmentContent} />
+            </View>
+          )}
+          {imagePreviewUrl && (
+            <View style={styles.contentPreview}>
+              <Text style={styles.sectionTitle}>Assignment Preview (Image)</Text>
+              <Image source={{ uri: imagePreviewUrl }} style={styles.assignmentImage} resizeMode="contain" />
+            </View>
+          )}
+          {binaryDownloadUrl && (
+            <Card style={styles.binaryNotice}>
+              <Text style={styles.binaryNoticeText}>This file type cannot be previewed in-app.</Text>
+              <Button size="sm" onPress={() => handleOpenFile(binaryDownloadUrl)}>Download File</Button>
+            </Card>
+          )}
+        </View>
+
+        <Section title="Files">
+        <Card style={styles.fileCard}>
                   <Text style={styles.fileLabel}>Assignment File</Text>
                   {assignment.assignment_file_download_url ? (
                     <Button size="sm" onPress={() => handleOpenFile(assignment.assignment_file_download_url!)}>
@@ -515,9 +705,8 @@ export function TeacherAssignmentScreen({ route, navigation }: { route: any; nav
                   <Button size="sm" onPress={() => handleOpenFile(binaryDownloadUrl)}>Download File</Button>
                 </Card>
               )}
-            </View>
-          )}
         </View>
+      )}
       </ScrollView>
     </ScreenContainer>
 }
@@ -575,6 +764,14 @@ const styles = StyleSheet.create({
   cancelButton: { backgroundColor: palette.tabInactive },
   actionButtonText: { color: palette.white, fontSize: 16, fontWeight: "600" },
   cancelButtonText: { color: palette.textSecondary, fontSize: 16, fontWeight: "600" },
+  problemsSummary: { marginTop: 12, marginBottom: 12 },
+  problemRow: { flexDirection: "row", gap: 8, marginBottom: 6, alignItems: "flex-start" },
+  problemNum: { ...typography.bodySmall, fontWeight: "700", color: palette.textSecondary, minWidth: 32 },
+  problemTex: { ...typography.bodySmall, color: palette.textPrimary, flex: 1 },
+  configSummary: { marginTop: 8, marginBottom: 12, gap: 6 },
+  configRow: { flexDirection: "row", justifyContent: "space-between", gap: 8 },
+  configKey: { ...typography.caption, color: palette.textMuted, flex: 1 },
+  configValue: { ...typography.caption, color: palette.textSecondary, fontWeight: "600" },
 
   fileCard: {
     backgroundColor: palette.surface,

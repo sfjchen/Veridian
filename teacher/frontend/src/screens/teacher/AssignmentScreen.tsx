@@ -539,13 +539,26 @@ export function TeacherAssignmentScreen({ route, navigation }: { route: any; nav
                       })}
                     </Text>
                   </View>
-                  {submission.download_url ? (
-                    <Button size="sm" onPress={() => handleOpenFile(submission.download_url!)}>
-                      Open
+                  <View style={styles.submissionActions}>
+                    <Button
+                      size="sm"
+                      variant="secondary"
+                      onPress={() => navigation.navigate("StudentWorkReview", {
+                        assignmentId,
+                        studentId: submission.student_id,
+                        studentDisplayName: submission.student_display_name ?? `Student ${submission.student_id.slice(0, 8)}`
+                      })}
+                    >
+                      Review
                     </Button>
-                  ) : (
-                    <Text style={styles.noFile}>Unavailable</Text>
-                  )}
+                    {submission.download_url ? (
+                      <Button size="sm" onPress={() => handleOpenFile(submission.download_url!)}>
+                        Open
+                      </Button>
+                    ) : (
+                      <Text style={styles.noFile}>Unavailable</Text>
+                    )}
+                  </View>
                 </Card>
               ))
             )}
@@ -676,13 +689,26 @@ export function TeacherAssignmentScreen({ route, navigation }: { route: any; nav
                           })}
                         </Text>
                       </View>
-                      {submission.download_url ? (
-                        <Button size="sm" onPress={() => handleOpenFile(submission.download_url!)}>
-                          Open
+                      <View style={styles.submissionActions}>
+                        <Button
+                          size="sm"
+                          variant="secondary"
+                          onPress={() => navigation.navigate("StudentWorkReview", {
+                            assignmentId,
+                            studentId: submission.student_id,
+                            studentDisplayName: submission.student_display_name ?? `Student ${submission.student_id.slice(0, 8)}`
+                          })}
+                        >
+                          Review
                         </Button>
-                      ) : (
-                        <Text style={styles.noFile}>Unavailable</Text>
-                      )}
+                        {submission.download_url ? (
+                          <Button size="sm" onPress={() => handleOpenFile(submission.download_url!)}>
+                            Open
+                          </Button>
+                        ) : (
+                          <Text style={styles.noFile}>Unavailable</Text>
+                        )}
+                      </View>
                     </Card>
                   ))
                 )}
@@ -850,6 +876,7 @@ const styles = StyleSheet.create({
     justifyContent: "space-between",
   },
   listItemContent: { flex: 1 },
+  submissionActions: { flexDirection: "row", gap: spacing.xs, alignItems: "center" },
   itemTitle: { fontSize: 16, fontWeight: "500", color: palette.textPrimary },
   itemSub: { ...typography.caption, color: palette.textMuted, marginTop: 4 },
 

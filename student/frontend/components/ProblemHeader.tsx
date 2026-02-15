@@ -1,3 +1,4 @@
+import React from 'react';
 import { ActivityIndicator, Platform, Pressable, StyleSheet, Text, View } from 'react-native';
 import { WebView } from 'react-native-webview';
 
@@ -30,6 +31,29 @@ function katexHtml(tex: string): string {
 </body></html>`;
 }
 
+function WebLatexView({ statementTex }: { statementTex: string }) {
+  const html = katexHtml(statementTex);
+  const blobUrl = React.useMemo(() => {
+    const blob = new Blob([html], { type: 'text/html' });
+    return URL.createObjectURL(blob);
+  }, [html]);
+
+  React.useEffect(() => {
+    return () => URL.revokeObjectURL(blobUrl);
+  }, [blobUrl]);
+
+  return (
+    <View style={styles.webViewWrap}>
+      <iframe
+        src={blobUrl}
+        style={{ width: '100%', height: 56, border: 'none', overflow: 'hidden' } as any}
+        sandbox="allow-scripts"
+        title="Problem Statement"
+      />
+    </View>
+  );
+}
+
 export function ProblemHeader(props: ProblemHeaderProps) {
   if (props.onDone) {
     return (
@@ -54,11 +78,15 @@ export function ProblemHeader(props: ProblemHeaderProps) {
     );
   }
   const { problemNum, statementTex } = props;
-  const useWebView = Platform.OS !== 'web' && statementTex.includes('\\');
+  const hasLatex = statementTex.includes('\\');
+  const isWeb = Platform.OS === 'web';
+
   return (
     <View style={styles.card}>
       <Text style={styles.label}>Problem {problemNum}</Text>
-      {useWebView ? (
+      {hasLatex && isWeb ? (
+        <WebLatexView statementTex={statementTex} />
+      ) : hasLatex ? (
         <View style={styles.webViewWrap}>
           <WebView
             source={{ html: katexHtml(statementTex) }}

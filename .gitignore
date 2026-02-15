@@ -47,3 +47,4 @@ Thumbs.db
 # Student platform local output
 student/backend/mistakes.json
 student/backend/.result_persist_dlq.jsonl*
+.worktrees/

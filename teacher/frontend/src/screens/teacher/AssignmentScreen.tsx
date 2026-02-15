@@ -63,6 +63,47 @@ function sanitizeContent(raw: string): string {
 
 type ViewMode = "teacher" | "student";
 
+type FilePreviewState = {
+  isPdf: boolean;
+  pdfPreviewUri: string | null;
+  imagePreviewUrl: string | null;
+  assignmentContent: string | null;
+  binaryDownloadUrl: string | null;
+};
+
+async function processAssignmentFile(url: string, mountedRef: React.MutableRefObject<boolean>): Promise<FilePreviewState | null> {
+  const resp = await fetch(url);
+  if (!mountedRef.current || !resp.ok) return null;
+
+  const blob = await resp.blob();
+  const bytes = new Uint8Array(await blob.arrayBuffer());
+  if (!mountedRef.current) return null;
+
+  const contentType = resp.headers.get("content-type") ?? "";
+
+  if (looksLikePdf(contentType, bytes)) {
+    let pdfPreviewUri = null;
+    try {
+      pdfPreviewUri = await createPdfPreviewDataUri(blob);
+    } catch (previewError) {
+      console.error("Failed to generate PDF preview image:", previewError);
+    }
+    return { isPdf: true, pdfPreviewUri, imagePreviewUrl: null, assignmentContent: null, binaryDownloadUrl: null };
+  }
+
+  if (looksLikeImage(contentType, bytes)) {
+    return { isPdf: false, pdfPreviewUri: null, imagePreviewUrl: url, assignmentContent: null, binaryDownloadUrl: null };
+  }
+
+  if (looksLikeText(contentType, bytes)) {
+    const text = await blob.text();
+    if (!mountedRef.current) return null;
+    return { isPdf: false, pdfPreviewUri: null, imagePreviewUrl: null, assignmentContent: sanitizeContent(text), binaryDownloadUrl: null };
+  }
+
+  return { isPdf: false, pdfPreviewUri: null, imagePreviewUrl: null, assignmentContent: null, binaryDownloadUrl: url };
+}
+
 export function TeacherAssignmentScreen({ route, navigation }: { route: any; navigation: any }) {
   const { assignmentId } = route.params;
   const mountedRef = useRef(true);
@@ -99,16 +140,11 @@ export function TeacherAssignmentScreen({ route, navigation }: { route: any; nav
     refresh: refreshSubmissions,
   } = useSubmissions(assignmentId);
 
-  const onRefresh = useCallback(async () => {
-    setRefreshing(true);
-    await Promise.all([fetchAssignment(), refreshSubmissions()]);
-    if (mountedRef.current) setRefreshing(false);
-  }, [fetchAssignment, refreshSubmissions]);
-
   const fetchAssignment = useCallback(async () => {
     try {
       const data = await api<AssignmentDetail>(`/assignments/${assignmentId}`);
       if (!mountedRef.current) return;
+
       setAssignment(data);
       setEditTitle(data.title);
       setEditDueDate(data.due_date ? data.due_date.split("T")[0] : "");
@@ -119,44 +155,28 @@ export function TeacherAssignmentScreen({ route, navigation }: { route: any; nav
       setBinaryDownloadUrl(null);
 
       if (data.assignment_file_download_url) {
-        const resp = await fetch(data.assignment_file_download_url);
-        if (!mountedRef.current) return;
-        if (resp.ok) {
-          const blob = await resp.blob();
-          const bytes = new Uint8Array(await blob.arrayBuffer());
-          if (!mountedRef.current) return;
-
-          const contentType = resp.headers.get("content-type") ?? "";
-          if (looksLikePdf(contentType, bytes)) {
-            setIsPdf(true);
-            setAssignmentContent(null);
-            try {
-              const previewUri = await createPdfPreviewDataUri(blob);
-              if (mountedRef.current) setPdfPreviewUri(previewUri);
-            } catch (previewError) {
-              console.error("Failed to generate PDF preview image:", previewError);
-              if (mountedRef.current) setPdfPreviewUri(null);
-            }
-          } else if (looksLikeImage(contentType, bytes)) {
-            setIsPdf(false);
-            setImagePreviewUrl(data.assignment_file_download_url ?? null);
-          } else if (looksLikeText(contentType, bytes)) {
-            const text = await blob.text();
-            if (!mountedRef.current) return;
-            setIsPdf(false);
-            setAssignmentContent(sanitizeContent(text));
-          } else {
-            setIsPdf(false);
-            setBinaryDownloadUrl(data.assignment_file_download_url ?? null);
-          }
+        const preview = await processAssignmentFile(data.assignment_file_download_url, mountedRef);
+        if (mountedRef.current && preview) {
+          setIsPdf(preview.isPdf);
+          setPdfPreviewUri(preview.pdfPreviewUri);
+          setImagePreviewUrl(preview.imagePreviewUrl);
+          setAssignmentContent(preview.assignmentContent);
+          setBinaryDownloadUrl(preview.binaryDownloadUrl);
         }
       }
-    } catch (e: any) {
-      if (mountedRef.current) alert("Error", e.message);
+    } catch (e) {
+      const message = e instanceof Error ? e.message : "Failed to load assignment";
+      if (mountedRef.current) alert("Error", message);
     } finally {
       if (mountedRef.current) setLoading(false);
     }
   }, [assignmentId]);
+
+  const onRefresh = useCallback(async () => {
+    setRefreshing(true);
+    await Promise.all([fetchAssignment(), refreshSubmissions()]);
+    if (mountedRef.current) setRefreshing(false);
+  }, [fetchAssignment, refreshSubmissions]);
 
   const handleConvertPdf = async () => {
     if (!assignment?.assignment_file_download_url) return;
@@ -189,8 +209,9 @@ export function TeacherAssignmentScreen({ route, navigation }: { route: any; nav
       setPdfPreviewUri(null);
       setImagePreviewUrl(null);
       setBinaryDownloadUrl(null);
-    } catch (e: any) {
-      alert("Conversion Error", e.message);
+    } catch (e) {
+      const message = e instanceof Error ? e.message : "Conversion failed";
+      alert("Conversion Error", message);
     } finally {
       setConverting(false);
     }
@@ -223,8 +244,9 @@ export function TeacherAssignmentScreen({ route, navigation }: { route: any; nav
       setAssignment((prev) => prev ? { ...prev, ...updated } : updated);
       setEditing(false);
       navigation.setOptions({ title: updated.title });
-    } catch (e: any) {
-      alert("Error", e.message);
+    } catch (e) {
+      const message = e instanceof Error ? e.message : "Failed to save";
+      alert("Error", message);
     } finally {
       setSaving(false);
     }
@@ -238,8 +260,9 @@ export function TeacherAssignmentScreen({ route, navigation }: { route: any; nav
         answer_key_upload_url?: string;
       }>(`/assignments/${assignmentId}/reupload`, { method: "POST" });
       setReuploadUrls(urls);
-    } catch (e: any) {
-      alert("Error", e.message);
+    } catch (e) {
+      const message = e instanceof Error ? e.message : "Failed to prepare re-upload";
+      alert("Error", message);
     } finally {
       setReuploading(false);
     }

@@ -29,7 +29,7 @@ def convert_pdf_to_latex(pdf_bytes: bytes) -> str:
                 },
                 {
                     "type": "text",
-                    "text": "Convert this PDF to LaTeX (.tex). Return ONLY the LaTeX code -- no explanation, no markdown code fences. Preserve all mathematical notation, formatting, and structure as faithfully as possible.",
+                    "text": "Convert this PDF to LaTeX (.tex). Return ONLY the LaTeX code -- no explanation, no markdown code fences. Preserve all mathematical notation, formatting, and structure as faithfully as possible. Skip any images or figures -- do not include \\includegraphics or figure environments.",
                 },
             ],
         }],

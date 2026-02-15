@@ -11,6 +11,14 @@ from app.constants import CLAUDE_MAX_TOKENS, CLAUDE_MODEL_SONNET_4_5
 from ..prompts.problem_detection import get_problem_detection_prompt
 
 
+_CODE_FENCE_RE = re.compile(r"^```(?:json)?\s*\n(.*?)```\s*$", re.DOTALL)
+
+
+def _strip_code_fences(text: str) -> str:
+    m = _CODE_FENCE_RE.match(text)
+    return m.group(1).strip() if m else text
+
+
 class Problem(TypedDict):
     num: int
     statement_tex: str
@@ -58,9 +66,8 @@ def extract_problems_from_latex(latex: str) -> list[dict[str, Any]]:
         if not hasattr(block, "text"):
             raise ProblemDetectionError(f"Claude API returned non-text content: {block.type}")
 
-        response_text = block.text.strip()
+        response_text = _strip_code_fences(block.text.strip())
 
-        # Parse JSON response
         try:
             problems = json.loads(response_text)
         except json.JSONDecodeError as e:

@@ -198,6 +198,7 @@ class ConversionOrchestrator:
             ConversionError: If PDF parsing or rendering fails
         """
         try:
+            fitz.TOOLS.mupdf_warnings(reset=True)
             document = fitz.open(stream=pdf_bytes, filetype="pdf")
         except Exception as e:
             raise ConversionError("Failed to parse PDF file") from e
@@ -324,7 +325,7 @@ class ConversionOrchestrator:
 
         content.append({
             "type": "text",
-            "text": f"{instruction} Return ONLY the LaTeX code -- no explanation, no markdown code fences. Preserve all mathematical notation, formatting, and structure as faithfully as possible.",
+            "text": f"{instruction} Return ONLY the LaTeX code -- no explanation, no markdown code fences. Preserve all mathematical notation, formatting, and structure as faithfully as possible. Skip any images or figures -- do not include \\includegraphics or figure environments.",
         })
 
         try:

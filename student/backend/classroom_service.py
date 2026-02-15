@@ -79,7 +79,7 @@ def join_classroom_by_code(student_id: str, class_code: str) -> Dict[str, Any]:
 
 _STUDENT_ASSIGNMENT_FIELDS = (
     "id, classroom_id, title, due_date, config, "
-    "prompt_storage_path, prompt_latex, problems, created_at, updated_at"
+    "prompt_storage_path, prompt_latex, problems, created_at"
 )
 
 

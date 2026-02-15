@@ -4,7 +4,7 @@ from flask_socketio import SocketIO
 from .config import Config
 
 # Global SocketIO instance
-socketio = SocketIO()
+socketio = SocketIO(async_mode="threading")
 
 
 def create_app() -> Flask:

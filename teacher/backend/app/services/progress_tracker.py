@@ -5,15 +5,11 @@ Emits WebSocket events to connected clients.
 
 import logging
 from typing import Optional
-from flask_socketio import emit
 
 log = logging.getLogger(__name__)
 
 
 class ProgressTracker:
-    """
-    Tracks and emits progress for PDF/TEX conversion operations.
-    """
 
     def __init__(self, job_id: str):
         self.job_id = job_id
@@ -27,22 +23,13 @@ class ProgressTracker:
         total_pages: Optional[int] = None,
         message: Optional[str] = None,
     ) -> None:
-        """
-        Emit progress event to connected WebSocket clients.
+        from app import socketio
 
-        Args:
-            stage: Current stage (splitting_pages, converting_page, detecting_problems, complete)
-            progress: Progress percentage (0-100)
-            current_page: Optional current page number
-            total_pages: Optional total pages
-            message: Optional status message
-        """
-        event_data = {
+        event_data: dict = {
             "stage": stage,
             "progress": progress,
             "job_id": self.job_id,
         }
-
         if current_page is not None:
             event_data["current_page"] = current_page
         if total_pages is not None:
@@ -51,7 +38,7 @@ class ProgressTracker:
             event_data["message"] = message
 
         try:
-            emit("conversion_progress", event_data, room=self.room, namespace="/conversion")
+            socketio.emit("conversion_progress", event_data, room=self.room, namespace="/conversion")
         except Exception:
             log.exception("Failed to emit conversion progress for job %s", self.job_id)
 

@@ -2,6 +2,8 @@
  * Unit tests for api() – request behavior, null response, and error handling.
  */
 
+import { api } from "../lib/api";
+
 const mockFetch = jest.fn();
 const mockGetSession = jest.fn();
 
@@ -14,8 +16,6 @@ jest.mock("../lib/supabase", () => ({
 }));
 
 global.fetch = mockFetch;
-
-import { api } from "../lib/api";
 
 describe("api", () => {
   beforeEach(() => {

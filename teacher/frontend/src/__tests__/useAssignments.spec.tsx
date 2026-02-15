@@ -2,7 +2,6 @@
  * Unit tests for useAssignments – falsy classroomId and null-safe list.
  */
 
-import React from "react";
 import { renderHook, waitFor } from "@testing-library/react";
 import { useAssignments } from "../hooks/useAssignments";
 

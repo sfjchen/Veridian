@@ -1,16 +1,29 @@
 import React, { useState, useCallback } from "react";
-import { View, Text, FlatList, TouchableOpacity, StyleSheet, ActivityIndicator, ScrollView } from "react-native";
+import { View, Text, FlatList, TouchableOpacity, StyleSheet, ScrollView, RefreshControl } from "react-native";
 import { useFocusEffect } from "@react-navigation/native";
 import * as Clipboard from "expo-clipboard";
 import * as Linking from "expo-linking";
 import { useCorpus } from "../../hooks/useCorpus";
 import { useAssignments } from "../../hooks/useAssignments";
 import { useClassroomStudents } from "../../hooks/useClassroomStudents";
+import { useToast } from "../../contexts/ToastContext";
 import { ConfigEditor } from "../../components/ConfigEditor";
 import { api } from "../../lib/api";
 import { alert } from "../../lib/alert";
-import { AssignmentConfig, Classroom, CorpusFile } from "../../types";
+import { AssignmentConfig, CorpusFile } from "../../types";
 import { InsightsContent } from "./InsightsContent";
+import {
+  Button,
+  Card,
+  CopyableBadge,
+  EmptyState,
+  ErrorState,
+  ScreenContainer,
+  SkeletonCard,
+} from "../../components/ui";
+import { palette, radius } from "../../constants/palette";
+import { spacing } from "../../constants/spacing";
+import { typography } from "../../constants/typography";
 
 type Tab = "assignments" | "corpus" | "students" | "insights" | "settings";
 
@@ -61,8 +74,6 @@ export function TeacherClassroomScreen({ route, navigation }: { route: any; navi
     showToast("Class code copied");
   }, [classroom.class_code, showToast]);
 
-  const tabs: Tab[] = ["assignments", "corpus", "students"];
-
   return (
     <ScreenContainer maxWidth="dashboard">
       <View style={styles.header}>
@@ -87,9 +98,11 @@ export function TeacherClassroomScreen({ route, navigation }: { route: any; navi
 
       {activeTab === "assignments" && (
         <View style={styles.content}>
-          <TouchableOpacity
-            style={styles.addButton}
+          <Button
             onPress={() => navigation.navigate("CreateAssignment", { classroomId: classroom.id, classroomConfig: classroom.config })}
+            variant="primary"
+            fullWidth
+            style={styles.addButton}
           >
             + New Assignment
           </Button>
@@ -276,7 +289,7 @@ export function TeacherClassroomScreen({ route, navigation }: { route: any; navi
           </TouchableOpacity>
         </ScrollView>
       )}
-    </View>
+    </ScreenContainer>
   );
 }
 
@@ -334,11 +347,6 @@ const styles = StyleSheet.create({
     fontSize: 24,
     color: palette.primary,
   },
-  listItemContent: { flex: 1 },
-  itemTitle: { fontSize: 16, fontWeight: "500" },
-  itemSub: { fontSize: 13, color: "#6B7280", marginTop: 4 },
-  chevron: { fontSize: 18, color: "#9CA3AF", marginLeft: 8 },
-  downloadHint: { fontSize: 13, color: "#4F46E5", fontWeight: "600", marginLeft: 8 },
   empty: { textAlign: "center", color: "#9CA3AF", marginTop: 20 },
   errorText: { textAlign: "center", color: "#EF4444", marginTop: 20 },
   settingsHint: { fontSize: 13, color: "#6B7280", marginBottom: 16, lineHeight: 18 },

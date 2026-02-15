@@ -53,35 +53,6 @@ export function AssignmentScreen({ route }: { route: any }) {
   } = useSubmissions(assignmentId);
 
   const mountedRef = useRef(true);
-  useEffect(() => {
-    let cancelled = false;
-    (async () => {
-      try {
-        const data = await api<AssignmentDetail>(`/assignments/${assignmentId}`);
-        if (cancelled) return;
-        if (!data) {
-          setAssignment(null);
-          setAssignmentContent(null);
-          setIsPdf(false);
-          setPdfPreviewUri(null);
-          setImagePreviewUrl(null);
-          setBinaryDownloadUrl(null);
-          setSubmissionUrl(null);
-          if (!cancelled) setLoading(false);
-          return;
-        }
-        setAssignment(data);
-        setAssignmentContent(null);
-        setIsPdf(false);
-        setPdfPreviewUri(null);
-        setImagePreviewUrl(null);
-        setBinaryDownloadUrl(null);
-        if (data.assignment_file_download_url) {
-          const resp = await fetch(data.assignment_file_download_url);
-          if (!resp.ok) throw new Error(`Failed to fetch assignment file: ${resp.status}`);
-          const blob = await resp.blob();
-          const bytes = new Uint8Array(await blob.arrayBuffer());
-          if (cancelled) return;
 
   const fetchAssignment = useCallback(async () => {
     setLoadError(null);

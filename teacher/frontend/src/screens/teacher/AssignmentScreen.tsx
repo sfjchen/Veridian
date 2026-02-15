@@ -1,7 +1,13 @@
 import React, { useState, useEffect, useCallback, useRef } from "react";
 import {
-  View, Text, TouchableOpacity, StyleSheet, Image,
-  ScrollView, ActivityIndicator,
+  View,
+  Text,
+  TextInput,
+  TouchableOpacity,
+  StyleSheet,
+  Image,
+  ScrollView,
+  ActivityIndicator,
 } from "react-native";
 import * as Linking from "expo-linking";
 import { supabase } from "../../lib/supabase";
@@ -123,7 +129,7 @@ export function TeacherAssignmentScreen({ route, navigation }: { route: any; nav
             try {
               const previewUri = await createPdfPreviewDataUri(blob);
               if (mountedRef.current) setPdfPreviewUri(previewUri);
-            } catch (previewError) {
+            } catch {
               if (mountedRef.current) {
                 setPdfPreviewUri(null);
                 alert("Warning", "Could not generate PDF preview image");
@@ -272,7 +278,9 @@ export function TeacherAssignmentScreen({ route, navigation }: { route: any; nav
   return (
     <ScreenContainer maxWidth="dashboard">
       <ScrollView contentContainerStyle={styles.scroll} showsVerticalScrollIndicator={false}>
-        <View style={styles.modeToggle}>
+        <View style={{ flex: 1 }}>
+        {viewMode === "teacher" ? (
+          <View style={styles.modeToggle}>
           <TouchableOpacity
             style={[styles.modeButton, viewMode === "teacher" && styles.modeButtonActive]}
             onPress={() => setViewMode("teacher")}
@@ -280,7 +288,7 @@ export function TeacherAssignmentScreen({ route, navigation }: { route: any; nav
             <Text style={[styles.modeText, viewMode === "teacher" && styles.modeTextActive]}>
               Teacher View
             </Text>
-          )}
+          </TouchableOpacity>
           {assignmentContent ? (
             <View style={styles.contentPreview}>
               <Text style={styles.sectionTitle}>Problem</Text>
@@ -319,9 +327,9 @@ export function TeacherAssignmentScreen({ route, navigation }: { route: any; nav
           </TouchableOpacity>
         </View>
       ) : (
-        /* Teacher View */
         <View>
           {editing ? (
+            <>
             <View>
               <Text style={styles.sectionTitle}>Edit Assignment</Text>
               <TextInput
@@ -377,7 +385,8 @@ export function TeacherAssignmentScreen({ route, navigation }: { route: any; nav
                 })}
               </Text>
             )}
-            {assignmentContent ? (
+            {assignmentContent && (
+              <>
               <View style={styles.contentPreview}>
                 <Text style={styles.sectionTitle}>Problem</Text>
                 <LatexRenderer latex={assignmentContent} />
@@ -406,7 +415,7 @@ export function TeacherAssignmentScreen({ route, navigation }: { route: any; nav
                   })}
                 </View>
               )}
-            </View>
+            </>
           )}
 
           {/* Files Section */}
@@ -428,6 +437,7 @@ export function TeacherAssignmentScreen({ route, navigation }: { route: any; nav
               <Text style={styles.disabledButtonText}>Submit Solution (disabled in preview)</Text>
             </View>
           </View>
+            </>
         ) : (
           <View>
             {editing ? (
@@ -613,6 +623,9 @@ export function TeacherAssignmentScreen({ route, navigation }: { route: any; nav
             )}
           </View>
         )}
+        </View>
+        )}
+        </View>
       </ScrollView>
     </ScreenContainer>
   );

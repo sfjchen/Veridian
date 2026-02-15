@@ -1,9 +1,12 @@
+import logging
 import os
 import re
 import hashlib
 from datetime import datetime, timezone
 from typing import Any, Dict, List, Optional
 from uuid import uuid4
+
+log = logging.getLogger(__name__)
 
 from supabase_service import get_supabase_service_client, get_supabase_settings, unwrap_supabase_data
 
@@ -200,7 +203,8 @@ def list_artifacts(owner_id: str, artifact_type: Optional[str], limit: int) -> L
         if row.get("uploaded_at"):
             try:
                 row["download_url"] = get_signed_download_url(row["storage_path"])
-            except Exception:
+            except Exception as exc:
+                log.warning("Failed to generate download URL for %s: %s", row.get("storage_path"), exc)
                 row["download_url"] = None
         else:
             row["download_url"] = None

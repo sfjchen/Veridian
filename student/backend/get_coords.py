@@ -1584,6 +1584,27 @@ def list_classroom_assignments(classroom_id: str) -> Any:
     return jsonify(assignments)
 
 
+ASSIGNMENTS_BUCKET = "assignments"
+
+
+def _assignment_download_url(storage_path: str) -> str | None:
+    client = get_supabase_service_client()
+    try:
+        result = client.storage.from_(ASSIGNMENTS_BUCKET).create_signed_url(storage_path, 3600)
+    except Exception:
+        log.exception("Failed to generate download URL for %s", storage_path)
+        return None
+    if not result:
+        return None
+    url = (
+        result.get("signedURL")
+        or result.get("signed_url")
+        or result.get("signedUrl")
+        or result.get("url")
+    )
+    return url or None
+
+
 @app.get("/assignments/<assignment_id>")
 @require_auth
 def get_assignment_endpoint(assignment_id: str) -> Any:
@@ -1600,6 +1621,8 @@ def get_assignment_endpoint(assignment_id: str) -> Any:
         return jsonify({"error": str(exc)}), 400
     payload = dict(assignment)
     payload["resolved_config"] = resolved_config
+    if assignment.get("prompt_storage_path"):
+        payload["assignment_file_download_url"] = _assignment_download_url(assignment["prompt_storage_path"])
     return jsonify({"assignment": payload})
 
 

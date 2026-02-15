@@ -32,7 +32,11 @@ export function BackendHint(): React.ReactNode {
         <Text style={styles.text}>
           Set EXPO_PUBLIC_BACKEND_URL in .env and restart Expo.
         </Text>
-        <TouchableOpacity onPress={onDismiss} style={styles.dismiss}>
+        <TouchableOpacity
+          onPress={onDismiss}
+          style={styles.dismiss}
+          accessibilityRole="button"
+          accessibilityLabel="Dismiss">
           <Text style={styles.dismissText}>Dismiss</Text>
         </TouchableOpacity>
       </View>
@@ -44,7 +48,11 @@ export function BackendHint(): React.ReactNode {
         <Text style={styles.text}>
           Cannot reach backend. Start the student backend.
         </Text>
-        <TouchableOpacity onPress={onDismiss} style={styles.dismiss}>
+        <TouchableOpacity
+          onPress={onDismiss}
+          style={styles.dismiss}
+          accessibilityRole="button"
+          accessibilityLabel="Dismiss">
           <Text style={styles.dismissText}>Dismiss</Text>
         </TouchableOpacity>
       </View>

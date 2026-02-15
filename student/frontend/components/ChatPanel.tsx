@@ -12,7 +12,6 @@ import {
 } from 'react-native';
 
 import { palette, radius } from '@/constants/palette';
-import { spacing, typography } from '@/constants/theme';
 import { useChat } from '@/hooks/useChat';
 import type { ChatMessage } from '@/lib/api';
 
@@ -61,6 +60,8 @@ function QuickActions({ onAction, disabled }: { onAction: (a: string) => void; d
           style={({ pressed }) => [styles.quickActionBtn, pressed && { opacity: 0.7 }]}
           onPress={() => onAction(action)}
           disabled={disabled}
+          accessibilityRole="button"
+          accessibilityLabel={action}
         >
           <Text style={styles.quickActionText}>{action}</Text>
         </Pressable>
@@ -132,24 +133,21 @@ type ChatInputBarProps = {
 
 function ChatInputBar({ inputText, onChangeText, onSend, loading }: ChatInputBarProps) {
   const canSend = !!inputText.trim() && !loading;
-  const [focused, setFocused] = useState(false);
 
   return (
     <View style={styles.inputBar}>
       <TextInput
-        style={[styles.textInput, focused && styles.textInputFocused]}
+        style={styles.textInput}
         value={inputText}
         onChangeText={onChangeText}
         placeholder="Type a message..."
-        placeholderTextColor={palette.textMuted}
+        placeholderTextColor={palette.textDisabled}
         multiline
         maxLength={2000}
         editable={!loading}
         onSubmitEditing={onSend}
         blurOnSubmit={false}
-        onFocus={() => setFocused(true)}
-        onBlur={() => setFocused(false)}
-        accessibilityLabel="Chat message input"
+        accessibilityLabel="Message"
       />
       <Pressable
         style={({ pressed }) => [
@@ -225,8 +223,8 @@ const styles = StyleSheet.create({
     bottom: 0,
     height: '60%',
     backgroundColor: palette.card,
-    borderTopLeftRadius: radius.modal,
-    borderTopRightRadius: radius.modal,
+    borderTopLeftRadius: 16,
+    borderTopRightRadius: 16,
     shadowColor: '#000',
     shadowOpacity: 0.15,
     shadowRadius: 12,
@@ -237,13 +235,13 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'space-between',
-    paddingHorizontal: spacing.md,
-    paddingVertical: spacing.sm,
+    paddingHorizontal: 16,
+    paddingVertical: 14,
     borderBottomWidth: 1,
     borderBottomColor: palette.border,
   },
   headerTitle: {
-    ...typography.body,
+    fontSize: 16,
     fontWeight: '700',
     color: palette.textPrimary,
   },
@@ -256,29 +254,29 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
   },
   closeBtnText: {
-    ...typography.bodySmall,
+    fontSize: 14,
     fontWeight: '700',
     color: palette.textSecondary,
   },
   quickActions: {
     flexDirection: 'row',
     flexWrap: 'wrap',
-    gap: spacing.xs,
-    paddingHorizontal: spacing.md,
-    paddingVertical: spacing.sm,
+    gap: 8,
+    paddingHorizontal: 16,
+    paddingVertical: 10,
     borderBottomWidth: 1,
     borderBottomColor: palette.border,
   },
   quickActionBtn: {
-    paddingHorizontal: spacing.sm,
-    paddingVertical: spacing.xs,
+    paddingHorizontal: 12,
+    paddingVertical: 6,
     borderRadius: radius.button,
     borderWidth: 1,
     borderColor: palette.borderStrong,
     backgroundColor: palette.surface,
   },
   quickActionText: {
-    ...typography.bodySmall,
+    fontSize: 13,
     color: palette.textSecondary,
     fontWeight: '500',
   },
@@ -286,14 +284,14 @@ const styles = StyleSheet.create({
     flex: 1,
   },
   messageListContent: {
-    padding: spacing.md,
-    gap: spacing.sm,
+    padding: 16,
+    gap: 10,
   },
   messageBubble: {
     maxWidth: '80%',
-    paddingHorizontal: spacing.sm,
-    paddingVertical: spacing.sm,
-    borderRadius: radius.card,
+    paddingHorizontal: 14,
+    paddingVertical: 10,
+    borderRadius: 14,
   },
   studentBubble: {
     alignSelf: 'flex-end',
@@ -304,61 +302,61 @@ const styles = StyleSheet.create({
     backgroundColor: palette.surface,
   },
   studentText: {
-    ...typography.bodySmall,
-    color: palette.textOnPrimary,
+    color: palette.white,
+    fontSize: 14,
+    lineHeight: 20,
   },
   assistantText: {
-    ...typography.bodySmall,
     color: palette.textPrimary,
+    fontSize: 14,
+    lineHeight: 20,
   },
   errorBar: {
-    paddingHorizontal: spacing.md,
-    paddingVertical: spacing.xs,
+    paddingHorizontal: 16,
+    paddingVertical: 6,
     backgroundColor: palette.errorBg,
   },
   errorText: {
-    ...typography.bodySmall,
-    color: palette.error,
+    fontSize: 13,
+    color: palette.errorText,
   },
   inputBar: {
     flexDirection: 'row',
     alignItems: 'flex-end',
-    paddingHorizontal: spacing.sm,
-    paddingVertical: spacing.sm,
+    paddingHorizontal: 12,
+    paddingVertical: 10,
     borderTopWidth: 1,
     borderTopColor: palette.border,
-    gap: spacing.xs,
+    gap: 8,
   },
   textInput: {
     flex: 1,
-    minHeight: 44,
+    minHeight: 40,
     maxHeight: 100,
     backgroundColor: palette.surface,
-    borderRadius: radius.input,
+    borderRadius: radius.button,
     borderWidth: 1,
     borderColor: palette.border,
-    paddingHorizontal: spacing.sm,
-    paddingVertical: spacing.sm,
-    ...typography.bodySmall,
+    paddingHorizontal: 14,
+    paddingVertical: 10,
+    fontSize: 14,
     color: palette.textPrimary,
-  },
-  textInputFocused: {
-    borderColor: palette.primary,
   },
   sendBtn: {
     backgroundColor: palette.primary,
     borderRadius: radius.button,
-    paddingHorizontal: spacing.md,
-    paddingVertical: spacing.sm,
+    paddingHorizontal: 16,
+    paddingVertical: 10,
     justifyContent: 'center',
     alignItems: 'center',
-    minHeight: 44,
+    minHeight: 40,
   },
   sendBtnDisabled: {
     opacity: 0.4,
   },
   sendBtnText: {
-    ...typography.buttonSmall,
-    color: palette.textOnPrimary,
+    color: palette.white,
+    fontSize: 14,
+    fontWeight: '700',
   },
 });

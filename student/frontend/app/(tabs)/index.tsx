@@ -14,7 +14,6 @@ import {
 } from 'react-native';
 
 import { palette, radius } from '@/constants/palette';
-import { spacing, typography } from '@/constants/theme';
 import { useAccessToken } from '@/hooks/useAccessToken';
 import { useClassrooms } from '@/hooks/useClassrooms';
 import type { Classroom } from '@/lib/api';
@@ -51,7 +50,8 @@ function ClassroomCard({
         pressed && { backgroundColor: palette.rowPressed, opacity: 0.9 },
       ]}
       onPress={onPress}
-      accessibilityRole="button">
+      accessibilityRole="button"
+      accessibilityLabel={`Open class ${classroom.name}`}>
       <View style={styles.cardIcon}>
         <MaterialCommunityIcons name="school-outline" size={32} color={palette.primary} />
       </View>
@@ -110,7 +110,11 @@ function JoinClassModal({
 
   return (
     <Modal visible={visible} transparent animationType="fade" onRequestClose={handleClose}>
-      <Pressable style={styles.modalOverlay} onPress={handleClose}>
+      <Pressable
+        style={styles.modalOverlay}
+        onPress={handleClose}
+        accessibilityRole="button"
+        accessibilityLabel="Close modal">
         <Pressable style={styles.modalContent} onPress={() => {}}>
           <Text style={styles.modalTitle}>Join a class</Text>
           <Text style={styles.modalSubtitle}>Enter the class code from your teacher.</Text>
@@ -123,13 +127,16 @@ function JoinClassModal({
             autoCapitalize="characters"
             autoCorrect={false}
             editable={!joining}
+            accessibilityLabel="Class code"
           />
           {error ? <Text style={styles.modalError}>{error}</Text> : null}
           <View style={styles.modalActions}>
             <Pressable
               style={({ pressed }) => [styles.modalCancel, pressed && { opacity: 0.7 }]}
               onPress={handleClose}
-              disabled={joining}>
+              disabled={joining}
+              accessibilityRole="button"
+              accessibilityLabel="Cancel">
               <Text style={styles.modalCancelText}>Cancel</Text>
             </Pressable>
             <Pressable
@@ -139,7 +146,9 @@ function JoinClassModal({
                 pressed && code.trim() && !joining && { opacity: 0.8 },
               ]}
               onPress={handleJoin}
-              disabled={!code.trim() || joining}>
+              disabled={!code.trim() || joining}
+              accessibilityRole="button"
+              accessibilityLabel="Join class">
               {joining ? (
                 <ActivityIndicator size="small" color={palette.white} />
               ) : (
@@ -237,7 +246,11 @@ export default function ClassroomsScreen() {
       </View>
 
       {welcomeName && (
-        <Pressable style={styles.welcomeBanner} onPress={dismissWelcome}>
+        <Pressable
+          style={styles.welcomeBanner}
+          onPress={dismissWelcome}
+          accessibilityRole="button"
+          accessibilityLabel="Dismiss welcome message">
           <MaterialCommunityIcons name="party-popper" size={20} color={palette.primary} />
           <Text style={styles.welcomeText}>Welcome to {welcomeName}!</Text>
           <MaterialCommunityIcons name="close" size={18} color={palette.textMuted} />
@@ -252,7 +265,8 @@ export default function ClassroomsScreen() {
           <Pressable
             style={({ pressed }) => [styles.joinCtaButton, pressed && { opacity: 0.8 }]}
             onPress={() => setJoinModalVisible(true)}
-            accessibilityRole="button">
+            accessibilityRole="button"
+            accessibilityLabel="Join a class">
             <MaterialCommunityIcons name="plus" size={20} color={palette.white} />
             <Text style={styles.joinCtaText}>Join a Class</Text>
           </Pressable>
@@ -295,8 +309,8 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'space-between',
-    paddingHorizontal: spacing.md,
-    paddingVertical: spacing.sm,
+    paddingHorizontal: 16,
+    paddingVertical: 12,
     borderBottomWidth: 1,
     borderBottomColor: palette.border,
     backgroundColor: palette.card,
@@ -304,233 +318,222 @@ const styles = StyleSheet.create({
   headerActions: {
     flexDirection: 'row',
     alignItems: 'center',
-    gap: spacing.xs,
+    gap: 8,
   },
   title: {
-    ...typography.h1,
+    fontSize: 22,
+    fontWeight: '700',
     color: palette.textPrimary,
   },
   joinButton: {
     flexDirection: 'row',
     alignItems: 'center',
-    gap: spacing.xxs,
+    gap: 4,
     backgroundColor: palette.card,
-    paddingVertical: spacing.sm,
-    paddingHorizontal: spacing.sm,
+    paddingVertical: 10,
+    paddingHorizontal: 12,
     borderRadius: radius.button,
     borderWidth: 1,
     borderColor: palette.borderStrong,
-    minHeight: 44,
-    justifyContent: 'center',
   },
   joinButtonText: {
-    ...typography.buttonSmall,
     color: palette.primary,
+    fontSize: 14,
+    fontWeight: '600',
   },
   workspaceButton: {
     flexDirection: 'row',
     alignItems: 'center',
-    gap: spacing.xs,
+    gap: 6,
     backgroundColor: palette.card,
-    paddingVertical: spacing.sm,
-    paddingHorizontal: spacing.sm,
+    paddingVertical: 10,
+    paddingHorizontal: 12,
     borderRadius: radius.button,
     borderWidth: 1,
     borderColor: palette.borderStrong,
-    minHeight: 44,
-    justifyContent: 'center',
   },
   workspaceButtonText: {
-    ...typography.buttonSmall,
     color: palette.primary,
+    fontSize: 14,
+    fontWeight: '600',
   },
   listContent: {
-    padding: spacing.md,
-    paddingBottom: spacing.xl,
+    padding: 16,
+    paddingBottom: 32,
   },
   card: {
     flexDirection: 'row',
     alignItems: 'center',
     backgroundColor: palette.card,
-    padding: spacing.sm,
+    padding: 14,
     borderRadius: radius.card,
-    marginBottom: spacing.sm,
+    marginBottom: 10,
     borderWidth: 1,
     borderColor: palette.border,
-    borderTopWidth: 3,
-    borderTopColor: palette.primary,
   },
   cardIcon: {
-    marginRight: spacing.sm,
+    marginRight: 12,
   },
   cardTitle: {
     flex: 1,
-    ...typography.body,
+    fontSize: 16,
     fontWeight: '600',
     color: palette.textPrimary,
   },
   cardCode: {
-    ...typography.caption,
     fontSize: 13,
     color: palette.textMuted,
-    marginRight: spacing.xs,
+    marginRight: 8,
   },
   centered: {
     flex: 1,
     justifyContent: 'center',
     alignItems: 'center',
-    gap: spacing.sm,
+    gap: 12,
   },
   loadingText: {
-    ...typography.body,
+    fontSize: 15,
     color: palette.textMuted,
   },
   errorText: {
-    ...typography.body,
-    color: palette.error,
+    fontSize: 15,
+    color: palette.errorText,
     textAlign: 'center',
   },
   retryButton: {
-    marginTop: spacing.xxs,
-    paddingVertical: spacing.sm,
-    paddingHorizontal: spacing.md,
+    marginTop: 4,
+    paddingVertical: 10,
+    paddingHorizontal: 16,
     borderRadius: radius.button,
     backgroundColor: palette.primary,
-    minHeight: 44,
-    justifyContent: 'center',
   },
   retryButtonText: {
-    ...typography.buttonSmall,
-    color: palette.textOnPrimary,
+    fontSize: 14,
+    fontWeight: '600',
+    color: palette.white,
   },
   empty: {
     flex: 1,
     justifyContent: 'center',
     alignItems: 'center',
-    padding: spacing.xl,
+    padding: 32,
   },
   emptyTitle: {
-    ...typography.h2,
+    fontSize: 18,
+    fontWeight: '600',
     color: palette.textSecondary,
-    marginTop: spacing.lg,
+    marginTop: 20,
   },
   emptySubtitle: {
-    ...typography.bodySmall,
+    fontSize: 14,
     color: palette.textMuted,
-    marginTop: spacing.xs,
+    marginTop: 6,
     textAlign: 'center',
   },
   joinCtaButton: {
     flexDirection: 'row',
     alignItems: 'center',
-    gap: spacing.xs,
-    marginTop: spacing.lg,
+    gap: 6,
+    marginTop: 20,
     backgroundColor: palette.primary,
-    paddingVertical: spacing.sm,
-    paddingHorizontal: spacing.lg,
+    paddingVertical: 12,
+    paddingHorizontal: 20,
     borderRadius: radius.button,
-    minHeight: 44,
-    justifyContent: 'center',
   },
   joinCtaText: {
-    ...typography.button,
-    color: palette.textOnPrimary,
+    fontSize: 16,
+    fontWeight: '600',
+    color: palette.white,
   },
   welcomeBanner: {
     flexDirection: 'row',
     alignItems: 'center',
-    gap: spacing.xs,
-    paddingVertical: spacing.sm,
-    paddingHorizontal: spacing.md,
+    gap: 8,
+    paddingVertical: 12,
+    paddingHorizontal: 16,
     backgroundColor: palette.card,
     borderBottomWidth: 1,
     borderBottomColor: palette.border,
   },
   welcomeText: {
     flex: 1,
-    ...typography.body,
+    fontSize: 15,
     fontWeight: '600',
     color: palette.primary,
   },
   signOutButton: {
-    padding: spacing.sm,
+    padding: 10,
     borderRadius: radius.button,
-    minHeight: 44,
-    minWidth: 44,
-    justifyContent: 'center',
-    alignItems: 'center',
   },
   buttonDisabled: { opacity: 0.5 },
   modalOverlay: {
     flex: 1,
-    backgroundColor: palette.overlay,
+    backgroundColor: 'rgba(0,0,0,0.5)',
     justifyContent: 'center',
     alignItems: 'center',
-    padding: spacing.lg,
+    padding: 24,
   },
   modalContent: {
     width: '100%',
     maxWidth: 400,
     backgroundColor: palette.card,
-    borderRadius: radius.modal,
-    padding: spacing.lg,
+    borderRadius: radius.card,
+    padding: 24,
   },
   modalTitle: {
-    ...typography.h2,
+    fontSize: 18,
+    fontWeight: '700',
     color: palette.textPrimary,
-    marginBottom: spacing.xxs,
+    marginBottom: 4,
   },
   modalSubtitle: {
-    ...typography.bodySmall,
+    fontSize: 14,
     color: palette.textMuted,
-    marginBottom: spacing.md,
+    marginBottom: 16,
   },
   modalInput: {
-    minHeight: 48,
+    height: 48,
     borderWidth: 1,
     borderColor: palette.border,
-    borderRadius: radius.input,
-    paddingHorizontal: spacing.sm,
-    ...typography.body,
+    borderRadius: radius.button,
+    paddingHorizontal: 14,
+    fontSize: 18,
     fontWeight: '600',
     color: palette.textPrimary,
     letterSpacing: 2,
     textAlign: 'center',
-    marginBottom: spacing.sm,
+    marginBottom: 12,
   },
   modalError: {
-    ...typography.bodySmall,
-    color: palette.error,
-    marginBottom: spacing.sm,
+    fontSize: 14,
+    color: palette.errorText,
+    marginBottom: 12,
     textAlign: 'center',
   },
   modalActions: {
     flexDirection: 'row',
     justifyContent: 'flex-end',
-    gap: spacing.sm,
-    marginTop: spacing.xxs,
+    gap: 12,
+    marginTop: 4,
   },
   modalCancel: {
-    paddingVertical: spacing.sm,
-    paddingHorizontal: spacing.md,
-    minHeight: 44,
-    justifyContent: 'center',
+    paddingVertical: 10,
+    paddingHorizontal: 16,
   },
   modalCancelText: {
-    ...typography.body,
+    fontSize: 15,
     fontWeight: '500',
     color: palette.textMuted,
   },
   modalJoin: {
-    paddingVertical: spacing.sm,
-    paddingHorizontal: spacing.lg,
+    paddingVertical: 10,
+    paddingHorizontal: 20,
     backgroundColor: palette.primary,
     borderRadius: radius.button,
-    minHeight: 44,
-    justifyContent: 'center',
   },
   modalJoinText: {
-    ...typography.button,
-    color: palette.textOnPrimary,
+    fontSize: 15,
+    fontWeight: '600',
+    color: palette.white,
   },
 });

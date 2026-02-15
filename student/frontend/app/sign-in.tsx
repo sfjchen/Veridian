@@ -1,10 +1,10 @@
+import { MaterialCommunityIcons } from '@expo/vector-icons';
 import { useRouter } from 'expo-router';
 import { useState } from 'react';
 import {
   ActivityIndicator,
   Pressable,
   SafeAreaView,
-  ScrollView,
   StyleSheet,
   Text,
   TextInput,
@@ -12,7 +12,6 @@ import {
 } from 'react-native';
 
 import { palette, radius } from '@/constants/palette';
-import { spacing, typography } from '@/constants/theme';
 import { supabase } from '@/lib/supabase';
 
 export default function SignInScreen() {
@@ -41,115 +40,100 @@ export default function SignInScreen() {
 
   return (
     <SafeAreaView style={styles.screen}>
-      <ScrollView
-        contentContainerStyle={styles.scroll}
-        keyboardShouldPersistTaps="handled"
-        showsVerticalScrollIndicator={false}
-      >
-        <View style={styles.content}>
-          <Text style={styles.wordmark}>Veridian</Text>
-          <Text style={styles.tagline}>Math, clearer.</Text>
-          <Text style={styles.title}>Sign in</Text>
-          <TextInput
-            style={styles.input}
-            placeholder="Email"
-            placeholderTextColor={palette.textMuted}
-            value={email}
-            onChangeText={setEmail}
-            autoCapitalize="none"
-            autoCorrect={false}
-            keyboardType="email-address"
-            editable={!loading}
-          />
-          <TextInput
-            style={styles.input}
-            placeholder="Password"
-            placeholderTextColor={palette.textMuted}
-            value={password}
-            onChangeText={setPassword}
-            secureTextEntry
-            editable={!loading}
-          />
-          {error ? <Text style={styles.errorText}>{error}</Text> : null}
-          <Pressable
-            style={({ pressed }) => [
-              styles.button,
-              (loading || !email.trim() || !password) && styles.buttonDisabled,
-              pressed && !loading && { opacity: 0.8 },
-            ]}
-            onPress={handleSignIn}
-            disabled={loading || !email.trim() || !password}
-            accessibilityRole="button"
-            accessibilityLabel="Sign in">
-            {loading ? (
-              <ActivityIndicator size="small" color={palette.textOnPrimary} />
-            ) : (
-              <Text style={styles.buttonText}>Sign in</Text>
-            )}
-          </Pressable>
-          <Pressable
-            style={({ pressed }) => [styles.secondaryLink, pressed && { opacity: 0.7 }]}
-            onPress={() => router.replace('/sign-up')}
-            accessibilityRole="button"
-            accessibilityLabel="Go to sign up">
-            <Text style={styles.secondaryLinkText}>Don&apos;t have an account? Sign up</Text>
-          </Pressable>
-        </View>
-      </ScrollView>
+      <View style={styles.content}>
+        <MaterialCommunityIcons name="school-outline" size={64} color={palette.primary} />
+        <Text style={styles.title}>Welcome to Veridian!</Text>
+        <Text style={styles.subtitle}>Sign in with your student account to get started.</Text>
+        <TextInput
+          style={styles.input}
+          placeholder="Email"
+          placeholderTextColor={palette.textMuted}
+          value={email}
+          onChangeText={setEmail}
+          autoCapitalize="none"
+          autoCorrect={false}
+          keyboardType="email-address"
+          editable={!loading}
+          accessibilityLabel="Email"
+        />
+        <TextInput
+          style={styles.input}
+          placeholder="Password"
+          placeholderTextColor={palette.textMuted}
+          value={password}
+          onChangeText={setPassword}
+          secureTextEntry
+          editable={!loading}
+          accessibilityLabel="Password"
+        />
+        {error ? <Text style={styles.errorText}>{error}</Text> : null}
+        <Pressable
+          style={({ pressed }) => [
+            styles.button,
+            (loading || !email.trim() || !password) && styles.buttonDisabled,
+            pressed && !loading && { opacity: 0.8 },
+          ]}
+          onPress={handleSignIn}
+          disabled={loading || !email.trim() || !password}
+          accessibilityRole="button"
+          accessibilityLabel="Sign in">
+          {loading ? (
+            <ActivityIndicator size="small" color={palette.white} />
+          ) : (
+            <Text style={styles.buttonText}>Sign in</Text>
+          )}
+        </Pressable>
+        <Pressable
+          style={({ pressed }) => [styles.backLink, pressed && { opacity: 0.7 }]}
+          onPress={() => router.replace('/sign-up')}
+          accessibilityRole="button"
+          accessibilityLabel="Go to sign up">
+          <Text style={styles.backLinkText}>Do not have an account? Sign up</Text>
+        </Pressable>
+      </View>
     </SafeAreaView>
   );
 }
 
 const styles = StyleSheet.create({
-  screen: { flex: 1, backgroundColor: palette.primaryMutedTint },
-  scroll: { flexGrow: 1, justifyContent: 'center', paddingVertical: spacing.xl, paddingHorizontal: spacing.md },
-  content: { alignItems: 'center' },
-  wordmark: {
-    ...typography.display,
-    color: palette.primary,
-    textAlign: 'center',
-    marginBottom: spacing.xxs,
+  screen: { flex: 1, backgroundColor: palette.surface },
+  content: {
+    flex: 1,
+    paddingHorizontal: 24,
+    paddingTop: 48,
+    alignItems: 'center',
   },
-  tagline: {
-    ...typography.caption,
+  title: { fontSize: 22, fontWeight: '700', color: palette.textPrimary, marginTop: 16 },
+  subtitle: {
+    fontSize: 14,
     color: palette.textMuted,
     textAlign: 'center',
-    marginBottom: spacing.lg,
-  },
-  title: {
-    ...typography.h1,
-    color: palette.textPrimary,
-    textAlign: 'center',
-    marginBottom: spacing.xl,
+    marginTop: 8,
+    marginBottom: 24,
   },
   input: {
     width: '100%',
-    minHeight: 48,
+    height: 48,
     borderWidth: 1,
     borderColor: palette.border,
-    borderRadius: radius.input,
-    paddingHorizontal: spacing.sm,
-    ...typography.body,
+    borderRadius: radius.button,
+    paddingHorizontal: 14,
+    fontSize: 16,
     color: palette.textPrimary,
-    marginBottom: spacing.sm,
+    marginBottom: 12,
   },
-  errorText: {
-    ...typography.bodySmall,
-    color: palette.error,
-    marginBottom: spacing.sm,
-    textAlign: 'center',
-  },
+  errorText: { fontSize: 14, color: palette.errorText, marginBottom: 12, textAlign: 'center' },
   button: {
     width: '100%',
-    minHeight: 44,
+    height: 48,
     backgroundColor: palette.primary,
     borderRadius: radius.button,
     justifyContent: 'center',
     alignItems: 'center',
-    marginTop: spacing.xs,
+    marginTop: 8,
   },
   buttonDisabled: { opacity: 0.5 },
-  buttonText: { ...typography.button, color: palette.textOnPrimary },
-  secondaryLink: { marginTop: spacing.lg, padding: spacing.xs },
-  secondaryLinkText: { ...typography.bodySmall, color: palette.link, textAlign: 'center' },
+  buttonText: { fontSize: 16, fontWeight: '600', color: palette.white },
+  backLink: { marginTop: 20, padding: 8 },
+  backLinkText: { fontSize: 15, color: palette.primary, fontWeight: '500' },
 });

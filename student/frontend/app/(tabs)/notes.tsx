@@ -11,7 +11,6 @@ import {
   View,
 } from 'react-native';
 
-import { EmptyState } from '@/components/ui/EmptyState';
 import { palette, radius } from '@/constants/palette';
 import { useAuth } from '@/hooks/useAuth';
 import { useNotes, type NoteMeta } from '@/hooks/useNotes';
@@ -36,7 +35,9 @@ function NoteRow({ note, onPress, onDelete }: { note: NoteMeta; onPress: () => v
       style={({ pressed }) => [styles.row, pressed && { backgroundColor: palette.rowPressed, opacity: 0.9 }]}
       onPress={onPress}
       onLongPress={onDelete}
-      accessibilityRole="button">
+      accessibilityRole="button"
+      accessibilityLabel={`Open note ${note.name}`}
+      accessibilityHint="Double tap to open. Long press to delete.">
       <View style={styles.rowIcon}>
         <MaterialCommunityIcons name="notebook-outline" size={28} color={palette.textMuted} />
       </View>
@@ -100,13 +101,16 @@ export default function NotesScreen() {
       ) : null}
 
       {notes.length === 0 ? (
-        <EmptyState
-          title="No notes yet"
-          description="Create a note to start writing with autocomplete"
-          icon={<MaterialCommunityIcons name="notebook-outline" size={64} color={palette.borderStrong} />}
-          actionLabel="New Note"
-          onAction={handleAdd}
-        />
+        <View style={styles.empty}>
+          <MaterialCommunityIcons name="notebook-outline" size={64} color={palette.borderStrong} />
+          <Text style={styles.emptyTitle}>No notes yet</Text>
+          <Text style={styles.emptySubtitle}>Create a note to start writing with autocomplete</Text>
+          <Pressable
+            style={({ pressed }) => [styles.addButtonLarge, pressed && { opacity: 0.7 }]}
+            onPress={handleAdd}>
+            <Text style={styles.addButtonText}>New Note</Text>
+          </Pressable>
+        </View>
       ) : (
         <FlatList
           data={notes}

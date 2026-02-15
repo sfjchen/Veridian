@@ -1,16 +1,12 @@
-import { useCallback, useEffect, useRef, useState } from "react";
-import { Alert, Platform, SafeAreaView, StyleSheet, Text, View } from "react-native";
+import { useCallback, useEffect, useRef, useState } from 'react';
+import { ActivityIndicator, Alert, Platform, Pressable, SafeAreaView, StyleSheet, Text, View } from 'react-native';
 
-import { DrawingCanvas, type DrawingCanvasRef } from "@/components/DrawingCanvas";
-import { MistakeOverlay } from "@/components/MistakeOverlay";
-import { ProblemHeader } from "@/components/ProblemHeader";
-import { ToolBar, type Tool } from "@/components/ToolBar";
-import { Button } from "@/components/ui";
-import { palette } from "@/constants/palette";
-import { spacing } from "@/constants/spacing";
-import { typography } from "@/constants/typography";
-import { BACKEND_URL } from "@/lib/backendBaseUrl";
-import { submitAnalysis, type Mistake } from "@/lib/api";
+import { DrawingCanvas, type DrawingCanvasRef } from '@/components/DrawingCanvas';
+import { MistakeOverlay } from '@/components/MistakeOverlay';
+import { submitAnalysis, type Mistake } from '@/lib/api';
+import { BACKEND_URL } from '@/lib/backendBaseUrl';
+import { ProblemHeader } from '@/components/ProblemHeader';
+import { ToolBar, type Tool } from '@/components/ToolBar';
 
 export default function WorkspaceScreen() {
   const [tool, setTool] = useState<Tool>('pen');
@@ -49,6 +45,7 @@ export default function WorkspaceScreen() {
     return () => window.removeEventListener('keydown', onKeyDown);
   }, []);
 
+  const apiUrl = BACKEND_URL;
 
   const captureCanvas = async (): Promise<string | null> => {
     const uri = await canvasRef.current?.captureWorkArea();
@@ -63,7 +60,7 @@ export default function WorkspaceScreen() {
     try {
       const uri = await captureCanvas();
       if (!uri) return;
-      if (!BACKEND_URL) {
+      if (!apiUrl) {
         Alert.alert('Submit failed', 'Set EXPO_PUBLIC_BACKEND_URL in frontend/.env and restart Expo.');
         return;
       }
@@ -101,15 +98,18 @@ export default function WorkspaceScreen() {
           <View style={styles.headerCard}>
             <ProblemHeader problemNum={1} statementTex="2x + 5 = 13" />
           </View>
-          <Button
+          <Pressable
+            style={({ pressed }) => [styles.checkButton, pressed && !submitLoading && { opacity: 0.7 }]}
             onPress={handleDone}
-            loading={submitLoading}
             disabled={submitLoading}
-            accessibilityLabel="Check work"
-            style={styles.checkButton}
-          >
-            Check
-          </Button>
+            accessibilityRole="button"
+            accessibilityLabel="Check work">
+            {submitLoading ? (
+              <ActivityIndicator size="small" color="#ffffff" />
+            ) : (
+              <Text style={styles.checkButtonText}>Check</Text>
+            )}
+          </Pressable>
         </View>
         <ToolBar
           tool={tool}
@@ -149,42 +149,53 @@ export default function WorkspaceScreen() {
 const styles = StyleSheet.create({
   screen: {
     flex: 1,
-    backgroundColor: palette.surface,
+    backgroundColor: '#f6f7fb',
   },
   content: {
     flex: 1,
-    paddingHorizontal: spacing.sm,
-    paddingTop: spacing.xs,
-    paddingBottom: spacing.sm,
-    gap: spacing.sm,
+    paddingHorizontal: 14,
+    paddingTop: 8,
+    paddingBottom: 12,
+    gap: 12,
   },
   headerWrap: {
-    flexDirection: "row",
-    alignItems: "center",
-    gap: spacing.sm,
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 10,
   },
   headerCard: {
     flex: 1,
   },
   checkButton: {
     minWidth: 88,
+    height: 44,
+    borderRadius: 10,
+    backgroundColor: '#2d4faa',
+    alignItems: 'center',
+    justifyContent: 'center',
+    paddingHorizontal: 14,
+  },
+  checkButtonText: {
+    color: '#ffffff',
+    fontSize: 14,
+    fontWeight: '700',
   },
   statusBanner: {
-    alignSelf: "flex-start",
+    alignSelf: 'flex-start',
     borderRadius: 999,
-    backgroundColor: palette.primaryMuted,
+    backgroundColor: '#eaf0ff',
     borderWidth: 1,
-    borderColor: palette.border,
-    paddingHorizontal: spacing.sm,
-    paddingVertical: spacing.xxs,
+    borderColor: '#cad8ff',
+    paddingHorizontal: 10,
+    paddingVertical: 4,
   },
   statusText: {
-    ...typography.caption,
-    color: palette.primary,
-    fontWeight: "600",
+    fontSize: 12,
+    color: '#2d4faa',
+    fontWeight: '600',
   },
   canvasWrap: {
     flex: 1,
-    position: "relative",
+    position: 'relative',
   },
 });

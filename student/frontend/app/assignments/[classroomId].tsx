@@ -10,7 +10,6 @@ import {
 } from 'react-native';
 
 import { palette, radius } from '@/constants/palette';
-import { spacing, typography } from '@/constants/theme';
 import { useAssignments } from '@/hooks/useAssignments';
 import type { AssignmentListItem } from '@/lib/api';
 
@@ -39,7 +38,8 @@ function AssignmentRow({
         pressed && { backgroundColor: palette.rowPressed, opacity: 0.9 },
       ]}
       onPress={onPress}
-      accessibilityRole="button">
+      accessibilityRole="button"
+      accessibilityLabel={`Open assignment ${assignment.title}`}>
       <View style={styles.rowIcon}>
         <MaterialCommunityIcons name="file-document-outline" size={28} color={palette.textMuted} />
       </View>
@@ -176,8 +176,8 @@ const styles = StyleSheet.create({
   header: {
     flexDirection: 'row',
     alignItems: 'center',
-    paddingHorizontal: spacing.sm,
-    paddingVertical: spacing.sm,
+    paddingHorizontal: 12,
+    paddingVertical: 10,
     backgroundColor: palette.card,
     borderBottomWidth: 1,
     borderBottomColor: palette.border,
@@ -185,70 +185,67 @@ const styles = StyleSheet.create({
   backWrap: {
     flexDirection: 'row',
     alignItems: 'center',
-    marginRight: spacing.sm,
-    padding: spacing.xs,
+    marginRight: 12,
+    padding: 8,
     minHeight: 44,
     minWidth: 80,
   },
   backText: {
-    ...typography.button,
+    fontSize: 16,
+    fontWeight: '600',
     color: palette.primary,
-    marginLeft: spacing.xxs,
+    marginLeft: 4,
   },
   title: {
     flex: 1,
-    ...typography.body,
+    fontSize: 17,
     fontWeight: '600',
     color: palette.textPrimary,
   },
   headerSpacer: { width: 88 },
-  listContent: { padding: spacing.md, paddingBottom: spacing.xl },
+  listContent: { padding: 16, paddingBottom: 32 },
   row: {
     flexDirection: 'row',
     alignItems: 'center',
     backgroundColor: palette.card,
-    padding: spacing.sm,
+    padding: 14,
     borderRadius: radius.card,
-    marginBottom: spacing.sm,
+    marginBottom: 10,
     borderWidth: 1,
     borderColor: palette.border,
-    borderTopWidth: 3,
-    borderTopColor: palette.primary,
   },
-  rowIcon: { marginRight: spacing.sm },
+  rowIcon: { marginRight: 12 },
   rowContent: { flex: 1, minWidth: 0 },
   rowTitle: {
-    ...typography.body,
+    fontSize: 16,
     fontWeight: '500',
     color: palette.textSecondary,
   },
   rowDue: {
-    ...typography.caption,
     fontSize: 13,
     color: palette.textMuted,
-    marginTop: spacing.xxs,
+    marginTop: 2,
   },
   centered: {
     flex: 1,
     justifyContent: 'center',
     alignItems: 'center',
-    gap: spacing.sm,
+    gap: 12,
   },
-  loadingText: { ...typography.body, color: palette.textMuted },
-  errorText: { ...typography.body, color: palette.error, textAlign: 'center' },
+  loadingText: { fontSize: 15, color: palette.textMuted },
+  errorText: { fontSize: 15, color: palette.errorText, textAlign: 'center' },
   retryButton: {
-    marginTop: spacing.xxs,
-    paddingVertical: spacing.sm,
-    paddingHorizontal: spacing.md,
+    marginTop: 4,
+    paddingVertical: 10,
+    paddingHorizontal: 16,
     backgroundColor: palette.primary,
     borderRadius: radius.button,
-    minHeight: 44,
-    justifyContent: 'center',
   },
   retryButtonText: {
-    ...typography.buttonSmall,
-    color: palette.textOnPrimary,
+    color: palette.white,
+    fontSize: 14,
+    fontWeight: '600',
   },
-  emptyTitle: { ...typography.h2, color: palette.textSecondary },
-  emptySubtitle: { ...typography.bodySmall, color: palette.textMuted, marginTop: spacing.xs, textAlign: 'center' },
+  emptyTitle: { fontSize: 18, fontWeight: '600', color: palette.textSecondary },
+  emptySubtitle: { fontSize: 14, color: palette.textMuted, marginTop: 6, textAlign: 'center' },
 });

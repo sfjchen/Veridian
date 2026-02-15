@@ -71,7 +71,11 @@ export function ToolBar({ tool, onSelectTool, onClear, onUndo, onRedo, canUndo, 
 
       <View style={styles.spacer} />
 
-      <Pressable style={styles.clearButton} onPress={onClear} accessibilityRole="button">
+      <Pressable
+        style={styles.clearButton}
+        onPress={onClear}
+        accessibilityRole="button"
+        accessibilityLabel="Clear canvas">
         <Text style={styles.clearText}>Clear</Text>
       </Pressable>
     </View>

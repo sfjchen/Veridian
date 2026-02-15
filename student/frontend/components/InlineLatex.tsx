@@ -40,9 +40,13 @@ function buildHtml(content: string, fontSize: number, color: string): string {
     ],
     throwOnError: false,
   });
-  var h = document.body.scrollHeight;
-  if (window.ReactNativeWebView) window.ReactNativeWebView.postMessage(JSON.stringify({ height: h }));
-  else if (window.parent) window.parent.postMessage({ height: h }, '*');
+  function sendHeight() {
+    var h = document.body.scrollHeight;
+    if (window.ReactNativeWebView) window.ReactNativeWebView.postMessage(JSON.stringify({ height: h }));
+    else if (window.parent) window.parent.postMessage({ height: h }, '*');
+  }
+  sendHeight();
+  new ResizeObserver(sendHeight).observe(document.body);
 </script>
 </body></html>`;
 }
@@ -117,6 +121,6 @@ export function hasLatex(text: string): boolean {
 }
 
 const styles = StyleSheet.create({
-  wrap: { overflow: 'hidden', minHeight: 30 },
+  wrap: { minHeight: 30 },
   webView: { backgroundColor: 'transparent' },
 });

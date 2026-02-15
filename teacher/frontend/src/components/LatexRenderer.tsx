@@ -49,8 +49,14 @@ function sanitizeLatex(raw: string): string {
 
 function WebLatexRenderer({ latex, style }: Props) {
   const html = KATEX_HTML_TEMPLATE(sanitizeLatex(latex));
-  const blob = new Blob([html], { type: "text/html" });
-  const blobUrl = URL.createObjectURL(blob);
+  const blobUrl = React.useMemo(() => {
+    const blob = new Blob([html], { type: "text/html" });
+    return URL.createObjectURL(blob);
+  }, [html]);
+
+  React.useEffect(() => {
+    return () => URL.revokeObjectURL(blobUrl);
+  }, [blobUrl]);
 
   return (
     <View style={[styles.container, style]}>

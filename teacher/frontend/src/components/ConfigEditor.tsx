@@ -23,6 +23,7 @@ const ENUM_OPTIONS: Record<string, { value: string; label: string }[]> = {
   ],
   analysis_trigger: [
     { value: "auto_idle", label: "Auto (idle)" },
+    { value: "auto_page_change", label: "Auto (page)" },
     { value: "manual_only", label: "Manual" },
     { value: "passive", label: "Passive" },
   ],

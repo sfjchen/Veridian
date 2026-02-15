@@ -17,6 +17,7 @@ export type ResolvedConfig = {
   notification_style: NotificationStyle;
   chat_enabled: boolean;
   hint_level: HintLevel;
+  student_mistake_visibility: boolean;
 };
 
 export const DEFAULT_RESOLVED_CONFIG: ResolvedConfig = {
@@ -28,6 +29,7 @@ export const DEFAULT_RESOLVED_CONFIG: ResolvedConfig = {
   notification_style: 'toast',
   chat_enabled: true,
   hint_level: 'guided',
+  student_mistake_visibility: false,
 };
 
 function isRecord(value: unknown): value is Record<string, unknown> {
@@ -75,5 +77,6 @@ export function normalizeResolvedConfig(value: unknown): ResolvedConfig {
     ),
     chat_enabled: asBoolean(raw.chat_enabled, DEFAULT_RESOLVED_CONFIG.chat_enabled),
     hint_level: asEnum(raw.hint_level, HINT_LEVELS, DEFAULT_RESOLVED_CONFIG.hint_level),
+    student_mistake_visibility: asBoolean(raw.student_mistake_visibility, DEFAULT_RESOLVED_CONFIG.student_mistake_visibility),
   };
 }

@@ -328,7 +328,7 @@ export default function DocumentScreen() {
       }
     })();
     return () => { cancelled = true; };
-  }, [doc, isDefault, isProblemMode, doc?.uri]);
+  }, [doc, isDefault, isProblemMode]);
 
   const injectPage = useCallback(
     (pageNum: number) => {
@@ -442,8 +442,9 @@ export default function DocumentScreen() {
   const handleStrokesChange = useCallback(
     (strokes: Stroke[]) => {
       setCurrentStrokes(strokes);
+      markDirty();
     },
-    [setCurrentStrokes],
+    [setCurrentStrokes, markDirty],
   );
 
   const changePage = useCallback(

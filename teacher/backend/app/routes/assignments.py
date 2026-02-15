@@ -1,4 +1,4 @@
-import sys
+import logging
 import uuid
 from typing import Any, Tuple
 
@@ -6,17 +6,19 @@ from flask import Blueprint, Response, request, jsonify, g
 from postgrest.exceptions import APIError
 from supabase import Client
 
+from app.constants import POSTGRES_UNIQUE_VIOLATION
 from app.middleware.auth import require_auth, require_role
 from app.services.config_schema import resolve_config, validate_config
 from app.services.supabase_client import get_supabase_admin_client
 from app.services.storage import delete_object, generate_download_url, generate_upload_url
+
+log = logging.getLogger(__name__)
 
 assignments_bp = Blueprint("assignments", __name__)
 
 ASSIGNMENTS_BUCKET = "assignments"
 SUBMISSIONS_BUCKET = "submissions"
 MAX_TITLE_LENGTH = 500
-POSTGRES_UNIQUE_VIOLATION = "23505"
 
 
 def _is_classroom_teacher(client: Client, classroom_id: str) -> bool:
@@ -44,26 +46,6 @@ def _validate_context_file_ids(
     return len(valid_files.data) == len(file_ids)
 
 
-def _build_assignment_insert(
-    assignment_id: str, classroom_id: str, title: str,
-    prompt_path: str, answer_key_path: str,
-    context_file_ids: list[str], due_date: str | None,
-    config: dict[str, Any] | None,
-) -> dict[str, Any]:
-    insert_data: dict[str, Any] = {
-        "id": assignment_id,
-        "classroom_id": classroom_id,
-        "title": title,
-        "prompt_storage_path": prompt_path,
-        "answer_key_storage_path": answer_key_path,
-        "context_file_ids": context_file_ids,
-        "due_date": due_date,
-    }
-    if config:
-        insert_data["config"] = config
-    return insert_data
-
-
 def _generate_upload_urls_or_rollback(
     client: Client, assignment_id: str,
     prompt_path: str, answer_key_path: str,
@@ -72,12 +54,12 @@ def _generate_upload_urls_or_rollback(
         prompt_url = generate_upload_url(ASSIGNMENTS_BUCKET, prompt_path)
         answer_key_url = generate_upload_url(ASSIGNMENTS_BUCKET, answer_key_path)
         return prompt_url, answer_key_url
-    except Exception as e:
-        print(f"Failed to generate upload URLs for assignment {assignment_id}: {e}", file=sys.stderr)
+    except Exception:
+        log.exception("Failed to generate upload URLs for assignment %s", assignment_id)
         try:
             client.table("assignments").delete().eq("id", assignment_id).execute()
-        except Exception as cleanup_err:
-            print(f"Failed to clean up orphaned assignment {assignment_id}: {cleanup_err}", file=sys.stderr)
+        except Exception:
+            log.exception("Failed to clean up orphaned assignment %s", assignment_id)
         return None
 
 
@@ -114,16 +96,22 @@ def create_assignment(classroom_id: str) -> Tuple[Response, int]:
     prompt_path = f"{classroom_id}/{assignment_id}/prompt"
     answer_key_path = f"{classroom_id}/{assignment_id}/answer_key"
 
-    insert_data = _build_assignment_insert(
-        assignment_id, classroom_id, title,
-        prompt_path, answer_key_path,
-        context_file_ids, data.get("due_date"), config,
-    )
+    insert_data: dict[str, Any] = {
+        "id": assignment_id,
+        "classroom_id": classroom_id,
+        "title": title,
+        "prompt_storage_path": prompt_path,
+        "answer_key_storage_path": answer_key_path,
+        "context_file_ids": context_file_ids,
+        "due_date": data.get("due_date"),
+    }
+    if config:
+        insert_data["config"] = config
 
     try:
         record = client.table("assignments").insert(insert_data).execute()
-    except APIError as e:
-        print(f"Failed to insert assignment: {e}", file=sys.stderr)
+    except APIError:
+        log.exception("Failed to insert assignment")
         return jsonify({"error": "Failed to create assignment"}), 500
 
     urls = _generate_upload_urls_or_rollback(client, assignment_id, prompt_path, answer_key_path)
@@ -152,7 +140,13 @@ def list_assignments(classroom_id: str) -> Tuple[Response, int]:
         "classroom_id", classroom_id
     ).order("created_at", desc=True).execute()
 
-    return jsonify(assignments.data), 200
+    records = assignments.data
+    if g.user_role != "teacher":
+        records = [
+            {k: v for k, v in rec.items() if k != "answer_key_storage_path"}
+            for rec in records
+        ]
+    return jsonify(records), 200
 
 
 @assignments_bp.route("/assignments/<assignment_id>", methods=["GET"])
@@ -194,11 +188,8 @@ def get_assignment(assignment_id: str) -> Tuple[Response, int]:
             result["assignment_file_download_url"] = generate_download_url(
                 ASSIGNMENTS_BUCKET, record["prompt_storage_path"]
             )
-        except ValueError as e:
-            print(
-                f"Failed to generate assignment file download URL for {assignment_id}: {e}",
-                file=sys.stderr,
-            )
+        except ValueError:
+            log.exception("Failed to generate assignment file download URL for %s", assignment_id)
             result["assignment_file_download_url"] = None
     else:
         result["assignment_file_download_url"] = None
@@ -208,15 +199,14 @@ def get_assignment(assignment_id: str) -> Tuple[Response, int]:
             result["answer_key_download_url"] = generate_download_url(
                 ASSIGNMENTS_BUCKET, record["answer_key_storage_path"]
             )
-        except ValueError as e:
-            print(
-                f"Failed to generate answer key download URL for {assignment_id}: {e}",
-                file=sys.stderr,
-            )
+        except ValueError:
+            log.exception("Failed to generate answer key download URL for %s", assignment_id)
             result["answer_key_download_url"] = None
     elif is_teacher:
         result["answer_key_download_url"] = None
 
+    if not is_teacher:
+        result.pop("answer_key_storage_path", None)
     return jsonify(result), 200
 
 
@@ -265,8 +255,8 @@ def update_assignment(assignment_id: str) -> Tuple[Response, int]:
         updated = client.table("assignments").update(updates).eq(
             "id", assignment_id
         ).execute()
-    except APIError as e:
-        print(f"Failed to update assignment: {e}", file=sys.stderr)
+    except APIError:
+        log.exception("Failed to update assignment %s", assignment_id)
         return jsonify({"error": "Failed to update assignment"}), 500
 
     if not updated.data:
@@ -282,8 +272,8 @@ def _cleanup_storage_paths(record: dict[str, Any]) -> list[str]:
             continue
         try:
             delete_object(ASSIGNMENTS_BUCKET, path)
-        except ValueError as e:
-            print(f"Storage cleanup failed for {path}: {e}", file=sys.stderr)
+        except ValueError:
+            log.exception("Storage cleanup failed for %s", path)
             warnings.append(path)
     return warnings
 
@@ -314,8 +304,8 @@ def delete_assignment(assignment_id: str) -> Tuple[Response, int] | Response:
 
     try:
         client.table("assignments").delete().eq("id", assignment_id).execute()
-    except APIError as e:
-        print(f"Failed to delete assignment {assignment_id}: {e}", file=sys.stderr)
+    except APIError:
+        log.exception("Failed to delete assignment %s", assignment_id)
         return jsonify({"error": "Failed to delete assignment"}), 500
 
     warnings = _cleanup_storage_paths(record)
@@ -358,8 +348,8 @@ def reupload_assignment_files(assignment_id: str) -> Tuple[Response, int]:
             result["answer_key_upload_url"] = generate_upload_url(
                 ASSIGNMENTS_BUCKET, record["answer_key_storage_path"]
             )
-    except Exception as e:
-        print(f"Failed to generate reupload URLs for assignment {assignment_id}: {e}", file=sys.stderr)
+    except Exception:
+        log.exception("Failed to generate reupload URLs for assignment %s", assignment_id)
         return jsonify({"error": "Failed to generate upload URLs"}), 500
 
     return jsonify(result), 200
@@ -424,11 +414,8 @@ def list_submissions(assignment_id: str) -> Tuple[Response, int]:
         if storage_path:
             try:
                 item["download_url"] = generate_download_url(SUBMISSIONS_BUCKET, storage_path)
-            except ValueError as e:
-                print(
-                    f"Failed to generate submission download URL for {item.get('id')}: {e}",
-                    file=sys.stderr,
-                )
+            except ValueError:
+                log.exception("Failed to generate submission download URL for %s", item.get("id"))
                 item["download_url"] = None
         else:
             item["download_url"] = None
@@ -445,8 +432,8 @@ def create_submission(assignment_id: str) -> Tuple[Response, int]:
     def _delete_submission_row(submission_id: str) -> bool:
         try:
             client.table("submissions").delete().eq("id", submission_id).execute()
-        except Exception as e:
-            print(f"Failed to delete broken submission {submission_id}: {e}", file=sys.stderr)
+        except Exception:
+            log.exception("Failed to delete broken submission %s", submission_id)
             return False
         return True
 
@@ -476,11 +463,8 @@ def create_submission(assignment_id: str) -> Tuple[Response, int]:
         except ValueError:
             try:
                 upload_url = generate_upload_url(SUBMISSIONS_BUCKET, storage_path)
-            except ValueError as e:
-                print(
-                    f"Failed to generate resume upload URL for submission {submission_id}: {e}",
-                    file=sys.stderr,
-                )
+            except ValueError:
+                log.exception("Failed to generate resume upload URL for submission %s", submission_id)
                 if _delete_submission_row(submission_id):
                     return None
                 return jsonify({"error": "Failed to resume existing submission"}), 500
@@ -489,7 +473,7 @@ def create_submission(assignment_id: str) -> Tuple[Response, int]:
                 "upload_url": upload_url,
             }), 200
 
-    def _insert_submission_row(submission_id: str, storage_path: str) -> object:
+    def _insert_submission_row(submission_id: str, storage_path: str) -> Any:
         return client.table("submissions").insert({
             "id": submission_id,
             "assignment_id": assignment_id,
@@ -530,7 +514,7 @@ def create_submission(assignment_id: str) -> Tuple[Response, int]:
             break
         except APIError as e:
             if e.code != POSTGRES_UNIQUE_VIOLATION:
-                print(f"Failed to insert submission: {e}", file=sys.stderr)
+                log.exception("Failed to insert submission")
                 return jsonify({"error": "Failed to create submission"}), 500
 
             existing = client.table("submissions").select("*").eq(
@@ -550,11 +534,8 @@ def create_submission(assignment_id: str) -> Tuple[Response, int]:
 
     try:
         upload_url = generate_upload_url(SUBMISSIONS_BUCKET, storage_path)
-    except ValueError as e:
-        print(
-            f"Failed to generate upload URL for new submission {submission_id}: {e}",
-            file=sys.stderr,
-        )
+    except ValueError:
+        log.exception("Failed to generate upload URL for new submission %s", submission_id)
         _delete_submission_row(submission_id)
         return jsonify({"error": "Failed to generate upload URL"}), 500
 

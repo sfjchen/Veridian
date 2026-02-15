@@ -2,6 +2,7 @@
 
 import base64
 import re
+from functools import lru_cache
 from pathlib import Path
 from typing import Optional
 
@@ -10,6 +11,11 @@ from openai import OpenAI
 from .models import IMAGE_DETAIL, MODEL, PROMPT
 
 MIME = {".png": "image/png", ".jpg": "image/jpeg", ".jpeg": "image/jpeg", ".webp": "image/webp", ".gif": "image/gif"}
+
+
+@lru_cache(maxsize=1)
+def _get_openai_client() -> OpenAI:
+    return OpenAI()
 
 
 def _strip_fences(raw: str) -> str:
@@ -36,7 +42,7 @@ def _image_bytes_to_latex_impl(
         }],
     }
     kwargs["max_completion_tokens" if model.startswith("gpt-5") else "max_tokens"] = 1024
-    resp = OpenAI().chat.completions.create(**kwargs)
+    resp = _get_openai_client().chat.completions.create(**kwargs)
     return _strip_fences(resp.choices[0].message.content or "")
 
 

@@ -222,13 +222,24 @@ def _apply_filters(q: Any, lq: ListQuery, tf: str) -> Any:
     return q.order(tf, desc=True).limit(lq.limit)
 
 
+_ERROR_LOG_COLUMNS = (
+    "id,assignment_id,classroom_id,student_id,assignment_part,topic,"
+    "error_message,error_category,error_fingerprint,metadata,occurred_at"
+)
+
+_PROGRESS_COLUMNS = (
+    "id,assignment_id,classroom_id,student_id,completion_percentage,state,"
+    "assignment_part,topic,active_error_fingerprint,metadata,last_active_at"
+)
+
+
 def list_error_logs(client: Client, q: ListQuery) -> list[dict[str, Any]]:
-    query = client.table(ERROR_TABLE).select("*").eq("assignment_id", q.assignment_id)
+    query = client.table(ERROR_TABLE).select(_ERROR_LOG_COLUMNS).eq("assignment_id", q.assignment_id)
     return [dict(r) for r in _apply_filters(query, q, "occurred_at").execute().data]
 
 
 def list_progress_events(client: Client, q: ListQuery) -> list[dict[str, Any]]:
-    query = client.table(PROGRESS_TABLE).select("*").eq("assignment_id", q.assignment_id)
+    query = client.table(PROGRESS_TABLE).select(_PROGRESS_COLUMNS).eq("assignment_id", q.assignment_id)
     return [dict(r) for r in _apply_filters(query, q, "last_active_at").execute().data]
 
 
@@ -245,7 +256,7 @@ def latest_progress_by_student(events: list[dict[str, Any]]) -> dict[str, dict[s
 def fetch_latest_progress_per_student(
     client: Client, aid: str, since: datetime | None = None,
 ) -> dict[str, dict[str, Any]]:
-    q = client.table(PROGRESS_TABLE).select("*").eq("assignment_id", aid)
+    q = client.table(PROGRESS_TABLE).select(_PROGRESS_COLUMNS).eq("assignment_id", aid)
     if since is not None:
         q = q.gte("last_active_at", _iso_utc(since))
     result = q.order("last_active_at", desc=True).limit(10000).execute()

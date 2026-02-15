@@ -83,9 +83,11 @@ def _is_classroom_teacher(classroom_id: str, user_id: str) -> bool:
 
 
 def can_student_access_assignment(
-    assignment_id: str, user_id: str, user_role: str = "student"
+    assignment_id: str, user_id: str, user_role: str = "student",
+    assignment: Optional[Dict[str, Any]] = None,
 ) -> bool:
-    assignment = get_assignment(assignment_id)
+    if assignment is None:
+        assignment = get_assignment(assignment_id)
     if not assignment:
         return False
     classroom_id = assignment.get("classroom_id")
@@ -96,8 +98,11 @@ def can_student_access_assignment(
     return _is_classroom_member(classroom_id, user_id)
 
 
-def get_resolved_config(assignment_id: str) -> Dict[str, Any]:
-    assignment = get_assignment(assignment_id)
+def get_resolved_config(
+    assignment_id: str, assignment: Optional[Dict[str, Any]] = None,
+) -> Dict[str, Any]:
+    if assignment is None:
+        assignment = get_assignment(assignment_id)
     if not assignment:
         raise ValueError(f"Assignment not found: {assignment_id}")
     classroom_id = assignment.get("classroom_id")

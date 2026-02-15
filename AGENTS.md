@@ -13,13 +13,6 @@ What will be built and why
 Which files will be created/modified
 Breakdown into small PRs
 Open questions, success criteria
- Agent team review (recommended) - Spawn a review team to debate the plan:
-Architecture reviewer (API design, integration, dependencies)
-Performance skeptic (memory, CPU, scalability challenges)
-Testing advocate (edge cases, failure modes, test coverage)
-Devil's advocate (challenge approach, propose alternatives)
-Senior quantitative researcher (industry experience from tier-1 funds — challenges assumptions, checks for look-ahead bias, validates statistical methodology, reviews risk management, ensures production readiness). ALWAYS include this role.
-Let them debate findings, then revise plan based on consensus
 Wait for plan approval before proceeding
  Create a feature branch from main
  Spawn sub-agents to do the actual coding (Codex orchestrates, doesn't code directly)
@@ -49,8 +42,7 @@ Still use sub-agents for code changes
 
 These apply to ALL code written by Codex or sub-agents:
 
-Follow best industry coding standards: streamlined, efficient code. No comprehensive testing or documentation required — optimize for clarity and maintainability.
-Always review code and architecture high-level, then try to streamline and optimize code where helpful
+Follow best industry coding standards: streamlined, efficient code. Lean development — skip comprehensive test suites and extensive documentation. Tests only when they prevent regressions on tricky logic (e.g., edge cases in parsing, state machines). Optimize for shipping speed, clarity, and maintainability.
 Type hints on all function signatures
 Minimal comments — code should be self-documenting
 No verbose logging — code runs quietly unless there's an error (errors to stderr)

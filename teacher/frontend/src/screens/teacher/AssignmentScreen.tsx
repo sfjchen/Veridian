@@ -70,6 +70,19 @@ export function TeacherAssignmentScreen({ route, navigation }: { route: any; nav
     try {
       const data = await api<AssignmentDetail>(`/assignments/${assignmentId}`);
       if (!mountedRef.current) return;
+      if (!data) {
+        setAssignment(null);
+        setEditTitle("");
+        setEditDueDate("");
+        setAssignmentContent(null);
+        setIsPdf(false);
+        setPdfPreviewUri(null);
+        setImagePreviewUrl(null);
+        setBinaryDownloadUrl(null);
+        setReuploadUrls(null);
+        if (mountedRef.current) setLoading(false);
+        return;
+      }
       setAssignment(data);
       setEditTitle(data.title);
       setEditDueDate(data.due_date ? data.due_date.split("T")[0] : "");
@@ -130,7 +143,8 @@ export function TeacherAssignmentScreen({ route, navigation }: { route: any; nav
       if (!pdfResp.ok) throw new Error("Failed to download PDF");
       const blob = await pdfResp.blob();
 
-      const { data: { session } } = await supabase.auth.getSession();
+      const { data: sessionData } = await supabase.auth.getSession();
+      const session = sessionData?.session ?? null;
       const formData = new FormData();
       formData.append("file", blob as any, "assignment.pdf");
 

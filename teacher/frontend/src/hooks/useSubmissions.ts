@@ -14,18 +14,27 @@ export function useSubmissions(assignmentId: string) {
   }, []);
 
   const refresh = useCallback(async () => {
-    if (!assignmentId) return;
+    if (!assignmentId) {
+      if (mountedRef.current) {
+        setSubmissions([]);
+        setLoading(false);
+        setError(null);
+      }
+      return;
+    }
     setLoading(true);
     setError(null);
     try {
       const data = await api<Submission[]>(`/assignments/${assignmentId}/submissions`);
-      if (mountedRef.current) setSubmissions(data);
+      if (mountedRef.current) {
+        setSubmissions(data ?? []);
+        setLoading(false);
+      }
     } catch (e) {
       if (mountedRef.current) {
         setError(e instanceof Error ? e.message : "Failed to fetch submissions");
+        setLoading(false);
       }
-    } finally {
-      if (mountedRef.current) setLoading(false);
     }
   }, [assignmentId]);
 

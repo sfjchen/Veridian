@@ -57,7 +57,7 @@ Constants: `mistake_analysis/constants.py` — SEVERITIES, TAG_BANK, ALL_TAGS, T
 
 ## Conventions (from AGENTS.md)
 
-- Follow best industry standards: streamlined, efficient code; no comprehensive testing/docs required
+- Lean development: streamlined, efficient code. Skip comprehensive test suites — tests only for tricky regression-prone logic. No extensive documentation beyond running docs.
 - Type hints on all Python function signatures
 - ~20 line max per function
 - Flat over nested — early returns, guard clauses

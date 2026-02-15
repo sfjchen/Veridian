@@ -69,6 +69,8 @@ export type InkCanvasProps = {
   hasExternalUndo?: boolean;
   /** External redoable state exists (keeps redo button enabled). */
   hasExternalRedo?: boolean;
+  /** Background color for the ViewShot capture (e.g. white for OCR). */
+  canvasBackground?: string;
 };
 
 export type ViewShotRef = React.RefObject<ViewShot | null>;
@@ -88,6 +90,7 @@ export function InkCanvas({
   beforeRedo,
   hasExternalUndo,
   hasExternalRedo,
+  canvasBackground,
 }: InkCanvasProps) {
   const [tool, setTool] = useState<Tool>('pen');
   const [markedForErase, setMarkedForErase] = useState<Set<string>>(new Set());
@@ -390,7 +393,7 @@ export function InkCanvas({
       )}
       <ViewShot
         ref={viewShotRef}
-        style={styles.canvasWrap}
+        style={[styles.canvasWrap, canvasBackground ? { backgroundColor: canvasBackground } : undefined]}
         options={{ format: 'png', quality: 1, result: 'tmpfile' }}>
         <View
           style={[styles.touchLayer, Platform.OS === 'web' && styles.touchLayerWeb]}

@@ -71,6 +71,7 @@ type CanvasViewProps = {
   maxDotsShown: number;
   onAskAboutMistake?: (mistake: Mistake) => void;
   onCanvasLayout?: (width: number, height: number) => void;
+  canvasBackground?: string;
 };
 
 function showAlert(title: string, message: string) {
@@ -114,6 +115,7 @@ function CanvasView({
   maxDotsShown,
   onAskAboutMistake,
   onCanvasLayout,
+  canvasBackground,
 }: CanvasViewProps) {
   return (
     <View style={styles.contentWrap}>
@@ -145,6 +147,7 @@ function CanvasView({
           strokes={currentStrokes}
           onStrokesChange={onStrokesChange}
           onCanvasLayout={onCanvasLayout}
+          canvasBackground={canvasBackground}
           showToolbar
           style={styles.inkCanvas}
         />
@@ -804,6 +807,7 @@ export default function DocumentScreen() {
         maxDotsShown={config.max_dots_shown}
         onAskAboutMistake={chatEnabled ? handleAskAboutMistake : undefined}
         onCanvasLayout={(w, h) => setCanvasDims({ w, h })}
+        canvasBackground={isProblemMode ? palette.white : undefined}
       />
 
       {isProblemMode && chatEnabled && !chatVisible && (

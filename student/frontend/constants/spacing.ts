@@ -1,6 +1,5 @@
 /**
- * 4px base grid. Use for padding, margin, gap.
- * Mirror of teacher spacing for future shared package.
+ * 4px base grid (Veridian). Use for padding, margin, gap.
  */
 
 export const spacing = {

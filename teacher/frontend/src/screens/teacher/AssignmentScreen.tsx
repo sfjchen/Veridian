@@ -7,7 +7,6 @@ import {
   Image,
   ScrollView,
   ActivityIndicator,
-  RefreshControl,
 } from "react-native";
 import * as Linking from "expo-linking";
 import { supabase } from "../../lib/supabase";
@@ -18,9 +17,6 @@ import { useSubmissions } from "../../hooks/useSubmissions";
 import { LatexRenderer } from "../../components/LatexRenderer";
 import { FileUploader } from "../../components/FileUploader";
 import { ProblemEditor } from "../../components/ProblemEditor";
-import { DateField } from "../../components/DateField";
-import { palette, radius } from "../../constants/palette";
-import { typography } from "../../constants/typography";
 import { AssignmentConfig, AssignmentDetail, Problem, Submission } from "../../types";
 import { alert } from "../../lib/alert";
 import {
@@ -32,30 +28,12 @@ import {
   ScreenContainer,
   Section,
 } from "../../components/ui";
+import { palette, radius } from "../../constants/palette";
 import { spacing } from "../../constants/spacing";
+import { typography } from "../../constants/typography";
 
 const MAX_CONTENT_LENGTH = 100_000;
 const DATE_PATTERN = /^\d{4}-\d{2}-\d{2}$/;
-
-function formatDueDateLabel(dueDate: string | null): { label: string; warning?: "soon" | "overdue" } {
-  if (!dueDate) return { label: "No due date" };
-  const d = new Date(dueDate);
-  const now = new Date();
-  now.setHours(0, 0, 0, 0);
-  const due = new Date(d);
-  due.setHours(0, 0, 0, 0);
-  const days = Math.ceil((due.getTime() - now.getTime()) / (24 * 60 * 60 * 1000));
-  const formatted = d.toLocaleDateString("en-US", {
-    year: "numeric",
-    month: "short",
-    day: "numeric",
-    timeZone: "UTC",
-  });
-  if (days < 0) return { label: `Due: ${formatted}`, warning: "overdue" };
-  if (days <= 2) return { label: `Due: ${formatted}`, warning: "soon" };
-  return { label: `Due: ${formatted}` };
-}
-
 function sanitizeContent(raw: string): string {
   if (raw.length > MAX_CONTENT_LENGTH) throw new Error("File too large to preview");
   return raw
@@ -69,52 +47,12 @@ function sanitizeContent(raw: string): string {
 
 type ViewMode = "teacher" | "student";
 
-type FilePreviewState = {
-  isPdf: boolean;
-  pdfPreviewUri: string | null;
-  imagePreviewUrl: string | null;
-  assignmentContent: string | null;
-  binaryDownloadUrl: string | null;
-};
-
-async function processAssignmentFile(url: string, mountedRef: React.MutableRefObject<boolean>): Promise<FilePreviewState | null> {
-  const resp = await fetch(url);
-  if (!mountedRef.current || !resp.ok) return null;
-
-  const blob = await resp.blob();
-  const bytes = new Uint8Array(await blob.arrayBuffer());
-  if (!mountedRef.current) return null;
-
-  const contentType = resp.headers.get("content-type") ?? "";
-
-  if (looksLikePdf(contentType, bytes)) {
-    let pdfPreviewUri = null;
-    try {
-      pdfPreviewUri = await createPdfPreviewDataUri(blob);
-    } catch (previewError) {
-      console.error("Failed to generate PDF preview image:", previewError);
-    }
-    return { isPdf: true, pdfPreviewUri, imagePreviewUrl: null, assignmentContent: null, binaryDownloadUrl: null };
-  }
-
-  if (looksLikeImage(contentType, bytes)) {
-    return { isPdf: false, pdfPreviewUri: null, imagePreviewUrl: url, assignmentContent: null, binaryDownloadUrl: null };
-  }
-
-  if (looksLikeText(contentType, bytes)) {
-    const text = await blob.text();
-    if (!mountedRef.current) return null;
-    return { isPdf: false, pdfPreviewUri: null, imagePreviewUrl: null, assignmentContent: sanitizeContent(text), binaryDownloadUrl: null };
-  }
-
-  return { isPdf: false, pdfPreviewUri: null, imagePreviewUrl: null, assignmentContent: null, binaryDownloadUrl: url };
-}
-
 export function TeacherAssignmentScreen({ route, navigation }: { route: any; navigation: any }) {
   const { assignmentId } = route.params;
   const mountedRef = useRef(true);
   const [assignment, setAssignment] = useState<AssignmentDetail | null>(null);
   const [loading, setLoading] = useState(true);
+  const [loadError, setLoadError] = useState<string | null>(null);
   const [assignmentContent, setAssignmentContent] = useState<string | null>(null);
   const [isPdf, setIsPdf] = useState(false);
   const [pdfPreviewUri, setPdfPreviewUri] = useState<string | null>(null);
@@ -140,7 +78,6 @@ export function TeacherAssignmentScreen({ route, navigation }: { route: any; nav
     answer_key_upload_url?: string;
   } | null>(null);
   const [reuploading, setReuploading] = useState(false);
-  const [refreshing, setRefreshing] = useState(false);
   const {
     submissions,
     loading: submissionsLoading,
@@ -149,10 +86,24 @@ export function TeacherAssignmentScreen({ route, navigation }: { route: any; nav
   } = useSubmissions(assignmentId);
 
   const fetchAssignment = useCallback(async () => {
+    setLoadError(null);
+    setLoading(true);
     try {
       const data = await api<AssignmentDetail>(`/assignments/${assignmentId}`);
       if (!mountedRef.current) return;
-
+      if (!data) {
+        setAssignment(null);
+        setEditTitle("");
+        setEditDueDate("");
+        setAssignmentContent(null);
+        setIsPdf(false);
+        setPdfPreviewUri(null);
+        setImagePreviewUrl(null);
+        setBinaryDownloadUrl(null);
+        setReuploadUrls(null);
+        if (mountedRef.current) setLoading(false);
+        return;
+      }
       setAssignment(data);
       setEditTitle(data.title);
       setEditDueDate(data.due_date ? data.due_date.split("T")[0] : "");
@@ -164,83 +115,70 @@ export function TeacherAssignmentScreen({ route, navigation }: { route: any; nav
       setImagePreviewUrl(null);
       setBinaryDownloadUrl(null);
 
-      if (data.prompt_latex) {
-        setAssignmentContent(sanitizeContent(data.prompt_latex));
-      } else if (data.assignment_file_download_url) {
-        try {
-          const resp = await fetch(data.assignment_file_download_url);
+      if (data.assignment_file_download_url) {
+        const resp = await fetch(data.assignment_file_download_url);
+        if (!mountedRef.current) return;
+        if (resp.ok) {
+          const blob = await resp.blob();
+          const bytes = new Uint8Array(await blob.arrayBuffer());
           if (!mountedRef.current) return;
-          if (resp.ok) {
-            const blob = await resp.blob();
-            const bytes = new Uint8Array(await blob.arrayBuffer());
-            if (!mountedRef.current) return;
 
-            const contentType = resp.headers.get("content-type") ?? "";
-            if (looksLikePdf(contentType, bytes)) {
-              setIsPdf(true);
-              setAssignmentContent(null);
-              try {
-                const previewUri = await createPdfPreviewDataUri(blob);
-                if (mountedRef.current) setPdfPreviewUri(previewUri);
-              } catch {
-                if (mountedRef.current) {
-                  setPdfPreviewUri(null);
-                  alert("Warning", "Could not generate PDF preview image");
-                }
+          const contentType = resp.headers.get("content-type") ?? "";
+          if (looksLikePdf(contentType, bytes)) {
+            setIsPdf(true);
+            setAssignmentContent(null);
+            try {
+              const previewUri = await createPdfPreviewDataUri(blob);
+              if (mountedRef.current) setPdfPreviewUri(previewUri);
+            } catch {
+              if (mountedRef.current) {
+                setPdfPreviewUri(null);
+                alert("Warning", "Could not generate PDF preview image");
               }
-            } else if (looksLikeImage(contentType, bytes)) {
-              setIsPdf(false);
-              setImagePreviewUrl(data.assignment_file_download_url ?? null);
-            } else if (looksLikeText(contentType, bytes)) {
-              const text = await blob.text();
-              if (!mountedRef.current) return;
-              setIsPdf(false);
-              setAssignmentContent(sanitizeContent(text));
-            } else {
-              setIsPdf(false);
-              setBinaryDownloadUrl(data.assignment_file_download_url ?? null);
             }
+          } else if (looksLikeImage(contentType, bytes)) {
+            setIsPdf(false);
+            setImagePreviewUrl(data.assignment_file_download_url ?? null);
+          } else if (looksLikeText(contentType, bytes)) {
+            const text = await blob.text();
+            if (!mountedRef.current) return;
+            setIsPdf(false);
+            setAssignmentContent(sanitizeContent(text));
+          } else {
+            setIsPdf(false);
+            setBinaryDownloadUrl(data.assignment_file_download_url ?? null);
           }
-        } catch {
-          // File fetch failed (CORS, network, expired URL) — assignment metadata still usable
-          console.warn("Could not load assignment file");
         }
       }
-    } catch (e) {
-      const message = e instanceof Error ? e.message : "Failed to load assignment";
-      if (mountedRef.current) alert("Error", message);
+    } catch (e: any) {
+      if (mountedRef.current) {
+        setLoadError(e instanceof Error ? e.message : "Failed to load assignment");
+      }
     } finally {
       if (mountedRef.current) setLoading(false);
     }
   }, [assignmentId]);
-
-  const onRefresh = useCallback(async () => {
-    setRefreshing(true);
-    await Promise.all([fetchAssignment(), refreshSubmissions()]);
-    if (mountedRef.current) setRefreshing(false);
-  }, [fetchAssignment, refreshSubmissions]);
 
   const handleConvertPdf = async () => {
     if (!assignment?.assignment_file_download_url) return;
     setConverting(true);
     try {
       const pdfResp = await fetch(assignment.assignment_file_download_url);
-      if (!mountedRef.current) return;
       if (!pdfResp.ok) throw new Error("Failed to download PDF");
       const blob = await pdfResp.blob();
 
-      const { data: { session } } = await supabase.auth.getSession();
+      const { data: sessionData } = await supabase.auth.getSession();
+      const session = sessionData?.session ?? null;
       const formData = new FormData();
       formData.append("file", blob as any, "assignment.pdf");
 
-      const convertResp = await fetch(`${API_URL}/convert/pdf-to-latex?assignment_id=${assignmentId}`, {
+      const convertResp = await fetch(`${API_URL}/convert/pdf-to-latex`, {
         method: "POST",
         headers: session?.access_token
           ? { Authorization: `Bearer ${session.access_token}` }
           : {},
         body: formData,
       });
-      if (!mountedRef.current) return;
 
       if (!convertResp.ok) {
         const err = await convertResp.json().catch(() => ({ error: `HTTP ${convertResp.status}` }));
@@ -248,15 +186,13 @@ export function TeacherAssignmentScreen({ route, navigation }: { route: any; nav
       }
 
       const { latex } = await convertResp.json();
-      if (!mountedRef.current) return;
       setAssignmentContent(sanitizeContent(latex));
       setIsPdf(false);
       setPdfPreviewUri(null);
       setImagePreviewUrl(null);
       setBinaryDownloadUrl(null);
-    } catch (e) {
-      const message = e instanceof Error ? e.message : "Conversion failed";
-      alert("Conversion Error", message);
+    } catch (e: any) {
+      alert("Conversion Error", e.message);
     } finally {
       setConverting(false);
     }
@@ -291,9 +227,8 @@ export function TeacherAssignmentScreen({ route, navigation }: { route: any; nav
       setAssignment((prev) => prev ? { ...prev, ...updated } : updated);
       setEditing(false);
       navigation.setOptions({ title: updated.title });
-    } catch (e) {
-      const message = e instanceof Error ? e.message : "Failed to save";
-      alert("Error", message);
+    } catch (e: any) {
+      alert("Error", e.message);
     } finally {
       setSaving(false);
     }
@@ -307,9 +242,8 @@ export function TeacherAssignmentScreen({ route, navigation }: { route: any; nav
         answer_key_upload_url?: string;
       }>(`/assignments/${assignmentId}/reupload`, { method: "POST" });
       setReuploadUrls(urls);
-    } catch (e) {
-      const message = e instanceof Error ? e.message : "Failed to prepare re-upload";
-      alert("Error", message);
+    } catch (e: any) {
+      alert("Error", e.message);
     } finally {
       setReuploading(false);
     }
@@ -319,16 +253,29 @@ export function TeacherAssignmentScreen({ route, navigation }: { route: any; nav
     Linking.openURL(url);
   };
 
-  if (loading && !refreshing) return (
-    <ScreenContainer>
-      <ActivityIndicator size="large" style={{ marginTop: spacing.xxl }} color={palette.primary} />
-    </ScreenContainer>
-  );
-  if (!assignment) return (
-    <ScreenContainer>
-      <Text style={styles.error}>Assignment not found</Text>
-    </ScreenContainer>
-  );
+  if (loading && !assignment) {
+    return (
+      <ScreenContainer>
+        <View style={styles.loadingWrap}>
+          <ActivityIndicator size="large" color={palette.primary} />
+        </View>
+      </ScreenContainer>
+    );
+  }
+  if (loadError && !assignment) {
+    return (
+      <ScreenContainer>
+        <ErrorState message={loadError} onRetry={fetchAssignment} />
+      </ScreenContainer>
+    );
+  }
+  if (!assignment) {
+    return (
+      <ScreenContainer>
+        <ErrorState message="Assignment not found" />
+      </ScreenContainer>
+    );
+  }
 
   return (
     <ScreenContainer maxWidth="dashboard">
@@ -561,26 +508,13 @@ export function TeacherAssignmentScreen({ route, navigation }: { route: any; nav
                           })}
                         </Text>
                       </View>
-                      <View style={styles.submissionActions}>
-                        <Button
-                          size="sm"
-                          variant="secondary"
-                          onPress={() => navigation.navigate("StudentWorkReview", {
-                            assignmentId,
-                            studentId: submission.student_id,
-                            studentDisplayName: submission.student_display_name ?? `Student ${submission.student_id.slice(0, 8)}`,
-                          })}
-                        >
-                          View Work
+                      {submission.download_url ? (
+                        <Button size="sm" onPress={() => handleOpenFile(submission.download_url!)}>
+                          Open
                         </Button>
-                        {submission.download_url ? (
-                          <Button size="sm" onPress={() => handleOpenFile(submission.download_url!)}>
-                            Open
-                          </Button>
-                        ) : (
-                          <Text style={styles.noFile}>Unavailable</Text>
-                        )}
-                      </View>
+                      ) : (
+                        <Text style={styles.noFile}>Unavailable</Text>
+                      )}
                     </Card>
                   ))
                 )}
@@ -613,135 +547,89 @@ export function TeacherAssignmentScreen({ route, navigation }: { route: any; nav
 }
 
 const styles = StyleSheet.create({
-  title: { ...typography.h1, flex: 1, color: palette.textPrimary },
-  due: { ...typography.bodySmall, color: palette.textMuted, marginTop: spacing.xxs, marginBottom: spacing.md },
-  sectionTitle: { fontSize: 16, fontWeight: "600", marginBottom: spacing.xs, color: palette.textPrimary },
-  error: { textAlign: "center", color: palette.error, marginTop: spacing.xxl },
-  errorText: { textAlign: "center", color: palette.error, marginTop: spacing.xs },
-
+  loadingWrap: { flex: 1, justifyContent: "center", paddingTop: spacing.xxl },
+  scroll: { paddingVertical: spacing.md, paddingBottom: spacing.xxxl },
   modeToggle: { flexDirection: "row", marginBottom: spacing.md, gap: spacing.xs },
   modeButton: {
     flex: 1,
-    padding: 10,
-    borderRadius: radius.button,
+    paddingVertical: spacing.sm,
+    borderRadius: radius.input,
     backgroundColor: palette.tabInactive,
     alignItems: "center",
   },
   modeButtonActive: { backgroundColor: palette.primary },
-  modeText: { fontWeight: "600", color: palette.textSecondary },
-  modeTextActive: { color: palette.white },
+  modeText: { ...typography.bodySmall, fontWeight: "600", color: palette.textSecondary },
+  modeTextActive: { ...typography.bodySmall, fontWeight: "600", color: palette.textOnPrimary },
 
   previewBanner: {
     backgroundColor: palette.warningBg,
-    color: palette.warningText,
-    textAlign: "center",
-    padding: 8,
-    borderRadius: radius.button,
-    fontWeight: "600",
-    marginBottom: 16,
+    borderRadius: radius.input,
+    padding: spacing.xs,
+    marginBottom: spacing.md,
+    alignItems: "center",
   },
   previewBannerText: { ...typography.bodySmall, fontWeight: "600", color: palette.warning },
 
-  headerRow: { flexDirection: "row", alignItems: "center", gap: spacing.sm },
+  title: { ...typography.h1, color: palette.textPrimary, flex: 1 },
+  due: { ...typography.bodySmall, color: palette.textMuted, marginTop: spacing.xxs, marginBottom: spacing.md },
+  sectionTitle: { ...typography.body, fontWeight: "600", color: palette.textPrimary, marginBottom: spacing.xs },
+  headerRow: { flexDirection: "row", alignItems: "center", marginBottom: spacing.xs },
   editChip: {
-    backgroundColor: palette.tabInactive,
-    paddingHorizontal: 12,
-    paddingVertical: 6,
+    backgroundColor: palette.border,
+    paddingHorizontal: spacing.sm,
+    paddingVertical: spacing.xxs,
     borderRadius: radius.chip,
   },
-  editChipText: { fontSize: 13, fontWeight: "600", color: palette.textSecondary },
+  editChipText: { ...typography.caption, fontWeight: "600", color: palette.textSecondary },
 
-  input: {
-    borderWidth: 1,
-    borderColor: palette.inputBorder,
-    borderRadius: radius.input,
-    padding: 14,
-    marginBottom: spacing.sm,
-    fontSize: 16,
-  },
-  editActions: { flexDirection: "row", gap: spacing.sm, marginBottom: spacing.md },
-  actionButton: { flex: 1, padding: 12, borderRadius: radius.button, alignItems: "center" },
-  saveButton: { backgroundColor: palette.primary },
-  cancelButton: { backgroundColor: palette.tabInactive },
-  actionButtonText: { color: palette.white, fontSize: 16, fontWeight: "600" },
-  cancelButtonText: { color: palette.textSecondary, fontSize: 16, fontWeight: "600" },
+  editActions: { marginBottom: spacing.md },
 
   fileCard: {
-    backgroundColor: palette.surface,
-    borderRadius: radius.button,
-    padding: 14,
-    marginBottom: 8,
     flexDirection: "row",
     justifyContent: "space-between",
     alignItems: "center",
+    marginBottom: spacing.xs,
   },
-  fileLabel: { fontSize: 15, fontWeight: "500", color: palette.textPrimary },
-  noFile: { ...typography.caption, color: palette.textDisabled },
-  downloadButton: {
-    backgroundColor: palette.primary,
-    paddingHorizontal: 14,
-    paddingVertical: 8,
-    borderRadius: 6,
-  },
-  downloadButtonText: { color: palette.white, fontSize: 13, fontWeight: "600" },
+  fileLabel: { ...typography.body, fontWeight: "500", color: palette.textPrimary },
+  noFile: { ...typography.caption, color: palette.textMuted },
+  reuploadButton: { marginTop: spacing.md },
+  reuploadSection: { marginTop: spacing.md },
+  cancelReupload: { marginTop: spacing.xs },
 
-  reuploadButton: {
-    backgroundColor: palette.warning,
-    borderRadius: radius.button,
-    padding: 14,
-    alignItems: "center",
-    marginTop: 16,
-  },
-  reuploadButtonText: { color: palette.white, fontSize: 16, fontWeight: "600" },
-  reuploadSection: { marginTop: 16 },
+  convertSection: { marginTop: spacing.lg, backgroundColor: palette.successBg },
+  convertHint: { ...typography.bodySmall, color: palette.textSecondary, marginBottom: spacing.sm },
 
-  convertSection: { marginTop: 24, backgroundColor: palette.successBg, borderRadius: radius.button, padding: 16 },
-  convertHint: { fontSize: 14, color: palette.textSecondary, marginBottom: 12 },
-  convertButton: {
-    backgroundColor: palette.successButton,
-    borderRadius: radius.button,
-    padding: 14,
-    alignItems: "center",
-  },
-  convertButtonText: { color: palette.white, fontSize: 16, fontWeight: "600" },
   pdfPreview: {
     width: "100%",
     minHeight: 220,
     height: 300,
-    borderRadius: radius.button,
-    backgroundColor: palette.surface,
-    marginBottom: 12,
+    borderRadius: radius.input,
+    backgroundColor: palette.border,
+    marginBottom: spacing.sm,
   },
   assignmentImage: {
     width: "100%",
     minHeight: 220,
     height: 320,
-    borderRadius: radius.button,
-    backgroundColor: palette.surface,
+    borderRadius: radius.input,
+    backgroundColor: palette.border,
   },
-  binaryNotice: {
-    marginTop: 16,
-    backgroundColor: palette.infoBg,
-    borderRadius: radius.button,
-    padding: 16,
-  },
-  binaryNoticeText: { fontSize: 14, color: palette.info, marginBottom: 8 },
+  binaryNotice: { marginTop: spacing.md, backgroundColor: palette.surface },
+  binaryNoticeText: { ...typography.bodySmall, color: palette.textSecondary, marginBottom: spacing.xs },
 
   submissionCard: {
-    backgroundColor: palette.surface,
-    borderRadius: radius.button,
-    padding: 14,
-    marginBottom: 8,
-    flexDirection: "row" as const,
-    alignItems: "center" as const,
-    justifyContent: "space-between" as const,
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "space-between",
+    marginBottom: spacing.sm,
   },
-  listItemContent: { flex: 1, marginRight: spacing.sm },
-  itemTitle: { fontSize: 16, fontWeight: "500" as const, color: palette.textPrimary },
-  itemSub: { ...typography.caption, color: palette.textMuted, marginTop: 4 },
-  submissionActions: { flexDirection: "row" as const, alignItems: "center" as const, gap: spacing.sm },
-  analysisLink: { paddingVertical: 6, paddingHorizontal: 10 },
-  analysisLinkText: { ...typography.caption, fontWeight: "600" as const, color: palette.primary },
+  listItemContent: { flex: 1 },
+  itemTitle: { ...typography.body, fontWeight: "500", color: palette.textPrimary },
+  itemSub: { ...typography.caption, color: palette.textMuted, marginTop: spacing.xxs },
+
+  contentPreview: { marginTop: spacing.lg, minHeight: 300 },
+  noContent: { ...typography.body, color: palette.textMuted, textAlign: "center", marginTop: spacing.md },
+  errorText: { ...typography.body, color: palette.error, textAlign: "center", marginTop: spacing.xs },
 
   configFallbackHint: {
     ...typography.caption,
@@ -753,7 +641,7 @@ const styles = StyleSheet.create({
   },
   configSummary: {
     backgroundColor: palette.surface,
-    borderRadius: radius.card,
+    borderRadius: radius.button,
     padding: spacing.sm,
     marginBottom: spacing.md,
   },
@@ -767,9 +655,9 @@ const styles = StyleSheet.create({
   configValue: { ...typography.bodySmall, fontWeight: "500" as const, color: palette.textSecondary },
 
   disabledButton: {
-    backgroundColor: palette.borderStrong,
+    backgroundColor: palette.border,
     borderRadius: radius.button,
-    padding: 16,
+    padding: spacing.md,
     alignItems: "center",
     marginTop: spacing.lg,
   },
@@ -781,15 +669,15 @@ const styles = StyleSheet.create({
     alignItems: "center",
     marginTop: spacing.sm,
   },
-  tryStudentButtonText: { color: "#fff", fontSize: 16, fontWeight: "600" },
+  tryStudentButtonText: { ...typography.button, color: palette.textOnPrimary },
 
   problemsSummary: { marginTop: spacing.md },
   problemRow: {
     flexDirection: "row",
     alignItems: "flex-start",
-    gap: 8,
-    paddingVertical: 4,
+    gap: spacing.xs,
+    paddingVertical: spacing.xxs,
   },
-  problemNum: { fontSize: 13, fontWeight: "700", color: "#374151", minWidth: 28 },
-  problemTex: { fontSize: 13, color: "#6B7280", flex: 1, fontFamily: "monospace" },
+  problemNum: { ...typography.bodySmall, fontWeight: "700" as const, color: palette.textSecondary, minWidth: 28 },
+  problemTex: { ...typography.bodySmall, color: palette.textMuted, flex: 1, fontFamily: "monospace" as const },
 });

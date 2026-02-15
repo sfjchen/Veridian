@@ -33,6 +33,20 @@ Address both reviewers' feedback before merging. **Always tag @codex and @claude
 | `student/frontend/` | Student Expo app (canvas, document, workspace) |
 | `supabase/` | Shared migrations |
 
+## Design tokens (Veridian)
+
+**Where tokens live:** `teacher/frontend/src/constants/` — canonical source. Student frontend uses the same Veridian values in `student/frontend/constants/` (palette, typography, spacing, motion, theme).
+
+| File | Exports | Use for |
+|------|---------|--------|
+| `palette.ts` | `palette`, `radius`, `elevation` | Colors (primary #16A34A, surface, card, text, error, success, etc.), border radius, shadows |
+| `typography.ts` | `typography`, `fontFamily` | Font families (DM Sans, Dancing Script wordmark), sizes and line heights (display, h1, h2, body, caption, button) |
+| `spacing.ts` | `spacing` | 4px grid: padding, margin, gap (xxs 4 → xxxl 64) |
+| `motion.ts` | `motion` | Animation durations in ms (fast 150, normal 250, slow 400 for page/modals) |
+| `theme.ts` | Re-exports all above | One import for screens/components |
+
+**Rule:** Prefer tokens over raw values. Use `palette.*` for colors, `typography.*` for text styles, `spacing.*` for layout, `motion.*` for `Animated.timing` durations, `radius.*` / `elevation.*` for shape and shadow. No raw hex, ad-hoc font sizes, or magic numbers in UI code. Primitives in `teacher/frontend/src/components/ui/` (Button, Card, Input, etc.) already use these tokens; screens should too.
+
 ## Mistake analysis pipeline
 
 End-to-end flow (image → annotated result with coordinates):

@@ -1,5 +1,5 @@
 import functools
-import sys
+import logging
 from typing import Any, Callable, Tuple
 
 import jwt
@@ -8,6 +8,8 @@ from flask import Response, request, g, jsonify, current_app
 
 from app.constants import ROLE_STUDENT, ROLE_TEACHER
 from app.services.supabase_client import get_supabase_admin_client
+
+log = logging.getLogger(__name__)
 
 _jwks_client: PyJWKClient | None = None
 VALID_ROLES = {ROLE_STUDENT, ROLE_TEACHER}
@@ -69,12 +71,12 @@ def _role_from_profile(user_id: str) -> str | None:
     try:
         client = get_supabase_admin_client()
         profile = client.table("profiles").select("role").eq("id", user_id).execute()
-    except Exception as exc:
-        print(f"_role_from_profile query failed for {user_id}: {exc}", file=sys.stderr)
+    except Exception:
+        log.exception("_role_from_profile query failed for %s", user_id)
         return None
 
     if not profile.data:
-        print(f"_role_from_profile: no profile row for {user_id}", file=sys.stderr)
+        log.warning("_role_from_profile: no profile row for %s", user_id)
         return None
 
     record = profile.data[0] if isinstance(profile.data, list) else profile.data
@@ -101,11 +103,11 @@ def require_auth(f: Callable) -> Callable:
             payload = _decode_token(token)
         except jwt.ExpiredSignatureError:
             return jsonify({"error": "Token expired"}), 401
-        except jwt.InvalidTokenError as exc:
-            print(f"JWT invalid after all decode attempts: {exc}", file=sys.stderr)
+        except jwt.InvalidTokenError:
+            log.exception("JWT invalid after all decode attempts")
             return jsonify({"error": "Invalid token"}), 401
-        except Exception as exc:
-            print(f"JWT decode error: {exc}", file=sys.stderr)
+        except Exception:
+            log.exception("JWT decode error")
             return jsonify({"error": "Authentication service unavailable"}), 503
 
         user_id = payload.get("sub")
@@ -119,10 +121,7 @@ def require_auth(f: Callable) -> Callable:
         if not role:
             role = _role_from_profile(user_id)
         if not role:
-            print(
-                f"Could not resolve role for {user_id}, defaulting to {ROLE_STUDENT}",
-                file=sys.stderr,
-            )
+            log.warning("Could not resolve role for %s, defaulting to %s", user_id, ROLE_STUDENT)
         g.user_role = role or ROLE_STUDENT
         return f(*args, **kwargs)
 

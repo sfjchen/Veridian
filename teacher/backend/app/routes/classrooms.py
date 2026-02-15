@@ -1,4 +1,4 @@
-import sys
+import logging
 import uuid
 from typing import Any, Tuple
 
@@ -11,6 +11,8 @@ from app.services.code_generator import generate_class_code
 from app.services.config_schema import validate_config
 from app.services.storage import delete_object
 from app.services.supabase_client import get_supabase_admin_client
+
+log = logging.getLogger(__name__)
 
 classrooms_bp = Blueprint("classrooms", __name__, url_prefix="/classrooms")
 
@@ -173,8 +175,8 @@ def update_classroom(classroom_id: str) -> Response | Tuple[Response, int]:
         updated = client.table("classrooms").update(updates).eq(
             "id", classroom_id
         ).eq("teacher_id", g.user_id).execute()
-    except APIError as e:
-        print(f"Failed to update classroom {classroom_id}: {e}", file=sys.stderr)
+    except APIError:
+        log.exception("Failed to update classroom %s", classroom_id)
         return jsonify({"error": "Failed to update classroom"}), 500
 
     if not updated.data:
@@ -198,8 +200,8 @@ def delete_classroom(classroom_id: str) -> Response | Tuple[Response, int]:
         deleted = client.table("classrooms").delete().eq(
             "id", classroom_id
         ).eq("teacher_id", g.user_id).execute()
-    except APIError as e:
-        print(f"Failed to delete classroom {classroom_id}: {e}", file=sys.stderr)
+    except APIError:
+        log.exception("Failed to delete classroom %s", classroom_id)
         return jsonify({"error": "Failed to delete classroom"}), 500
 
     if not deleted.data:
@@ -217,7 +219,7 @@ def _cleanup_assignment_storage(assignments: list[dict]) -> None:
             try:
                 delete_object(ASSIGNMENTS_BUCKET, path)
             except ValueError:
-                print(f"Failed to clean up storage object: {path}", file=sys.stderr)
+                log.exception("Failed to clean up storage object: %s", path)
 
 
 def _enrich_memberships_with_profiles(client: Client, memberships: list[dict]) -> list[dict]:
@@ -281,11 +283,8 @@ def remove_classroom_student(classroom_id: str, student_id: str) -> Response | T
         deleted = client.table("classroom_memberships").delete().eq(
             "classroom_id", classroom_id
         ).eq("student_id", student_id).execute()
-    except APIError as e:
-        print(
-            f"Failed to remove student {student_id} from classroom {classroom_id}: {e}",
-            file=sys.stderr,
-        )
+    except APIError:
+        log.exception("Failed to remove student %s from classroom %s", student_id, classroom_id)
         return jsonify({"error": "Failed to remove student"}), 500
 
     if not deleted.data:

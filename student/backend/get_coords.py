@@ -951,7 +951,7 @@ def _image_bytes_to_latex(image_bytes: bytes) -> str:
     latex = screenshot_to_latex(image_bytes=image_bytes, mime_type=mime_type)
     if _ocr_debug.strip().lower() in ("1", "true", "yes"):
         elapsed_ms = int((time.perf_counter() - t0) * 1000)
-        print(f"handwriting_ocr_ms={elapsed_ms}", file=sys.stderr)
+        log.debug("handwriting_ocr_ms=%d", elapsed_ms)
     return latex
 
 
@@ -1337,8 +1337,8 @@ def _resolve_context(lookup: ContextLookup) -> tuple[str, str, str]:
                 ref = ref or ""
             config = get_resolved_config(assignment_id)
             return (ref or form_ref, ctx or form_ctx, config.get("hint_level", "guided"))
-        except ValueError:
-            pass
+        except ValueError as exc:
+            log.warning("Context resolution failed for assignment=%s problem=%s: %s", assignment_id, problem_num, exc)
     if lookup["is_sample"]:
         return (form_ref or _DEFAULT_REFERENCE_TEX, form_ctx or _DEFAULT_CONTEXT_TEX, "detailed")
     return (form_ref, form_ctx, "detailed")
@@ -1352,7 +1352,7 @@ def _profile_enabled() -> bool:
 def _profile_log_timing(timing: Dict[str, int]) -> None:
     total = sum(timing.values())
     parts = " ".join(f"{k}={v}" for k, v in sorted(timing.items()))
-    print(f"analysis_timing total_ms={total} {parts}", file=sys.stderr)
+    log.info("analysis_timing total_ms=%d %s", total, parts)
 
 
 def _run_analysis(image_bytes: bytes, params: AnalysisParams) -> Dict[str, Any]:
@@ -1837,7 +1837,8 @@ def _extract_capture_mistakes(
             media_type=context["media_type"],
         )
         mistakes = coords_payload.get("mistakes", [])
-    except (ValueError, RuntimeError):
+    except (ValueError, RuntimeError) as exc:
+        log.warning("Capture coord pipeline failed: %s", exc)
         return ([], None)
     except Exception as exc:
         log.error("Mistake coord pipeline failed: %s", exc, exc_info=True)

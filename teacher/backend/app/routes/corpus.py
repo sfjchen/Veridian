@@ -1,4 +1,4 @@
-import sys
+import logging
 import uuid
 from typing import Any
 
@@ -9,6 +9,8 @@ from supabase import Client
 from app.middleware.auth import require_auth, require_role
 from app.services.storage import delete_object, generate_download_url, generate_upload_url, move_object
 from app.services.supabase_client import get_supabase_admin_client
+
+log = logging.getLogger(__name__)
 
 corpus_bp = Blueprint("corpus", __name__)
 
@@ -66,12 +68,8 @@ def _rollback_storage_move(
     try:
         move_object(CORPUS_BUCKET, new_path, old_path)
         return None
-    except ValueError as rollback_error:
-        print(
-            f"CRITICAL: Failed to rollback storage move {new_path} -> {old_path}: "
-            f"{rollback_error}",
-            file=sys.stderr,
-        )
+    except ValueError:
+        log.exception("CRITICAL: Failed to rollback storage move %s -> %s", new_path, old_path)
         return jsonify({
             "error": "Storage rollback failed; manual intervention required",
             "file_id": file_id,
@@ -112,8 +110,8 @@ def _serialize_file(file_record: dict[str, Any]) -> dict[str, Any]:
     storage_path = str(file_copy["storage_path"])
     try:
         file_copy["download_url"] = generate_download_url(CORPUS_BUCKET, storage_path)
-    except Exception as e:
-        print(f"Failed to generate corpus download URL for {storage_path}: {e}", file=sys.stderr)
+    except Exception:
+        log.exception("Failed to generate corpus download URL for %s", storage_path)
         file_copy["download_url"] = None
         file_copy["download_url_error"] = str(e)
     return file_copy
@@ -209,8 +207,8 @@ def create_corpus_file(classroom_id: str) -> tuple[Response, int]:
             "storage_path": storage_path,
             "file_type": file_type,
         }).execute()
-    except APIError as e:
-        print(f"Failed to insert corpus file: {e}", file=sys.stderr)
+    except APIError:
+        log.exception("Failed to insert corpus file")
         return jsonify({"error": "Failed to create corpus file"}), 500
 
     if not record.data:
@@ -218,12 +216,12 @@ def create_corpus_file(classroom_id: str) -> tuple[Response, int]:
 
     try:
         upload_url = generate_upload_url(CORPUS_BUCKET, storage_path)
-    except Exception as e:
-        print(f"Failed to generate upload URL: {e}", file=sys.stderr)
+    except Exception:
+        log.exception("Failed to generate upload URL for corpus file %s", file_id)
         try:
             client.table("corpus_files").delete().eq("id", file_id).execute()
-        except Exception as cleanup_err:
-            print(f"Failed to clean up orphaned corpus_file {file_id}: {cleanup_err}", file=sys.stderr)
+        except Exception:
+            log.exception("Failed to clean up orphaned corpus_file %s", file_id)
             return jsonify({"error": "Failed to generate upload URL", "orphaned_file_id": file_id}), 500
         return jsonify({"error": "Failed to generate upload URL"}), 500
 
@@ -331,11 +329,8 @@ def update_corpus_file(file_id: str) -> tuple[Response, int]:
         if new_storage_path != old_storage_path:
             try:
                 move_object(CORPUS_BUCKET, old_storage_path, new_storage_path)
-            except ValueError as e:
-                print(
-                    f"Failed to move corpus object from {old_storage_path} to {new_storage_path}: {e}",
-                    file=sys.stderr,
-                )
+            except ValueError:
+                log.exception("Failed to move corpus object from %s to %s", old_storage_path, new_storage_path)
                 return jsonify({"error": "Failed to move corpus file in storage"}), 500
             updates["storage_path"] = new_storage_path
 
@@ -349,7 +344,7 @@ def update_corpus_file(file_id: str) -> tuple[Response, int]:
             rollback_resp = _rollback_storage_move(file_id, new_storage_path, old_storage_path)
             if rollback_resp is not None:
                 return rollback_resp
-        print(f"Failed to update corpus file {file_id}: {e}", file=sys.stderr)
+        log.exception("Failed to update corpus file %s", file_id)
         return jsonify({"error": "Failed to update corpus file"}), 500
 
     if not updated.data:
@@ -379,14 +374,14 @@ def delete_corpus_file(file_id: str) -> tuple[Response, int]:
 
     try:
         delete_object(CORPUS_BUCKET, file_record["storage_path"])
-    except ValueError as e:
-        print(f"Failed to delete storage object for {file_id}: {e}", file=sys.stderr)
+    except ValueError:
+        log.exception("Failed to delete storage object for %s", file_id)
         return jsonify({"error": "Failed to delete file from storage"}), 500
 
     try:
         deleted = client.table("corpus_files").delete().eq("id", file_id).execute()
-    except APIError as e:
-        print(f"Storage deleted but DB delete failed for {file_id}: {e}", file=sys.stderr)
+    except APIError:
+        log.exception("Storage deleted but DB delete failed for %s", file_id)
         return jsonify({"error": "Failed to delete file record"}), 500
     if not deleted.data:
         return jsonify({"error": "File not found"}), 404

@@ -1,7 +1,6 @@
 import { type ReactNode, useState } from "react";
-import { Platform, StyleSheet, TouchableOpacity, View, type ViewStyle } from "react-native";
-import { elevation, palette, radius } from "@/constants/palette";
-import { spacing } from "@/constants/spacing";
+import { Platform, TouchableOpacity, View, type ViewStyle } from "react-native";
+import { useAppTheme } from "@/constants/theme";
 
 interface CardProps {
   children: ReactNode;
@@ -10,6 +9,7 @@ interface CardProps {
 }
 
 export function Card({ children, onPress, style }: CardProps) {
+  const { elevation, radius, spacing, semantic } = useAppTheme();
   const [hovered, setHovered] = useState(false);
   const isWeb = Platform.OS === "web";
   const showHover = isWeb && onPress && hovered;
@@ -26,9 +26,13 @@ export function Card({ children, onPress, style }: CardProps) {
       activeOpacity={onPress ? 0.92 : 1}
       {...webProps}
       style={[
-        styles.card,
+        {
+          backgroundColor: semantic.bg.card,
+          borderRadius: radius.card,
+          padding: spacing.md,
+        },
         elevation.shadowMd,
-        showHover && styles.cardHover,
+        showHover && { backgroundColor: semantic.bg.muted },
         style,
       ]}
     >
@@ -36,14 +40,3 @@ export function Card({ children, onPress, style }: CardProps) {
     </Wrapper>
   );
 }
-
-const styles = StyleSheet.create({
-  card: {
-    backgroundColor: palette.card,
-    borderRadius: radius.card,
-    padding: spacing.md,
-  },
-  cardHover: {
-    backgroundColor: palette.primaryMuted,
-  },
-});

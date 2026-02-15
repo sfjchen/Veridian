@@ -1,7 +1,6 @@
 import { ReactNode } from 'react';
 import { Pressable, StyleSheet, Text, View } from 'react-native';
-import { palette, radius } from '@/constants/palette';
-import { spacing, typography } from '@/constants/theme';
+import { useAppTheme } from '@/constants/theme';
 
 export interface EmptyStateProps {
   title: string;
@@ -20,19 +19,37 @@ export function EmptyState({
   actionLabel,
   onAction,
 }: EmptyStateProps) {
+  const { radius, spacing, typography, semantic } = useAppTheme();
   return (
-    <View style={styles.container}>
-      {icon ? <View style={styles.iconWrap}>{icon}</View> : null}
-      <Text style={styles.title}>{title}</Text>
-      {description ? <Text style={styles.description}>{description}</Text> : null}
+    <View style={[styles.container, { paddingVertical: spacing.xxxl, paddingHorizontal: spacing.xl }]}>
+      {icon ? <View style={{ marginBottom: spacing.lg }}>{icon}</View> : null}
+      <Text style={{ ...typography.h2, color: semantic.text.primary, textAlign: 'center', marginBottom: spacing.sm }}>
+        {title}
+      </Text>
+      {description ? (
+        <Text style={{ ...typography.bodySmall, color: semantic.text.muted, textAlign: 'center', marginBottom: spacing.lg }}>
+          {description}
+        </Text>
+      ) : null}
       {actionLabel && onAction ? (
         <Pressable
-          style={({ pressed }) => [styles.button, pressed && styles.buttonPressed]}
+          style={({ pressed }) => [
+            {
+              minHeight: MIN_TOUCH,
+              paddingVertical: spacing.sm,
+              paddingHorizontal: spacing.lg,
+              borderRadius: radius.button,
+              backgroundColor: semantic.action.primary,
+              justifyContent: 'center',
+              marginTop: spacing.md,
+            },
+            pressed && styles.buttonPressed,
+          ]}
           onPress={onAction}
           accessibilityRole="button"
           accessibilityLabel={actionLabel}
         >
-          <Text style={styles.buttonText}>{actionLabel}</Text>
+          <Text style={{ ...typography.button, color: semantic.text.onPrimary }}>{actionLabel}</Text>
         </Pressable>
       ) : null}
     </View>
@@ -44,31 +61,6 @@ const styles = StyleSheet.create({
     flex: 1,
     justifyContent: 'center',
     alignItems: 'center',
-    paddingVertical: spacing.xxxl,
-    paddingHorizontal: spacing.xl,
-  },
-  iconWrap: { marginBottom: spacing.lg },
-  title: {
-    ...typography.h2,
-    color: palette.textPrimary,
-    textAlign: 'center',
-    marginBottom: spacing.sm,
-  },
-  description: {
-    ...typography.bodySmall,
-    color: palette.textMuted,
-    textAlign: 'center',
-    marginBottom: spacing.lg,
-  },
-  button: {
-    minHeight: MIN_TOUCH,
-    paddingVertical: spacing.sm,
-    paddingHorizontal: spacing.lg,
-    borderRadius: radius.button,
-    backgroundColor: palette.primary,
-    justifyContent: 'center',
-    marginTop: spacing.md,
   },
   buttonPressed: { opacity: 0.9 },
-  buttonText: { ...typography.button, color: palette.textOnPrimary },
 });

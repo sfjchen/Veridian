@@ -1,6 +1,9 @@
 import React, { useState } from "react";
 import { View, Text, Switch, TextInput, TouchableOpacity, StyleSheet } from "react-native";
 import { AssignmentConfig } from "../types";
+import { palette, radius, elevation } from "../constants/palette";
+import { spacing } from "../constants/spacing";
+import { typography } from "../constants/typography";
 
 const DEFAULTS: AssignmentConfig = {
   check_button_visible: true,
@@ -60,17 +63,23 @@ const INT_RANGES: Record<string, { min: number; max: number }> = {
   analysis_debounce_seconds: { min: 1, max: 300 },
 };
 
-const FIELD_ORDER = [
-  "check_button_visible",
-  "chat_enabled",
-  "hint_level",
-  "analysis_trigger",
-  "analysis_debounce_seconds",
-  "dot_threshold",
-  "max_dots_shown",
-  "notification_style",
-  "student_mistake_visibility",
-] as const;
+const FIELD_GROUPS: { title: string; subtitle: string; fields: readonly string[] }[] = [
+  {
+    title: "Guidance and Hints",
+    subtitle: "How much help the garden gives when students are stuck.",
+    fields: ["chat_enabled", "hint_level", "student_mistake_visibility"],
+  },
+  {
+    title: "Analysis Engine",
+    subtitle: "When the system inspects work and how quickly it responds.",
+    fields: ["analysis_trigger", "analysis_debounce_seconds", "check_button_visible"],
+  },
+  {
+    title: "Dot and Alert Signals",
+    subtitle: "Visual density and severity thresholds for mistake highlights.",
+    fields: ["dot_threshold", "max_dots_shown", "notification_style"],
+  },
+];
 
 interface Props {
   config: Partial<AssignmentConfig>;
@@ -104,14 +113,24 @@ function SegmentedControl({ options, selected, onSelect, disabled }: {
 }
 
 const segStyles = StyleSheet.create({
-  row: { flexDirection: "row", gap: 4 },
-  segment: {
-    flex: 1, paddingVertical: 6, paddingHorizontal: 4,
-    borderRadius: 6, backgroundColor: "#E5E7EB", alignItems: "center",
+  row: {
+    flexDirection: "row",
+    gap: spacing.xs,
+    backgroundColor: palette.surface,
+    borderRadius: radius.card,
+    padding: spacing.xs,
   },
-  segmentActive: { backgroundColor: "#4F46E5" },
-  segmentText: { fontSize: 12, fontWeight: "600", color: "#374151" },
-  segmentTextActive: { color: "#fff" },
+  segment: {
+    flex: 1,
+    paddingVertical: spacing.xs + 2,
+    paddingHorizontal: spacing.xs,
+    borderRadius: radius.button,
+    backgroundColor: "transparent",
+    alignItems: "center",
+  },
+  segmentActive: { backgroundColor: palette.primary, ...elevation.shadowSm },
+  segmentText: { ...typography.caption, fontWeight: "600", color: palette.textSecondary },
+  segmentTextActive: { color: palette.textOnPrimary },
 });
 
 function getIntValidationError(key: string, value: number): string | null {
@@ -190,7 +209,7 @@ function FieldInput({ fieldKey, value, active, setValue }: {
   if ((BOOL_FIELDS as readonly string[]).includes(fieldKey)) {
     return (
       <Switch value={value as boolean} onValueChange={(v) => setValue(fieldKey, v)}
-        disabled={!active} trackColor={{ true: "#4F46E5", false: "#D1D5DB" }} />
+        disabled={!active} trackColor={{ true: palette.primary, false: palette.borderStrong }} />
     );
   }
   if ((ENUM_FIELDS as readonly string[]).includes(fieldKey) && ENUM_OPTIONS[fieldKey]) {
@@ -241,37 +260,89 @@ export function ConfigEditor({ config, inheritedConfig, onChange, mode }: Props)
 
   return (
     <View style={styles.container}>
-      {FIELD_ORDER.map((key) => (
-        <FieldCard key={key} fieldKey={key} active={mode === "classroom" || isOverridden(key)}
-          mode={mode} overridden={isOverridden(key)} onToggle={() => toggleOverride(key)}
-          displayValue={getDisplayValue(key)} setValue={setValue} />
+      {FIELD_GROUPS.map((group) => (
+        <View key={group.title} style={styles.groupCard}>
+          <Text style={styles.groupTitle}>{group.title}</Text>
+          <Text style={styles.groupSubtitle}>{group.subtitle}</Text>
+          <View style={styles.groupFields}>
+            {group.fields.map((key) => (
+              <FieldCard
+                key={key}
+                fieldKey={key}
+                active={mode === "classroom" || isOverridden(key)}
+                mode={mode}
+                overridden={isOverridden(key)}
+                onToggle={() => toggleOverride(key)}
+                displayValue={getDisplayValue(key)}
+                setValue={setValue}
+              />
+            ))}
+          </View>
+        </View>
       ))}
     </View>
   );
 }
 
 const styles = StyleSheet.create({
-  container: { gap: 12 },
-  fieldCard: { backgroundColor: "#F9FAFB", borderRadius: 8, padding: 12 },
-  fieldCardInactive: { opacity: 0.5 },
+  container: { gap: spacing.md },
+  groupCard: {
+    backgroundColor: palette.forestMist,
+    borderRadius: radius.organic,
+    borderWidth: 1,
+    borderColor: palette.primaryMuted,
+    padding: spacing.md,
+    gap: spacing.sm,
+  },
+  groupTitle: {
+    ...typography.body,
+    color: palette.forestCanopy,
+    fontWeight: "700",
+  },
+  groupSubtitle: {
+    ...typography.caption,
+    color: palette.textSecondary,
+  },
+  groupFields: {
+    gap: spacing.sm,
+  },
+  fieldCard: {
+    backgroundColor: palette.surfaceElevated,
+    borderRadius: radius.card,
+    padding: spacing.md,
+    borderWidth: 1,
+    borderColor: palette.border,
+    ...elevation.shadowSm,
+  },
+  fieldCardInactive: { opacity: 0.6 },
   fieldHeader: {
-    flexDirection: "row", justifyContent: "space-between",
-    alignItems: "center", marginBottom: 8,
+    flexDirection: "row",
+    justifyContent: "space-between",
+    alignItems: "center",
+    marginBottom: spacing.sm,
   },
-  fieldLabel: { fontSize: 14, fontWeight: "600", color: "#374151" },
-  fieldLabelInactive: { color: "#9CA3AF" },
+  fieldLabel: { ...typography.body, fontWeight: "700", color: palette.textSecondary },
+  fieldLabelInactive: { color: palette.textDisabled },
   overrideChip: {
-    paddingHorizontal: 10, paddingVertical: 4, borderRadius: 12,
-    backgroundColor: "#E5E7EB",
+    paddingHorizontal: spacing.sm,
+    paddingVertical: spacing.xs,
+    borderRadius: radius.chip,
+    backgroundColor: palette.tabInactive,
   },
-  overrideChipActive: { backgroundColor: "#4F46E5" },
-  overrideText: { fontSize: 11, fontWeight: "600", color: "#6B7280" },
-  overrideTextActive: { color: "#fff" },
+  overrideChipActive: { backgroundColor: palette.primary },
+  overrideText: { ...typography.caption, fontWeight: "600", color: palette.textMuted },
+  overrideTextActive: { color: palette.textOnPrimary },
   intInput: {
-    borderWidth: 1, borderColor: "#D1D5DB", borderRadius: 6,
-    padding: 8, fontSize: 14, backgroundColor: "#fff",
+    borderWidth: 1,
+    borderColor: palette.inputBorder,
+    borderRadius: radius.input,
+    paddingHorizontal: spacing.sm,
+    paddingVertical: spacing.sm,
+    ...typography.body,
+    color: palette.textPrimary,
+    backgroundColor: palette.surfaceElevated,
   },
-  intInputInactive: { backgroundColor: "#F3F4F6", color: "#9CA3AF" },
-  intInputError: { borderColor: "#EF4444" },
-  validationError: { color: "#EF4444", fontSize: 11, marginTop: 4 },
+  intInputInactive: { backgroundColor: palette.surface, color: palette.textDisabled },
+  intInputError: { borderColor: palette.error },
+  validationError: { ...typography.caption, color: palette.error, marginTop: spacing.xs },
 });

@@ -40,30 +40,46 @@ export function useNotes(userId: string | null) {
   useEffect(() => { load(); }, [load]);
 
   const save = useCallback(async (list: NoteMeta[]) => {
-    if (!storageKey) return;
-    setNotes(list);
+    if (!storageKey) {
+      const message = 'Please sign in before creating notes';
+      setError(message);
+      throw new Error(message);
+    }
+    setError(null);
     try {
       await AsyncStorage.setItem(storageKey, JSON.stringify(list));
+      setNotes(list);
     } catch (e) {
-      setError(e instanceof Error ? e.message : 'Failed to save notes');
+      const message = e instanceof Error ? e.message : 'Failed to save notes';
+      setError(message);
+      throw new Error(message);
     }
   }, [storageKey]);
 
   const addNote = useCallback(async (name: string): Promise<NoteMeta> => {
+    if (!storageKey) {
+      const message = 'Please sign in before creating notes';
+      setError(message);
+      throw new Error(message);
+    }
+    const raw = await AsyncStorage.getItem(storageKey);
+    const currentNotes = raw ? (JSON.parse(raw) as NoteMeta[]) : notes;
     const id = `note_${Date.now()}_${Math.random().toString(36).slice(2, 9)}`;
     const note: NoteMeta = { id, name, createdAt: Date.now() };
-    await save([...notes, note]);
+    await save([...currentNotes, note]);
     return note;
-  }, [notes, save]);
+  }, [notes, save, storageKey]);
 
   const removeNote = useCallback(async (id: string) => {
-    await save(notes.filter((n) => n.id !== id));
+    const raw = storageKey ? await AsyncStorage.getItem(storageKey) : null;
+    const currentNotes = raw ? (JSON.parse(raw) as NoteMeta[]) : notes;
+    await save(currentNotes.filter((n) => n.id !== id));
     if (userId) {
       await AsyncStorage.removeItem(strokeKeyForNote(userId, id)).catch((e) => {
         console.warn('[useNotes] Failed to remove strokes for note:', id, e);
       });
     }
-  }, [notes, save, userId]);
+  }, [notes, save, storageKey, userId]);
 
   const getNote = useCallback(
     (id: string): NoteMeta | undefined => notes.find((n) => n.id === id),

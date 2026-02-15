@@ -1,8 +1,6 @@
 import React, { ReactNode, useRef, useState } from "react";
-import { Animated, Platform, Pressable, StyleSheet, View, ViewStyle } from "react-native";
-import { elevation, palette, radius } from "../../constants/palette";
-import { motion } from "../../constants/motion";
-import { spacing } from "../../constants/spacing";
+import { Animated, Platform, Pressable, StyleSheet, ViewStyle } from "react-native";
+import { useAppTheme } from "../../constants/theme";
 
 type CardRadius = "card" | "organic";
 
@@ -14,6 +12,8 @@ interface CardProps {
 }
 
 export function Card({ children, onPress, style, radius: radiusVariant = "card" }: CardProps): React.ReactElement {
+  const theme = useAppTheme();
+  const { elevation, radius, spacing, motion, semantic } = theme;
   const [hovered, setHovered] = useState(false);
   const scaleAnim = useRef(new Animated.Value(1)).current;
   const isWeb = Platform.OS === "web";
@@ -34,10 +34,10 @@ export function Card({ children, onPress, style, radius: radiusVariant = "card" 
   const content = (
     <Animated.View
       style={[
-        styles.card,
+        { backgroundColor: semantic.bg.card, padding: spacing.md },
         { borderRadius: cardRadius },
         elevation.shadowMd,
-        showHover && styles.cardHover,
+        showHover && { backgroundColor: semantic.bg.muted },
         style,
         onPress && { transform: [{ scale: scaleAnim }] },
       ]}
@@ -65,11 +65,4 @@ export function Card({ children, onPress, style, radius: radiusVariant = "card" 
 
 const styles = StyleSheet.create({
   pressable: { alignSelf: "stretch" },
-  card: {
-    backgroundColor: palette.card,
-    padding: spacing.md,
-  },
-  cardHover: {
-    backgroundColor: palette.primaryMutedTint,
-  },
 });

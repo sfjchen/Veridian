@@ -59,7 +59,8 @@ veridian.fyi and s.veridian.fyi are added. At your DNS registrar, add CNAME reco
 ### Student Backend
 
 - Root: student/backend
-- Start: `python get_coords.py`
+- Build: `pip install -r requirements.txt`
+- Start: `gunicorn --worker-class eventlet -w 1 -b 0.0.0.0:${PORT:-8000} get_coords:app`
 - Env: All from student/backend/.env.example
 - CORS_ALLOWED_ORIGINS: https://s.veridian.fyi,https://veridian-student.vercel.app,https://veridian.fyi
 - WS_CORS_ORIGINS: https://s.veridian.fyi,https://veridian-student.vercel.app,https://veridian.fyi

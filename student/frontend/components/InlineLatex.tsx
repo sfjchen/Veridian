@@ -63,6 +63,7 @@ function WebInlineLatex({ html }: { html: string }) {
 
   React.useEffect(() => {
     const handler = (e: MessageEvent) => {
+      if (e.source !== iframeRef.current?.contentWindow) return;
       try {
         const data = typeof e.data === 'string' ? JSON.parse(e.data) : e.data;
         if (data.height) setHeight(Math.ceil(data.height) + 4);
@@ -77,7 +78,7 @@ function WebInlineLatex({ html }: { html: string }) {
       <iframe
         ref={iframeRef}
         src={blobUrl}
-        style={{ width: '100%', height, border: 'none', overflow: 'hidden' } as any}
+        style={{ width: '100%', height, border: 'none' } as any}
         sandbox="allow-scripts allow-same-origin"
         title="LaTeX content"
       />

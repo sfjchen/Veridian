@@ -629,29 +629,10 @@ export function TeacherAssignmentScreen({ route, navigation }: { route: any; nav
             ))
           )}
 
-              {assignmentContent && (
-                <View style={styles.contentPreview}>
-                  <Text style={styles.sectionTitle}>Assignment Preview (LaTeX)</Text>
-                  <LatexRenderer latex={assignmentContent} />
-                </View>
-              )}
-              {imagePreviewUrl && (
-                <View style={styles.contentPreview}>
-                  <Text style={styles.sectionTitle}>Assignment Preview (Image)</Text>
-                  <Image source={{ uri: imagePreviewUrl }} style={styles.assignmentImage} resizeMode="contain" />
-                </View>
-              )}
-              {binaryDownloadUrl && (
-                <Card style={styles.binaryNotice}>
-                  <Text style={styles.binaryNoticeText}>This file type cannot be previewed in-app.</Text>
-                  <Button size="sm" onPress={() => handleOpenFile(binaryDownloadUrl)}>Download File</Button>
-                </Card>
-              )}
-            </View>
-          )}
         </View>
       )}
-    </ScrollView>
+        </View>
+      </ScrollView>
     </ScreenContainer>
   );
 }

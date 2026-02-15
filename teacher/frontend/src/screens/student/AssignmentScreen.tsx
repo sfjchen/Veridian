@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useRef } from "react";
+import React, { useState, useEffect, useRef, useCallback } from "react";
 import {
   View,
   Text,
@@ -48,6 +48,7 @@ export function AssignmentScreen({ route }: { route: any }) {
   const [binaryDownloadUrl, setBinaryDownloadUrl] = useState<string | null>(null);
   const [submissionUrl, setSubmissionUrl] = useState<string | null>(null);
   const [submitting, setSubmitting] = useState(false);
+  const [loadError, setLoadError] = useState<string | null>(null);
   const {
     submissions,
     loading: submissionsLoading,
@@ -104,14 +105,20 @@ export function AssignmentScreen({ route }: { route: any }) {
         } catch {
           console.warn("Could not load assignment file");
         }
-      } catch (e: any) {
-        if (!cancelled) alert("Error", e.message);
-      } finally {
-        if (!cancelled) setLoading(false);
       }
-    })();
-    return () => { cancelled = true; };
+    } catch (e: any) {
+      if (mountedRef.current) {
+        alert("Error", (e as Error).message);
+        setLoadError((e as Error).message ?? "Failed to load");
+      }
+    } finally {
+      if (mountedRef.current) setLoading(false);
+    }
   }, [assignmentId]);
+
+  useEffect(() => {
+    fetchAssignment();
+  }, [fetchAssignment]);
 
   const handleSubmit = async () => {
     setSubmitting(true);

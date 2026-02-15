@@ -61,7 +61,6 @@ export function TeacherClassroomScreen({ route, navigation }: { route: any; navi
     error: studentsError,
     refresh: refreshStudents,
   } = useClassroomStudents(classroom.id);
-  const [refreshing, setRefreshing] = useState(false);
 
   const onRefresh = useCallback(async () => {
     setRefreshing(true);

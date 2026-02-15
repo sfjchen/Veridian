@@ -5,6 +5,7 @@ import {
   Animated,
   FlatList,
   Modal,
+  Platform,
   Pressable,
   StyleSheet,
   Text,
@@ -19,6 +20,7 @@ import {
   SkeletonCard,
 } from "@/components/ui";
 import { TreeIcon, LeafAccent } from "@/components/forest";
+import { MotionView } from "@/components/motion/MotionView";
 import { palette, radius, elevation } from "@/constants/palette";
 import { spacing } from "@/constants/spacing";
 import { typography } from "@/constants/typography";
@@ -34,10 +36,14 @@ const STAGGER_DELAY_MS = 60;
 /* ── Staggered card entrance ── */
 
 function StaggeredCard({ index, children }: { index: number; children: React.ReactNode }) {
+  const isWeb = Platform.OS === "web";
   const opacity = useRef(new Animated.Value(0)).current;
   const translateY = useRef(new Animated.Value(12)).current;
 
   useEffect(() => {
+    if (isWeb) {
+      return;
+    }
     const delay = index * STAGGER_DELAY_MS;
     Animated.parallel([
       Animated.timing(opacity, {
@@ -53,7 +59,15 @@ function StaggeredCard({ index, children }: { index: number; children: React.Rea
         useNativeDriver: true,
       }),
     ]).start();
-  }, [index, opacity, translateY]);
+  }, [index, isWeb, opacity, translateY]);
+
+  if (isWeb) {
+    return (
+      <MotionView preset="fadeInUp" delayMs={index * STAGGER_DELAY_MS} durationMs={motion.normal} style={staggerStyles.wrapper}>
+        {children}
+      </MotionView>
+    );
+  }
 
   return (
     <Animated.View style={[staggerStyles.wrapper, { opacity, transform: [{ translateY }] }]}>
@@ -211,40 +225,42 @@ function ForestEmptyState({ onAction }: { onAction: () => void }) {
 
   return (
     <View style={styles.emptyContainer}>
-      <View style={styles.emptyForestScene}>
-        <View style={styles.emptyMistBg} />
-        <View style={styles.emptyTreeRow}>
-          <View style={styles.emptyTreeSmallLeft}>
-            <TreeIcon size={32} color={palette.forestLayer4} />
+      <View style={styles.emptyCard}>
+        <View style={styles.emptyForestScene}>
+          <View style={styles.emptyMistBg} />
+          <View style={styles.emptyTreeRow}>
+            <View style={styles.emptyTreeSmallLeft}>
+              <TreeIcon size={32} color={palette.forestLayer4} />
+            </View>
+            <TreeIcon size={56} color={palette.forestCanopy} />
+            <View style={styles.emptyTreeSmallRight}>
+              <TreeIcon size={38} color={palette.forestLayer5} />
+            </View>
           </View>
-          <TreeIcon size={56} color={palette.forestCanopy} />
-          <View style={styles.emptyTreeSmallRight}>
-            <TreeIcon size={38} color={palette.forestLayer5} />
-          </View>
+          <Animated.View style={[styles.emptyLeafLeft, { opacity: breathe }]}>
+            <LeafAccent size={12} color={palette.forestLeaf} />
+          </Animated.View>
+          <Animated.View style={[styles.emptyLeafRight, { opacity: breathe }]}>
+            <LeafAccent size={10} color={palette.forestCanopy} />
+          </Animated.View>
         </View>
-        <Animated.View style={[styles.emptyLeafLeft, { opacity: breathe }]}>
-          <LeafAccent size={12} color={palette.forestLeaf} />
-        </Animated.View>
-        <Animated.View style={[styles.emptyLeafRight, { opacity: breathe }]}>
-          <LeafAccent size={10} color={palette.forestCanopy} />
-        </Animated.View>
-      </View>
 
-      <Text style={styles.emptyTitle}>No classes yet</Text>
-      <Text style={styles.emptyDescription}>
-        Join a class with a code from your teacher to get started.
-      </Text>
-      <Text style={styles.emptyDescSecondary}>
-        Your learning journey begins here.
-      </Text>
-      <Pressable
-        style={({ pressed }) => [styles.emptyButton, pressed && styles.emptyButtonPressed]}
-        onPress={onAction}
-        accessibilityRole="button"
-        accessibilityLabel="Join a Class"
-      >
-        <Text style={styles.emptyButtonText}>Join a Class</Text>
-      </Pressable>
+        <Text style={styles.emptyTitle}>No classes yet</Text>
+        <Text style={styles.emptyDescription}>
+          Join a class with a code from your teacher to get started.
+        </Text>
+        <Text style={styles.emptyDescSecondary}>
+          Your learning journey begins here.
+        </Text>
+        <Pressable
+          style={({ pressed }) => [styles.emptyButton, pressed && styles.emptyButtonPressed]}
+          onPress={onAction}
+          accessibilityRole="button"
+          accessibilityLabel="Join a Class"
+        >
+          <Text style={styles.emptyButtonText}>Join a Class</Text>
+        </Pressable>
+      </View>
     </View>
   );
 }
@@ -311,37 +327,71 @@ function JoinClassModal({
         accessibilityRole="button"
         accessibilityLabel="Close modal">
         <Pressable style={{ width: "100%", maxWidth: 400 }} onPress={() => {}}>
-          <Animated.View style={[styles.modalContent, elevation.shadowLg, { transform: [{ scale: scaleAnim }] }]}>
-            <View style={styles.modalHeader}>
-              <LeafAccent size={16} color={palette.forestLeaf} />
-              <Text style={styles.modalTitle}>Join a class</Text>
-            </View>
-            <Text style={styles.modalSubtitle}>Enter the class code from your teacher.</Text>
-            <Input
-              placeholder="Class code"
-              value={code}
-              onChangeText={setCode}
-              autoCapitalize="characters"
-              autoCorrect={false}
-              editable={!joining}
-              error={error ?? undefined}
-              containerStyle={styles.modalInputWrap}
-              accessibilityLabel="Class code"
-            />
-            <View style={styles.modalActions}>
-              <Button variant="ghost" onPress={handleClose} disabled={joining}>
-                Cancel
-              </Button>
-              <Button
-                onPress={handleJoin}
-                loading={joining}
-                disabled={!code.trim()}
-                accessibilityLabel="Join class"
-              >
-                Join
-              </Button>
-            </View>
-          </Animated.View>
+          {Platform.OS === "web" ? (
+            <MotionView preset="softScaleIn" durationMs={motion.normal} style={[styles.modalContent, elevation.shadowLg]}>
+              <View style={styles.modalHeader}>
+                <LeafAccent size={16} color={palette.forestLeaf} />
+                <Text style={styles.modalTitle}>Join a class</Text>
+              </View>
+              <Text style={styles.modalSubtitle}>Enter the class code from your teacher.</Text>
+              <Input
+                placeholder="Class code"
+                value={code}
+                onChangeText={setCode}
+                autoCapitalize="characters"
+                autoCorrect={false}
+                editable={!joining}
+                error={error ?? undefined}
+                containerStyle={styles.modalInputWrap}
+                accessibilityLabel="Class code"
+              />
+              <View style={styles.modalActions}>
+                <Button variant="ghost" onPress={handleClose} disabled={joining}>
+                  Cancel
+                </Button>
+                <Button
+                  onPress={handleJoin}
+                  loading={joining}
+                  disabled={!code.trim()}
+                  accessibilityLabel="Join class"
+                >
+                  Join
+                </Button>
+              </View>
+            </MotionView>
+          ) : (
+            <Animated.View style={[styles.modalContent, elevation.shadowLg, { transform: [{ scale: scaleAnim }] }]}>
+              <View style={styles.modalHeader}>
+                <LeafAccent size={16} color={palette.forestLeaf} />
+                <Text style={styles.modalTitle}>Join a class</Text>
+              </View>
+              <Text style={styles.modalSubtitle}>Enter the class code from your teacher.</Text>
+              <Input
+                placeholder="Class code"
+                value={code}
+                onChangeText={setCode}
+                autoCapitalize="characters"
+                autoCorrect={false}
+                editable={!joining}
+                error={error ?? undefined}
+                containerStyle={styles.modalInputWrap}
+                accessibilityLabel="Class code"
+              />
+              <View style={styles.modalActions}>
+                <Button variant="ghost" onPress={handleClose} disabled={joining}>
+                  Cancel
+                </Button>
+                <Button
+                  onPress={handleJoin}
+                  loading={joining}
+                  disabled={!code.trim()}
+                  accessibilityLabel="Join class"
+                >
+                  Join
+                </Button>
+              </View>
+            </Animated.View>
+          )}
         </Pressable>
       </Pressable>
     </Modal>
@@ -424,31 +474,59 @@ export default function ClassroomsScreen() {
         </Pressable>
       )}
 
-      <Animated.View style={[styles.listFadeWrap, { opacity: listFade }]}>
-        {classrooms.length === 0 ? (
-          <ForestEmptyState onAction={() => setJoinModalVisible(true)} />
-        ) : (
-          <FlatList
-            data={classrooms}
-            keyExtractor={(item) => item.id}
-            renderItem={({ item, index }) => (
-              <StaggeredCard index={index}>
-                <ClassroomCard
-                  classroom={item}
-                  index={index}
-                  onPress={() =>
-                    router.push({
-                      pathname: "/assignments/[classroomId]",
-                      params: { classroomId: item.id, classroomName: item.name },
-                    })
-                  }
-                />
-              </StaggeredCard>
-            )}
-            contentContainerStyle={styles.listContent}
-          />
-        )}
-      </Animated.View>
+      {Platform.OS === "web" ? (
+        <MotionView preset="fadeIn" durationMs={motion.normal} style={styles.listFadeWrap}>
+          {classrooms.length === 0 ? (
+            <ForestEmptyState onAction={() => setJoinModalVisible(true)} />
+          ) : (
+            <FlatList
+              data={classrooms}
+              keyExtractor={(item) => item.id}
+              renderItem={({ item, index }) => (
+                <StaggeredCard index={index}>
+                  <ClassroomCard
+                    classroom={item}
+                    index={index}
+                    onPress={() =>
+                      router.push({
+                        pathname: "/assignments/[classroomId]",
+                        params: { classroomId: item.id, classroomName: item.name },
+                      })
+                    }
+                  />
+                </StaggeredCard>
+              )}
+              contentContainerStyle={styles.listContent}
+            />
+          )}
+        </MotionView>
+      ) : (
+        <Animated.View style={[styles.listFadeWrap, { opacity: listFade }]}>
+          {classrooms.length === 0 ? (
+            <ForestEmptyState onAction={() => setJoinModalVisible(true)} />
+          ) : (
+            <FlatList
+              data={classrooms}
+              keyExtractor={(item) => item.id}
+              renderItem={({ item, index }) => (
+                <StaggeredCard index={index}>
+                  <ClassroomCard
+                    classroom={item}
+                    index={index}
+                    onPress={() =>
+                      router.push({
+                        pathname: "/assignments/[classroomId]",
+                        params: { classroomId: item.id, classroomName: item.name },
+                      })
+                    }
+                  />
+                </StaggeredCard>
+              )}
+              contentContainerStyle={styles.listContent}
+            />
+          )}
+        </Animated.View>
+      )}
 
       <JoinClassModal
         visible={joinModalVisible}
@@ -592,8 +670,19 @@ const styles = StyleSheet.create({
     flex: 1,
     justifyContent: "center",
     alignItems: "center",
-    paddingVertical: spacing.xxxl,
-    paddingHorizontal: spacing.xl,
+    paddingVertical: spacing.xl,
+    paddingHorizontal: spacing.lg,
+  },
+  emptyCard: {
+    width: "100%",
+    maxWidth: 360,
+    backgroundColor: palette.card,
+    borderRadius: radius.organic,
+    padding: spacing.xl,
+    borderWidth: 1,
+    borderColor: palette.border,
+    alignItems: "center",
+    ...elevation.shadowMd,
   },
   emptyForestScene: {
     position: "relative",
@@ -601,7 +690,7 @@ const styles = StyleSheet.create({
     height: 90,
     alignItems: "center",
     justifyContent: "flex-end",
-    marginBottom: spacing.lg,
+    marginBottom: spacing.md,
   },
   emptyMistBg: {
     position: "absolute",
@@ -644,11 +733,11 @@ const styles = StyleSheet.create({
     ...typography.bodySmall,
     color: palette.textMuted,
     textAlign: "center",
-    marginBottom: spacing.xs,
+    marginBottom: spacing.sm,
   },
   emptyDescSecondary: {
     ...typography.caption,
-    color: palette.forestLayer4,
+    color: palette.textMuted,
     textAlign: "center",
     fontStyle: "italic",
     marginBottom: spacing.lg,

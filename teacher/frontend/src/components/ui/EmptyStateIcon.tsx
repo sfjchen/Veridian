@@ -1,7 +1,7 @@
 import React from "react";
 import { View, StyleSheet } from "react-native";
 import { MaterialCommunityIcons } from "@expo/vector-icons";
-import { palette } from "../../constants/palette";
+import { useAppTheme } from "../../constants/theme";
 import { TreeIcon } from "../forest/TreeIcon";
 
 const ICON_NAMES = {
@@ -21,17 +21,18 @@ interface EmptyStateIconProps {
 }
 
 export function EmptyStateIcon({ name }: EmptyStateIconProps) {
+  const { semantic } = useAppTheme();
   if (name === "forest") {
     return (
-      <View style={styles.wrap}>
-        <TreeIcon size={40} color={palette.primary} />
+      <View style={[styles.wrap, { backgroundColor: semantic.action.subtle }]}>
+        <TreeIcon size={40} color={semantic.action.primary} />
       </View>
     );
   }
   const iconName = ICON_NAMES[name];
   return (
-    <View style={styles.wrap}>
-      <MaterialCommunityIcons name={iconName as any} size={32} color={palette.primary} />
+    <View style={[styles.wrap, { backgroundColor: semantic.action.subtle }]}>
+      <MaterialCommunityIcons name={iconName as any} size={32} color={semantic.action.primary} />
     </View>
   );
 }
@@ -41,7 +42,6 @@ const styles = StyleSheet.create({
     width: 64,
     height: 64,
     borderRadius: 32,
-    backgroundColor: palette.primaryMuted,
     justifyContent: "center",
     alignItems: "center",
   },

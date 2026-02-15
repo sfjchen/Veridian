@@ -27,13 +27,13 @@ cd student/frontend && vercel deploy --prod
 ### Vercel Env Vars (Project Settings)
 
 **veridian-teacher:**
-- EXPO_PUBLIC_API_URL (production backend URL)
-- EXPO_PUBLIC_STUDENT_API_URL
+- EXPO_PUBLIC_API_URL=https://veridian-teach.onrender.com
+- EXPO_PUBLIC_STUDENT_API_URL=https://veridian-fi00.onrender.com
 - EXPO_PUBLIC_SUPABASE_URL
 - EXPO_PUBLIC_SUPABASE_ANON_KEY
 
 **veridian-student:**
-- EXPO_PUBLIC_BACKEND_URL (production backend URL)
+- EXPO_PUBLIC_BACKEND_URL=https://veridian-fi00.onrender.com
 - EXPO_PUBLIC_SUPABASE_URL
 - EXPO_PUBLIC_SUPABASE_ANON_KEY
 
@@ -52,14 +52,17 @@ veridian.fyi and s.veridian.fyi are added. At your DNS registrar, add CNAME reco
 ### Teacher Backend
 
 - Root: teacher/backend
-- Start: `python run.py` (or `flask run --host=0.0.0.0 --port=5001`)
+- Build: `pip install -r requirements.txt`
+- Start: `gunicorn --worker-class eventlet -w 1 -b 0.0.0.0:${PORT:-5001} run:app`
 - Env: SUPABASE_URL, SUPABASE_SERVICE_ROLE_KEY, SUPABASE_ANON_KEY, SUPABASE_JWT_SECRET, ANTHROPIC_API_KEY, FLASK_SECRET_KEY
-- CORS_ALLOWED_ORIGINS: https://veridian.fyi,https://veridian-teacher.vercel.app,https://s.veridian.fyi,https://veridian-student.vercel.app
+- CORS_ALLOWED_ORIGINS: https://veridian.fyi,https://veridian-teacher.vercel.app,https://s.veridian.fyi,https://veridian-student.vercel.app,https://veridianteach.info,https://www.veridianteach.info
+# *.vercel.app preview URLs are allowed automatically via regex.
 
 ### Student Backend
 
 - Root: student/backend
-- Start: `python get_coords.py`
+- Build: `pip install -r requirements.txt`
+- Start: `gunicorn --worker-class eventlet -w 1 -b 0.0.0.0:${PORT:-8000} get_coords:app`
 - Env: All from student/backend/.env.example
 - CORS_ALLOWED_ORIGINS: https://s.veridian.fyi,https://veridian-student.vercel.app,https://veridian.fyi
 - WS_CORS_ORIGINS: https://s.veridian.fyi,https://veridian-student.vercel.app,https://veridian.fyi

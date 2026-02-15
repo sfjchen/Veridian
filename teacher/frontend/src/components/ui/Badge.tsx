@@ -1,22 +1,8 @@
 import React, { ReactNode } from "react";
-import { StyleSheet, Text, View, ViewStyle, TextStyle } from "react-native";
-import { palette, radius } from "../../constants/palette";
-import { spacing } from "../../constants/spacing";
-import { typography } from "../../constants/typography";
+import { Text, View, ViewStyle, TextStyle } from "react-native";
+import { useAppTheme } from "../../constants/theme";
 
 type BadgeVariant = "default" | "primary" | "muted";
-
-const variantStyles: Record<BadgeVariant, ViewStyle> = {
-  default: { backgroundColor: palette.border },
-  primary: { backgroundColor: palette.primary },
-  muted: { backgroundColor: palette.surface },
-};
-
-const textVariantStyles: Record<BadgeVariant, TextStyle> = {
-  default: { color: palette.textSecondary },
-  primary: { color: palette.textOnPrimary },
-  muted: { color: palette.textMuted },
-};
 
 interface BadgeProps {
   children: ReactNode;
@@ -24,19 +10,30 @@ interface BadgeProps {
 }
 
 export function Badge({ children, variant = "default" }: BadgeProps) {
+  const { spacing, typography, radius, semantic } = useAppTheme();
+  const variantStyles: Record<BadgeVariant, ViewStyle> = {
+    default: { backgroundColor: semantic.border.default },
+    primary: { backgroundColor: semantic.action.primary },
+    muted: { backgroundColor: semantic.bg.surface },
+  };
+
+  const textVariantStyles: Record<BadgeVariant, TextStyle> = {
+    default: { color: semantic.text.secondary },
+    primary: { color: semantic.text.onPrimary },
+    muted: { color: semantic.text.muted },
+  };
+
   return (
-    <View style={[styles.badge, variantStyles[variant]]}>
-      <Text style={[styles.text, textVariantStyles[variant]]}>{children}</Text>
+    <View
+      style={{
+        paddingHorizontal: spacing.sm,
+        paddingVertical: spacing.xxs,
+        borderRadius: radius.chip,
+        alignSelf: "flex-start",
+        ...variantStyles[variant],
+      }}
+    >
+      <Text style={{ ...typography.caption, fontWeight: "600", ...textVariantStyles[variant] }}>{children}</Text>
     </View>
   );
 }
-
-const styles = StyleSheet.create({
-  badge: {
-    paddingHorizontal: spacing.sm,
-    paddingVertical: spacing.xxs,
-    borderRadius: radius.chip,
-    alignSelf: "flex-start",
-  },
-  text: { ...typography.caption, fontWeight: "600" },
-});

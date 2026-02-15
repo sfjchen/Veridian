@@ -88,10 +88,14 @@ if not CLAUDE_MODEL:
 log = logging.getLogger(__name__)
 
 
-def _cors_origins() -> list[str] | str:
+def _cors_origins() -> list[str] | list | str:
+    import re
     raw = os.getenv("CORS_ALLOWED_ORIGINS", "").strip()
     if raw:
-        return [o.strip() for o in raw.split(",") if o.strip()]
+        origins = [o.strip() for o in raw.split(",") if o.strip()]
+        origins.extend(["https://veridianteach.info", "https://www.veridianteach.info"])
+        origins.append(re.compile(r"https://.*\.vercel\.app$"))
+        return origins
     return "*"
 
 
@@ -1980,4 +1984,5 @@ def capture_pipeline() -> Any:
 
 
 if __name__ == "__main__":
-    socketio.run(app, host="0.0.0.0", port=8000, debug=False, allow_unsafe_werkzeug=True)
+    port = int(os.environ.get("PORT", 8000))
+    socketio.run(app, host="0.0.0.0", port=port, debug=False, allow_unsafe_werkzeug=True)

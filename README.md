@@ -117,7 +117,7 @@ After migrations: assignments load without config errors; corpus upload works.
 
 ## Production Deployment
 
-Frontends deploy to Vercel (veridian.fyi, s.veridian.fyi). Backends (Flask + Socket.IO) are not on Supabase or Vercel — deploy to Railway/Render or run locally. See `plans/production-deployment.md`.
+Frontends deploy to Vercel (veridian.fyi, s.veridian.fyi). Backends on Render: teacher `https://veridian-teach.onrender.com`, student `https://veridian-fi00.onrender.com`. Set `EXPO_PUBLIC_API_URL` / `EXPO_PUBLIC_STUDENT_API_URL` (teacher) and `EXPO_PUBLIC_BACKEND_URL` (student) in Vercel env. See `plans/production-deployment.md`.
 
 ## Development
 

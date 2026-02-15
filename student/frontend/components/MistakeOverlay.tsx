@@ -11,6 +11,7 @@ import {
 import { palette, radius } from "@/constants/palette";
 import { spacing } from "@/constants/spacing";
 import { typography } from "@/constants/typography";
+import { InlineLatex, hasLatex } from "@/components/InlineLatex";
 import type { Mistake } from "@/lib/api";
 import type { DotThreshold } from "@/lib/teacherConfig";
 
@@ -216,7 +217,15 @@ function HintBubble({
 
   return (
     <View style={styles.bubble}>
-      <Text style={styles.bubbleText}>{text}</Text>
+      {hasLatex(text) ? (
+        <InlineLatex
+          content={text}
+          fontSize={typography.caption.fontSize}
+          color={palette.white}
+        />
+      ) : (
+        <Text style={styles.bubbleText}>{text}</Text>
+      )}
       {onAskAboutMistake && (
         <Pressable
           style={({ pressed }) => [styles.askLink, pressed && { opacity: 0.6 }]}

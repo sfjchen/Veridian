@@ -10,8 +10,8 @@ import {
   View,
 } from "react-native";
 
-import { Button, EmptyState, ScreenContainer, SkeletonCard } from "@/components/ui";
-import { palette, radius } from "@/constants/palette";
+import { Button, ScreenContainer, SkeletonCard } from "@/components/ui";
+import { palette, radius, elevation } from "@/constants/palette";
 import { spacing } from "@/constants/spacing";
 import { typography } from "@/constants/typography";
 import { useAuth } from "@/hooks/useAuth";
@@ -105,9 +105,11 @@ export default function NotesScreen() {
     <ScreenContainer>
       <View style={styles.header}>
         <Text style={styles.title}>Notes</Text>
-        <Button size="sm" onPress={handleAdd} accessibilityLabel="New Note">
-          New Note
-        </Button>
+        {notes.length > 0 ? (
+          <Button size="sm" onPress={handleAdd} accessibilityLabel="New Note">
+            New Note
+          </Button>
+        ) : null}
       </View>
 
       {error ? (
@@ -117,12 +119,21 @@ export default function NotesScreen() {
       ) : null}
 
       {notes.length === 0 ? (
-        <EmptyState
-          title="No notes yet"
-          description="Create a note to start writing with autocomplete."
-          actionLabel="New Note"
-          onAction={handleAdd}
-        />
+        <View style={styles.emptyWrap}>
+          <View style={styles.emptyCard}>
+            <Text style={styles.emptyTitle}>No notes yet</Text>
+            <Text style={styles.emptyDescription}>
+              Create a note to start writing with autocomplete.
+            </Text>
+            <Button
+              onPress={handleAdd}
+              accessibilityLabel="New Note"
+              style={styles.emptyButton}
+            >
+              New Note
+            </Button>
+          </View>
+        </View>
       ) : (
         <FlatList
           data={notes}
@@ -186,5 +197,36 @@ const styles = StyleSheet.create({
     ...typography.bodySmall,
     color: palette.error,
     textAlign: "center",
+  },
+  emptyWrap: {
+    flex: 1,
+    justifyContent: "center",
+    alignItems: "center",
+    paddingHorizontal: spacing.lg,
+  },
+  emptyCard: {
+    width: "100%",
+    maxWidth: 360,
+    backgroundColor: "rgba(255,255,255,0.94)",
+    borderRadius: radius.organic,
+    padding: spacing.xl,
+    borderWidth: 1,
+    borderColor: palette.border,
+    ...elevation.shadowMd,
+  },
+  emptyTitle: {
+    ...typography.h2,
+    color: palette.textPrimary,
+    textAlign: "center",
+    marginBottom: spacing.sm,
+  },
+  emptyDescription: {
+    ...typography.bodySmall,
+    color: palette.textMuted,
+    textAlign: "center",
+    marginBottom: spacing.lg,
+  },
+  emptyButton: {
+    alignSelf: "center",
   },
 });

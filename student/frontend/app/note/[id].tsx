@@ -205,7 +205,7 @@ export default function NoteScreen() {
 }
 
 const styles = StyleSheet.create({
-  screen: { flex: 1, backgroundColor: "transparent" },
+  screen: { flex: 1, backgroundColor: palette.white },
   header: {
     flexDirection: "row",
     alignItems: "center",

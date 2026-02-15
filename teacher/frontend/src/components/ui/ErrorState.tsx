@@ -1,8 +1,6 @@
 import React from "react";
-import { StyleSheet, Text, View } from "react-native";
-import { palette } from "../../constants/palette";
-import { spacing } from "../../constants/spacing";
-import { typography } from "../../constants/typography";
+import { Text, View } from "react-native";
+import { useAppTheme } from "../../constants/theme";
 import { Button } from "./Button";
 
 interface ErrorStateProps {
@@ -11,28 +9,17 @@ interface ErrorStateProps {
 }
 
 export function ErrorState({ message, onRetry }: ErrorStateProps) {
+  const { spacing, typography, semantic } = useAppTheme();
   return (
-    <View style={styles.container}>
-      <Text style={styles.message}>{message}</Text>
+    <View style={{ padding: spacing.lg, alignItems: "center" }}>
+      <Text style={{ ...typography.body, color: semantic.state.error, textAlign: "center", marginBottom: spacing.sm }}>
+        {message}
+      </Text>
       {onRetry ? (
-        <Button onPress={onRetry} variant="primary" size="sm" style={styles.button} accessibilityLabel="Retry">
+        <Button onPress={onRetry} variant="primary" size="sm" style={{ marginTop: spacing.xs }} accessibilityLabel="Retry">
           Retry
         </Button>
       ) : null}
     </View>
   );
 }
-
-const styles = StyleSheet.create({
-  container: {
-    padding: spacing.lg,
-    alignItems: "center",
-  },
-  message: {
-    ...typography.body,
-    color: palette.error,
-    textAlign: "center",
-    marginBottom: spacing.sm,
-  },
-  button: { marginTop: spacing.xs },
-});

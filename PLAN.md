@@ -4,7 +4,7 @@
 
 ## Overview
 
-Full platform monorepo: teacher side (classrooms, assignments, corpus, submissions) and student side (canvas, AI mistake analysis, Socratic chat). Shared Supabase.
+Full platform monorepo: teacher side (classrooms, assignments, corpus, submissions) and student side (canvas, AI mistake analysis, Socratic chat). Shared Supabase. Trigger2
 
 ---
 
@@ -40,13 +40,13 @@ Full platform monorepo: teacher side (classrooms, assignments, corpus, submissio
 
 Teacher UI/UX polish and PLAN.md P1/P2 items. Broken into five PRs; status below. Detail and scope in the plan file (e.g. `.cursor/plans/teacher_and_student_ui_ux_overhaul_*.plan.md`).
 
-| PR   | Title                          | Status   |
-|------|--------------------------------|----------|
-| **A1** | Token audit + ScreenContainer  | Done    |
-| **A2** | Loading and error UX (Skeleton, ErrorBoundary, due dates) | Pending  |
-| **A3** | Screen-by-screen UX polish     | Pending  |
-| **A4** | Submission review + bulk operations | Pending  |
-| **A5** | Navigation and global behavior | Pending  |
+| PR           | Title                                                     | Status  |
+| ------------ | --------------------------------------------------------- | ------- |
+| **A1** | Token audit + ScreenContainer                             | Done    |
+| **A2** | Loading and error UX (Skeleton, ErrorBoundary, due dates) | Pending |
+| **A3** | Screen-by-screen UX polish                                | Pending |
+| **A4** | Submission review + bulk operations                       | Pending |
+| **A5** | Navigation and global behavior                            | Pending |
 
 - **A1**: Audit screens for hardcoded colors/fonts/spacing; ensure every top-level screen uses ScreenContainer.
 - **A2**: Skeleton/SkeletonCard for list loading; ErrorBoundary at root + fallback UI; due date / "due soon" / "overdue" on assignment cards.
@@ -58,10 +58,10 @@ Teacher UI/UX polish and PLAN.md P1/P2 items. Broken into five PRs; status below
 
 Student UI/UX foundation matching teacher design system. Parallel to Track A but for student frontend. Broken into two PRs.
 
-| PR   | Title                          | Status   |
-|------|--------------------------------|----------|
-| **B1** | Veridian design tokens (student) | Done    |
-| **B2** | UI primitives (student)        | Done    |
+| PR           | Title                            | Status |
+| ------------ | -------------------------------- | ------ |
+| **B1** | Veridian design tokens (student) | Done   |
+| **B2** | UI primitives (student)          | Done   |
 
 - **B1**: Design tokens mirroring teacher system — `constants/palette.ts` (colors, radii, elevation), `constants/typography.ts`, `constants/spacing.ts`, `constants/motion.ts`, `constants/theme.ts` (unified export).
 - **B2**: UI primitives — `components/ui/ScreenContainer.tsx`, `Button.tsx`, `Card.tsx`, `Input.tsx`, `EmptyState.tsx`, `ErrorState.tsx`, `Skeleton.tsx` (+ index).
@@ -115,14 +115,14 @@ Student UI/UX foundation matching teacher design system. Parallel to Track A but
 
 6 parallel PRs to transform the student app from prototype to assignment-driven, teacher-controlled experience. Core shift: **assignment-driven flow** (teacher uploads everything, students just solve) with **invisible analysis** (no spinners, no manual triggers unless teacher configures it) and **teacher-controlled behavior** (config system controls every aspect of what students see).
 
-| PR | Title | Priority | Status | Dependencies |
-|----|-------|----------|--------|--------------|
-| 1 | Fix Anthropic `thinking` SDK parameter | P0 | Completed (2026-02-14) | Standalone |
-| 2 | Student home screen (classrooms > assignments) | P0 | Done (2026-02-14) | Standalone (uses PR 7 tokens if available) |
-| 3 | Teacher config system (classroom defaults + overrides) | P0 | Done | Standalone |
-| 4 | Student app reads teacher config | P0 | Done (2026-02-15) | Depends on PR 3 |
-| 5 | Eliminate all silent failures | P1 | Done | Standalone |
-| 7 | Shared design system + visual overhaul | P2 | Done | Standalone |
+| PR | Title                                                  | Priority | Status                 | Dependencies                               |
+| -- | ------------------------------------------------------ | -------- | ---------------------- | ------------------------------------------ |
+| 1  | Fix Anthropic `thinking` SDK parameter               | P0       | Completed (2026-02-14) | Standalone                                 |
+| 2  | Student home screen (classrooms > assignments)         | P0       | Done (2026-02-14)      | Standalone (uses PR 7 tokens if available) |
+| 3  | Teacher config system (classroom defaults + overrides) | P0       | Done                   | Standalone                                 |
+| 4  | Student app reads teacher config                       | P0       | Done (2026-02-15)      | Depends on PR 3                            |
+| 5  | Eliminate all silent failures                          | P1       | Done                   | Standalone                                 |
+| 7  | Shared design system + visual overhaul                 | P2       | Done                   | Standalone                                 |
 
 ### PR 1: Fix Anthropic `thinking` SDK Parameter
 
@@ -135,6 +135,7 @@ The `thinking` parameter format in `client.py` and `chat.py` causes `Messages.cr
 **Status**: Completed on 2026-02-14 via stacked PRs #27 (PR1A), #28 (PR1B), #29 (PR1C).
 
 **Completion rationale**:
+
 - Enforced Anthropic contract in backend with shared guardrails (`anthropic>=0.79.0` and runtime signature checks for `messages.create(..., thinking=...)`) to fail fast with explicit remediation instead of opaque runtime errors.
 - Canonicalized `thinking` payload construction across chat and mistake-analysis paths so both call sites send validated, consistent payloads (enabled/budgeted chat thinking and adaptive analysis thinking).
 - Added targeted backend regression tests for SDK/version guard behavior, payload shape validation, and error-surface behavior to prevent reintroducing `unexpected keyword argument 'thinking'` failures.
@@ -146,6 +147,7 @@ The `thinking` parameter format in `client.py` and `chat.py` causes `Messages.cr
 Replace the "Library" / "Add PDF" flow with an assignment-driven home screen. Students see their classrooms, tap to see assignments, tap an assignment to open the canvas. No student-initiated PDF uploads.
 
 **Key changes**:
+
 - Replace `LibraryScreen` with `ClassroomsScreen` (card grid)
 - New `AssignmentsScreen` for per-classroom assignment list
 - Strip out PDF upload UI and legacy document management
@@ -168,6 +170,7 @@ Add teacher-controlled config that governs student behavior: check button visibi
 Make the student frontend respect all teacher config fields. Remove the "Analyzing..." spinner, conditionally render Check button, gate chat on `chat_enabled`, apply `dot_threshold` and `max_dots_shown` in `MistakeOverlay`, apply `analysis_trigger` mode in `useAutoAnalysis`.
 
 **Completion rationale**:
+
 - Added secure student assignment contract: `GET /assignments/:id` now requires auth + classroom membership and returns `assignment.resolved_config`.
 - Extended config schema support for `analysis_trigger=auto_page_change` in both teacher and student schema copies, with sync check passing.
 - Wired frontend to resolved config as source of truth (`check_button_visible`, `analysis_trigger`, `chat_enabled`, `dot_threshold`, `max_dots_shown`, `notification_style`, `analysis_debounce_seconds`).
@@ -191,17 +194,17 @@ Create `packages/design/` with Veridian branding (green-primary #16A34A), shared
 
 ## Tech Debt: Silent Failure Inventory
 
-| # | Item | Status | Action |
-|---|------|--------|--------|
-| 1 | Fire-and-forget persistence | FIXED (retry + DLQ) | No action |
-| 2 | WebSocket emit | STILL PRESENT | Add `is_healthy()` check; no-op when uninitialized |
-| 3 | Status update on analysis | FIXED (retry) | No action |
-| 4 | Dot coordinate computation | PARTIALLY FIXED | Cache `image_dims` from pipeline, pass through |
-| 5 | Mistake coord pipeline | IMPROVED | Failures logged; mistakes fallback to [] |
-| 6 | Stroke loading | FIXED | Error surfaced in banner; document list load/save/add/remove errors surfaced |
-| 7 | ViewShot capture | FIXED | Gate on canvasDims; CaptureResult (unavailable/failed); status banner; no swallowed errors |
-| 8 | Legacy submit error | FIXED | showAlert for all failure paths |
-| 9 | Continuation artifact / coord run | FIXED | Backend logs errors instead of silent pass |
+| # | Item                              | Status              | Action                                                                                     |
+| - | --------------------------------- | ------------------- | ------------------------------------------------------------------------------------------ |
+| 1 | Fire-and-forget persistence       | FIXED (retry + DLQ) | No action                                                                                  |
+| 2 | WebSocket emit                    | STILL PRESENT       | Add `is_healthy()` check; no-op when uninitialized                                       |
+| 3 | Status update on analysis         | FIXED (retry)       | No action                                                                                  |
+| 4 | Dot coordinate computation        | PARTIALLY FIXED     | Cache `image_dims` from pipeline, pass through                                           |
+| 5 | Mistake coord pipeline            | IMPROVED            | Failures logged; mistakes fallback to []                                                   |
+| 6 | Stroke loading                    | FIXED               | Error surfaced in banner; document list load/save/add/remove errors surfaced               |
+| 7 | ViewShot capture                  | FIXED               | Gate on canvasDims; CaptureResult (unavailable/failed); status banner; no swallowed errors |
+| 8 | Legacy submit error               | FIXED               | showAlert for all failure paths                                                            |
+| 9 | Continuation artifact / coord run | FIXED               | Backend logs errors instead of silent pass                                                 |
 
 ---
 
@@ -215,17 +218,17 @@ Create `packages/design/` with Veridian branding (green-primary #16A34A), shared
 
 ## Architecture Decisions
 
-| Decision | Rationale |
-|----------|-----------|
-| Shared Supabase | Single source of truth for assignments, results, chat |
-| Admin client for DB | RLS + PostgREST joins caused silent failures |
-| Assignment-driven student flow | Teacher uploads everything, students just solve |
-| Invisible analysis | No spinners; teacher config controls triggers and visibility |
-| One problem per screen (student) | Clear UX, per-problem result history |
-| Configurable analysis trigger | Default 15s idle debounce; teacher can set auto/manual/passive/page-change |
-| Student assignment config contract | Student backend returns `resolved_config` behind auth + classroom membership |
-| WebSocket for real-time | Push results without polling |
-| threading for SocketIO | eventlet caused startup hangs |
-| Signed URLs via admin client | User JWTs rejected by Storage API |
-| PDF screenshot previews via backend | Consistent preview across clients |
-| Teacher config resolution | Classroom defaults + assignment overrides, merged at fetch time |
+| Decision                            | Rationale                                                                      |
+| ----------------------------------- | ------------------------------------------------------------------------------ |
+| Shared Supabase                     | Single source of truth for assignments, results, chat                          |
+| Admin client for DB                 | RLS + PostgREST joins caused silent failures                                   |
+| Assignment-driven student flow      | Teacher uploads everything, students just solve                                |
+| Invisible analysis                  | No spinners; teacher config controls triggers and visibility                   |
+| One problem per screen (student)    | Clear UX, per-problem result history                                           |
+| Configurable analysis trigger       | Default 15s idle debounce; teacher can set auto/manual/passive/page-change     |
+| Student assignment config contract  | Student backend returns `resolved_config` behind auth + classroom membership |
+| WebSocket for real-time             | Push results without polling                                                   |
+| threading for SocketIO              | eventlet caused startup hangs                                                  |
+| Signed URLs via admin client        | User JWTs rejected by Storage API                                              |
+| PDF screenshot previews via backend | Consistent preview across clients                                              |
+| Teacher config resolution           | Classroom defaults + assignment overrides, merged at fetch time                |

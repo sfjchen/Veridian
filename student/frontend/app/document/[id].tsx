@@ -420,6 +420,7 @@ export default function DocumentScreen() {
   useEffect(() => {
     setCanvasDims(null);
     clearAnalysisError();
+    setBadgeState(null);
   }, [pageIndex, clearAnalysisError]);
 
   useEffect(() => {

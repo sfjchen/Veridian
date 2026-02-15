@@ -1,0 +1,228 @@
+import AsyncStorage from '@react-native-async-storage/async-storage';
+import { MaterialCommunityIcons } from '@expo/vector-icons';
+import { useLocalSearchParams, useRouter } from 'expo-router';
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import { Pressable, SafeAreaView, StyleSheet, Text, View } from 'react-native';
+import ViewShot from 'react-native-view-shot';
+
+import { InkCanvas, type Stroke } from '@/components/InkCanvas';
+import { SuggestionGhost } from '@/components/SuggestionGhost';
+import { palette } from '@/constants/palette';
+import { useNotes, strokeKeyForNote } from '@/hooks/useNotes';
+import { useStrokeAutocomplete, type AutocompleteState } from '@/hooks/useStrokeAutocomplete';
+import type { BBox } from '@/lib/line-grouping';
+
+type AcceptedSuggestion = { text: string; lineBBox: BBox; lineKey: string };
+
+export default function NoteScreen() {
+  const { id } = useLocalSearchParams<{ id: string }>();
+  const router = useRouter();
+  const { getNote, loading } = useNotes();
+  const note = id ? getNote(id) : undefined;
+
+  const STROKES_KEY = id ? strokeKeyForNote(id) : null;
+
+  const [strokes, setStrokes] = useState<Stroke[]>([]);
+  const [strokesLoaded, setStrokesLoaded] = useState(false);
+  const saveTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const viewShotRef = useRef<ViewShot | null>(null);
+  const [canvasDims, setCanvasDims] = useState<{ w: number; h: number } | null>(null);
+
+  // --- Stroke persistence ---
+  useEffect(() => {
+    if (!STROKES_KEY) return;
+    let cancelled = false;
+    (async () => {
+      try {
+        const raw = await AsyncStorage.getItem(STROKES_KEY);
+        if (!cancelled && raw) setStrokes(JSON.parse(raw) as Stroke[]);
+      } catch (e) {
+        if (__DEV__) console.warn('[NoteScreen] Failed to load strokes:', e);
+      } finally {
+        if (!cancelled) setStrokesLoaded(true);
+      }
+    })();
+    return () => { cancelled = true; };
+  }, [STROKES_KEY]);
+
+  useEffect(() => {
+    if (!STROKES_KEY || !strokesLoaded) return;
+    if (saveTimeoutRef.current) clearTimeout(saveTimeoutRef.current);
+    saveTimeoutRef.current = setTimeout(() => {
+      AsyncStorage.setItem(STROKES_KEY, JSON.stringify(strokes));
+      saveTimeoutRef.current = null;
+    }, 500);
+    return () => { if (saveTimeoutRef.current) clearTimeout(saveTimeoutRef.current); };
+  }, [STROKES_KEY, strokesLoaded, strokes]);
+
+  // --- Autocomplete ---
+  const [accepted, setAccepted] = useState<AcceptedSuggestion[]>([]);
+  const [completedLineKeys, setCompletedLineKeys] = useState<Set<string>>(new Set());
+
+  const actionOrderRef = useRef<('stroke' | 'accept')[]>([]);
+  const redoOrderRef = useRef<('stroke' | 'accept')[]>([]);
+  const acceptRedoStackRef = useRef<AcceptedSuggestion[]>([]);
+  const [, forceUpdate] = useState(0);
+
+  const hasAcceptUndo = actionOrderRef.current.some((a) => a === 'accept');
+  const hasAcceptRedo = redoOrderRef.current.some((a) => a === 'accept');
+
+  const { onStrokeComplete, autocomplete, dismiss: dismissAutocomplete } = useStrokeAutocomplete({
+    canvasDims,
+    completedLineKeys,
+  });
+
+  const handleStrokeAction = useCallback(() => {
+    actionOrderRef.current.push('stroke');
+    redoOrderRef.current = [];
+    acceptRedoStackRef.current = [];
+    forceUpdate((v) => v + 1);
+  }, []);
+
+  const handleAccept = useCallback(() => {
+    if (!autocomplete.suggestion || !autocomplete.targetLineBBox || !autocomplete.targetLineKey) return;
+    const item: AcceptedSuggestion = {
+      text: autocomplete.suggestion,
+      lineBBox: autocomplete.targetLineBBox,
+      lineKey: autocomplete.targetLineKey,
+    };
+    setAccepted((prev) => [...prev, item]);
+    setCompletedLineKeys((prev) => { const next = new Set(prev); next.add(item.lineKey); return next; });
+    actionOrderRef.current.push('accept');
+    redoOrderRef.current = [];
+    acceptRedoStackRef.current = [];
+    dismissAutocomplete();
+    forceUpdate((v) => v + 1);
+  }, [autocomplete, dismissAutocomplete]);
+
+  const beforeUndo = useCallback((): boolean => {
+    const order = actionOrderRef.current;
+    if (order.length === 0) return false;
+    const last = order[order.length - 1];
+    if (last !== 'accept') {
+      order.pop();
+      redoOrderRef.current.push('stroke');
+      return false;
+    }
+    order.pop();
+    redoOrderRef.current.push('accept');
+    setAccepted((prev) => {
+      const list = [...prev];
+      const removed = list.pop();
+      if (removed) {
+        acceptRedoStackRef.current.push(removed);
+        setCompletedLineKeys((keys) => { const next = new Set(keys); next.delete(removed.lineKey); return next; });
+      }
+      return list;
+    });
+    forceUpdate((v) => v + 1);
+    return true;
+  }, []);
+
+  const beforeRedo = useCallback((): boolean => {
+    const redo = redoOrderRef.current;
+    if (redo.length === 0) return false;
+    const last = redo[redo.length - 1];
+    if (last !== 'accept') {
+      redo.pop();
+      actionOrderRef.current.push('stroke');
+      return false;
+    }
+    redo.pop();
+    actionOrderRef.current.push('accept');
+    const restored = acceptRedoStackRef.current.pop();
+    if (restored) {
+      setAccepted((prev) => [...prev, restored]);
+      setCompletedLineKeys((keys) => { const next = new Set(keys); next.add(restored.lineKey); return next; });
+    }
+    forceUpdate((v) => v + 1);
+    return true;
+  }, []);
+
+  const handleStrokesChange = useCallback((s: Stroke[]) => {
+    setStrokes(s);
+    if (s.length === 0) dismissAutocomplete();
+  }, [dismissAutocomplete]);
+
+  // --- Render ---
+  if (!id || (!loading && !note)) {
+    return (
+      <SafeAreaView style={styles.screen}>
+        <View style={styles.centered}>
+          <Text style={styles.errorText}>{id ? 'Note not found' : 'Missing note ID'}</Text>
+          <Pressable onPress={() => router.back()}>
+            <Text style={styles.backLink}>Back to Notes</Text>
+          </Pressable>
+        </View>
+      </SafeAreaView>
+    );
+  }
+
+  return (
+    <SafeAreaView style={styles.screen}>
+      <View style={styles.header}>
+        <Pressable
+          style={({ pressed }) => [styles.headerBackBtn, pressed && { opacity: 0.7 }]}
+          onPress={() => router.back()}
+          hitSlop={{ top: 12, bottom: 12, left: 12, right: 12 }}
+          accessibilityRole="button"
+          accessibilityLabel="Back">
+          <MaterialCommunityIcons name="arrow-left" size={24} color={palette.primary} />
+        </Pressable>
+        <Text style={styles.title} numberOfLines={1}>{note?.name ?? 'Note'}</Text>
+      </View>
+
+      <View style={styles.canvasWrap}>
+        <InkCanvas
+          viewShotRef={viewShotRef}
+          strokes={strokes}
+          onStrokesChange={handleStrokesChange}
+          onStrokeComplete={onStrokeComplete}
+          onCanvasLayout={(w, h) => setCanvasDims({ w, h })}
+          showToolbar
+          showAcceptButton={!!autocomplete.suggestion}
+          onAccept={handleAccept}
+          onStrokeAction={handleStrokeAction}
+          beforeUndo={beforeUndo}
+          beforeRedo={beforeRedo}
+          hasExternalUndo={hasAcceptUndo}
+          hasExternalRedo={hasAcceptRedo}
+          style={styles.canvas}
+        />
+        {autocomplete.suggestion && autocomplete.targetLineBBox && (
+          <SuggestionGhost text={autocomplete.suggestion} lineBBox={autocomplete.targetLineBBox} />
+        )}
+        {accepted.map((a, i) => (
+          <SuggestionGhost key={i} text={a.text} lineBBox={a.lineBBox} opacity={0.85} color={palette.inkStroke} />
+        ))}
+      </View>
+    </SafeAreaView>
+  );
+}
+
+const styles = StyleSheet.create({
+  screen: { flex: 1, backgroundColor: palette.surface },
+  header: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    paddingHorizontal: 12,
+    paddingVertical: 10,
+    backgroundColor: palette.card,
+    borderBottomWidth: 1,
+    borderBottomColor: palette.border,
+  },
+  headerBackBtn: {
+    padding: 8,
+    marginRight: 8,
+    minWidth: 44,
+    minHeight: 44,
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  title: { flex: 1, fontSize: 17, fontWeight: '600', color: palette.textPrimary },
+  canvasWrap: { flex: 1, padding: 12, position: 'relative' },
+  canvas: { flex: 1 },
+  centered: { flex: 1, justifyContent: 'center', alignItems: 'center', gap: 12 },
+  errorText: { fontSize: 16, color: palette.textSecondary, textAlign: 'center' },
+  backLink: { fontSize: 15, fontWeight: '600', color: palette.primary },
+});

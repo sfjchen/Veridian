@@ -47,6 +47,7 @@ from PIL import Image, UnidentifiedImageError
 from supabase_service import get_supabase_auth_client, get_supabase_service_client, unwrap_supabase_data
 
 sys.path.insert(0, str(Path(__file__).resolve().parent / "src"))
+sys.path.insert(0, str(Path(__file__).resolve().parent.parent.parent))
 
 try:
     import fcntl as _fcntl
@@ -1245,6 +1246,61 @@ def image_to_latex() -> Any:
         return jsonify({"error": f"Image-to-latex failed: {exc}"}), 502
 
     return jsonify({"latex": latex})
+
+
+def _gpt_autocomplete(image_b64: str, problem_context: str) -> tuple[str, int]:
+    from openai import OpenAI
+
+    t0 = time.perf_counter()
+    oai = OpenAI(api_key=OPENAI_API_KEY)
+    data_uri = f"data:image/png;base64,{image_b64}"
+    prompt = (
+        f"You are a math tutor watching a student solve a problem in real-time.\n\n"
+        f"Problem: {problem_context}\n\n"
+        "The image shows the student's handwritten work so far. "
+        "Predict what should come next in their solution — the next step or expression. "
+        "Return ONLY the LaTeX for the next step, or an empty string if the work "
+        "appears complete or you cannot determine what comes next.\n"
+        "No explanation, markdown, or code fences."
+    )
+    resp = oai.chat.completions.create(
+        model="gpt-4o-mini",
+        max_tokens=256,
+        messages=[{
+            "role": "user",
+            "content": [
+                {"type": "text", "text": prompt},
+                {"type": "image_url", "image_url": {"url": data_uri, "detail": "low"}},
+            ],
+        }],
+    )
+    suggestion = (resp.choices[0].message.content or "").strip()
+    ms = int((time.perf_counter() - t0) * 1000)
+    return (suggestion, ms)
+
+
+@app.post("/handwriting-ocr")
+def handwriting_autocomplete() -> Any:
+    payload = request.get_json(silent=True) or {}
+    image_b64 = str(payload.get("image", "")).strip()
+    problem_context = str(payload.get("problem_context", "")).strip()
+    if not image_b64:
+        return jsonify({"error": "Missing required field: image"}), 400
+
+    try:
+        raw = _decode_capture_image_base64(image_b64)
+    except ValueError as exc:
+        return jsonify({"error": str(exc)}), 400
+
+    b64_clean = base64.b64encode(raw).decode("utf-8")
+    try:
+        suggestion, ms = _gpt_autocomplete(b64_clean, problem_context)
+    except Exception as exc:
+        print(f"[autocomplete] Error: {exc}")
+        return jsonify({"error": f"Autocomplete failed: {exc}"}), 502
+
+    print(f"[autocomplete] ({ms}ms): {suggestion or '(empty)'}")
+    return jsonify({"suggestion": suggestion, "ms": ms})
 
 
 # TODO(teacher-backend): MVP-only sample defaults. In production, reference_tex comes from

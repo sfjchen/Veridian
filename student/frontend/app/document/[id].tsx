@@ -46,6 +46,7 @@ const SAMPLE_PROBLEMS = [
   { num: 3, statement_tex: '4x + 2 - 3x + 7' },
   { num: 4, statement_tex: 'x/2 + 3 = 8' },
   { num: 5, statement_tex: 'x + y = 10,\\; 2x - y = 2' },
+  { num: 6, statement_tex: '\\int_0^3 (2x + 1)\\, dx' },
 ];
 
 type BadgeState = { label: string; tone: StatusTone };
@@ -438,9 +439,8 @@ export default function DocumentScreen() {
   const handleStrokesChange = useCallback(
     (strokes: Stroke[]) => {
       setCurrentStrokes(strokes);
-      if (isProblemMode) markDirty();
     },
-    [setCurrentStrokes, isProblemMode, markDirty],
+    [setCurrentStrokes],
   );
 
   const changePage = useCallback(

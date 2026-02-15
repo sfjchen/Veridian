@@ -149,6 +149,24 @@ export async function fetchChatHistory(
   return body.messages ?? [];
 }
 
+export type AutocompleteResult = { suggestion: string; ms: number };
+
+export async function fetchAutocomplete(
+  canvasImage: string,
+  problemContext: string,
+  signal?: AbortSignal,
+): Promise<AutocompleteResult> {
+  const res = await fetch(`${BASE_URL}/handwriting-ocr`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ image: canvasImage, problem_context: problemContext }),
+    signal,
+  });
+  const body = await res.json();
+  if (!res.ok) throw new Error(body.error ?? `Autocomplete failed (${res.status})`);
+  return body;
+}
+
 function dataUriToBlob(dataUri: string): Blob {
   const [header, base64] = dataUri.split(',');
   const mime = header.match(/:(.*?);/)?.[1] ?? 'image/png';

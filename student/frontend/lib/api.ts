@@ -84,18 +84,11 @@ export async function fetchClassrooms(token?: string): Promise<Classroom[]> {
   });
   if (!res.ok) {
     const body = await res.json().catch(() => ({}));
-    // #region agent log
-    fetch('http://127.0.0.1:7243/ingest/b95751e3-13de-4370-a43a-9eeabde26151', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ location: 'api.ts:fetchClassrooms', message: 'classrooms fetch not ok', data: { status: res.status, error: body.error }, hypothesisId: 'H2a', timestamp: Date.now() }) }).catch(() => {});
-    // #endregion
     throw new Error(body.error ?? `Failed to fetch classrooms (${res.status})`);
   }
   const data = await res.json();
   const list = data.classrooms ?? data;
-  const result = Array.isArray(list) ? list : [];
-  // #region agent log
-  fetch('http://127.0.0.1:7243/ingest/b95751e3-13de-4370-a43a-9eeabde26151', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ location: 'api.ts:fetchClassrooms', message: 'classrooms fetch ok', data: { count: result.length, hasClassroomsKey: 'classrooms' in (data as object) }, hypothesisId: 'H2d', timestamp: Date.now() }) }).catch(() => {});
-  // #endregion
-  return result;
+  return Array.isArray(list) ? list : [];
 }
 
 export async function fetchAssignments(
@@ -107,18 +100,11 @@ export async function fetchAssignments(
   });
   if (!res.ok) {
     const body = await res.json().catch(() => ({}));
-    // #region agent log
-    fetch('http://127.0.0.1:7243/ingest/b95751e3-13de-4370-a43a-9eeabde26151', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ location: 'api.ts:fetchAssignments', message: 'assignments fetch not ok', data: { status: res.status, classroomId, error: body.error }, hypothesisId: 'H2b', timestamp: Date.now() }) }).catch(() => {});
-    // #endregion
     throw new Error(body.error ?? `Failed to fetch assignments (${res.status})`);
   }
   const data = await res.json();
   const list = data.assignments ?? data;
-  const result = Array.isArray(list) ? list : [];
-  // #region agent log
-  fetch('http://127.0.0.1:7243/ingest/b95751e3-13de-4370-a43a-9eeabde26151', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ location: 'api.ts:fetchAssignments', message: 'assignments fetch ok', data: { count: result.length, classroomId, hasAssignmentsKey: 'assignments' in (data as object) }, hypothesisId: 'H2d', timestamp: Date.now() }) }).catch(() => {});
-  // #endregion
-  return result;
+  return Array.isArray(list) ? list : [];
 }
 
 export async function fetchAssignment(assignmentId: string): Promise<Assignment> {
@@ -135,10 +121,11 @@ export async function sendChatMessage(
   assignmentId: string,
   problemNum: number,
   message: string,
+  token?: string,
 ): Promise<ChatResponse> {
   const res = await fetch(`${BASE_URL}/chat`, {
     method: 'POST',
-    headers: { 'Content-Type': 'application/json', ...getAuthHeaders() },
+    headers: { 'Content-Type': 'application/json', ...getAuthHeaders(token) },
     body: JSON.stringify({ assignment_id: assignmentId, problem_num: problemNum, message }),
   });
   const body = await res.json();
@@ -149,9 +136,10 @@ export async function sendChatMessage(
 export async function fetchChatHistory(
   assignmentId: string,
   problemNum: number,
+  token?: string,
 ): Promise<ChatMessage[]> {
   const res = await fetch(`${BASE_URL}/chat/${assignmentId}/${problemNum}`, {
-    headers: getAuthHeaders(),
+    headers: getAuthHeaders(token),
   });
   const body = await res.json();
   if (!res.ok) throw new Error(body.error ?? `Failed to fetch chat history (${res.status})`);
@@ -169,7 +157,7 @@ function dataUriToBlob(dataUri: string): Blob {
 
 export async function submitAnalysis(
   imageUri: string,
-  opts: { assignmentId?: string; problemNum?: number; isSample?: boolean },
+  opts: { assignmentId?: string; problemNum?: number; isSample?: boolean; token?: string },
 ): Promise<AnalysisResult> {
   const formData = new FormData();
 
@@ -191,6 +179,7 @@ export async function submitAnalysis(
 
   const res = await fetch(`${BASE_URL}/analyze-solution`, {
     method: 'POST',
+    headers: getAuthHeaders(opts.token),
     body: formData,
   });
   const body = await res.json();

@@ -39,15 +39,6 @@ def generate_download_url(bucket: str, path: str, expires_in: int = 3600) -> str
     return result["signedURL"]
 
 
-def delete_object(bucket: str, path: str) -> None:
-    _validate_path(path)
-    client = get_supabase_admin_client()
-    try:
-        client.storage.from_(bucket).remove([path])
-    except Exception as e:
-        raise ValueError(f"Storage error deleting object {path}: {e}") from e
-
-
 def move_object(bucket: str, from_path: str, to_path: str) -> None:
     _validate_path(from_path)
     _validate_path(to_path)

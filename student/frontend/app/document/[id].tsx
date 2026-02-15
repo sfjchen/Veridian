@@ -23,10 +23,11 @@ import { MistakeOverlay } from '@/components/MistakeOverlay';
 import { ProblemHeader } from '@/components/ProblemHeader';
 import { SampleAlgebraContent } from '@/components/SampleAlgebraContent';
 import { palette, radius } from '@/constants/palette';
+import { useAccessToken } from '@/hooks/useAccessToken';
 import { useAssignment } from '@/hooks/useAssignment';
 import { useAutoAnalysis } from '@/hooks/useAutoAnalysis';
 import { useDocuments, isDefaultDocument } from '@/hooks/useDocuments';
-import type { AnalysisResult, Mistake } from '@/lib/api';
+import { getAuthHeaders, type AnalysisResult, type Mistake } from '@/lib/api';
 import type { CaptureResult } from '@/lib/capture-types';
 import { buildAnalysisFormData } from '@/lib/image-upload';
 import { captureStrokesAsDataUri } from '@/lib/capture-web';
@@ -147,6 +148,7 @@ export default function DocumentScreen() {
   } = useDocuments();
   const doc = id ? getDocument(id) : undefined;
 
+  const accessToken = useAccessToken();
   const assignmentOnly = !!assignmentId;
   const { assignment, problems: assignmentProblems, loading: assignmentLoading, error: assignmentError } = useAssignment(assignmentId ?? null);
 
@@ -224,9 +226,6 @@ export default function DocumentScreen() {
         if (!cancelled) {
           const msg = e instanceof Error ? e.message : 'Failed to load saved strokes';
           setStrokeLoadError(msg);
-          // #region agent log
-          fetch('http://127.0.0.1:7243/ingest/b95751e3-13de-4370-a43a-9eeabde26151', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ location: 'document/[id].tsx:stroke load', message: 'stroke load error', data: { msg }, hypothesisId: 'H5a', timestamp: Date.now() }) }).catch(() => {});
-          // #endregion
         }
       } finally {
         if (!cancelled) setStrokesLoaded(true);
@@ -242,9 +241,6 @@ export default function DocumentScreen() {
       const done = () => { saveTimeoutRef.current = null; };
       AsyncStorage.setItem(STROKES_KEY, JSON.stringify(strokesByPage)).catch(() => {
         setStrokeSaveError(true);
-        // #region agent log
-        fetch('http://127.0.0.1:7243/ingest/b95751e3-13de-4370-a43a-9eeabde26151', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ location: 'document/[id].tsx:stroke save', message: 'stroke save error', data: {}, hypothesisId: 'H5b', timestamp: Date.now() }) }).catch(() => {});
-        // #endregion
       }).finally(done);
     }, 500);
     return () => { if (saveTimeoutRef.current) clearTimeout(saveTimeoutRef.current); };
@@ -357,6 +353,7 @@ export default function DocumentScreen() {
     assignmentId,
     problemNum: currentProblem?.num,
     isSample: isDefault,
+    token: accessToken ?? undefined,
     debounceMs,
     enabled: isProblemMode && (assignment?.auto_analyze ?? isDefault) && !!canvasDims,
     captureScreenshot,
@@ -407,7 +404,7 @@ export default function DocumentScreen() {
       : {};
     const formData = await buildAnalysisFormData(uri, extra);
     try {
-      const res = await fetch(`${apiUrl.replace(/\/$/, '')}/analyze-solution`, { method: 'POST', body: formData });
+      const res = await fetch(`${apiUrl.replace(/\/$/, '')}/analyze-solution`, { method: 'POST', headers: getAuthHeaders(accessToken ?? undefined), body: formData });
       const body = await res.json();
       if (res.ok) {
         const count = body.mistake_count ?? 0;
@@ -684,6 +681,7 @@ export default function DocumentScreen() {
         onClose={handleCloseChat}
         assignmentId={assignmentIdForChat}
         problemNum={chatProblemNum}
+        token={accessToken}
       />
     </SafeAreaView>
   );

@@ -13,8 +13,10 @@ log = logging.getLogger(__name__)
 socketio: SocketIO | None = None
 
 
-def _cors_origins() -> list[str]:
-    raw = os.getenv("WS_CORS_ORIGINS", "http://localhost:3000")
+def _cors_origins() -> list[str] | str:
+    raw = os.getenv("WS_CORS_ORIGINS", "")
+    if not raw.strip():
+        return "*"
     return [o.strip() for o in raw.split(",") if o.strip()]
 
 

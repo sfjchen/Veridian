@@ -28,17 +28,14 @@ export function useAssignments(classroomId: string | null) {
     }
     setLoading(true);
     setError(null);
-    fetchAssignments(classroomId, token ?? undefined)
-      .then((list) => {
-        if (!cancelled) setAssignments(list);
-      })
-      .catch((e) => {
-        if (!cancelled) setError(e instanceof Error ? e.message : 'Failed to load assignments');
-      })
-      .finally(() => {
-        if (!cancelled) setLoading(false);
-      });
-    return () => { cancelled = true; };
+    try {
+      const list = await fetchAssignments(classroomId, token ?? undefined);
+      if (mountedRef.current) setAssignments(list);
+    } catch (e) {
+      if (mountedRef.current) setError(e instanceof Error ? e.message : 'Failed to load assignments');
+    } finally {
+      if (mountedRef.current) setLoading(false);
+    }
   }, [classroomId, token]);
 
   useEffect(() => {

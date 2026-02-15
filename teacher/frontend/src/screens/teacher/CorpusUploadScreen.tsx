@@ -6,6 +6,7 @@ import { api } from "../../lib/api";
 import { alert } from "../../lib/alert";
 import { uploadFile } from "../../lib/upload";
 import { Button, Card, Input, ScreenContainer, Section } from "../../components/ui";
+import { ConversionProgressModal } from "../../components/ConversionProgressModal";
 import { palette } from "../../constants/palette";
 import { spacing } from "../../constants/spacing";
 import { typography } from "../../constants/typography";
@@ -33,6 +34,7 @@ export function CorpusUploadScreen({ route, navigation }: { route: any; navigati
   const [displayName, setDisplayName] = useState("");
   const [file, setFile] = useState<PickedFile | null>(null);
   const [uploading, setUploading] = useState(false);
+  const [converting, setConverting] = useState(false);
 
   const pickFile = async () => {
     const result = await DocumentPicker.getDocumentAsync({
@@ -78,6 +80,43 @@ export function CorpusUploadScreen({ route, navigation }: { route: any; navigati
       return;
     }
 
+    // Check if PDF - use auto-conversion endpoint
+    if (fileType === "pdf") {
+      setConverting(true);
+      try {
+        // Create FormData for PDF upload with conversion
+        const formData = new FormData();
+        formData.append("file", file.file as any);
+        formData.append("display_name", displayName.trim());
+
+        // Call PDF auto-conversion endpoint
+        const response = await fetch(
+          `${api.baseUrl}/classrooms/${classroomId}/corpus/upload-pdf`,
+          {
+            method: "POST",
+            headers: {
+              Authorization: `Bearer ${await api.getToken()}`,
+            },
+            body: formData,
+          }
+        );
+
+        if (!response.ok) {
+          const error = await response.json();
+          throw new Error(error.detail || error.error || "PDF conversion failed");
+        }
+
+        showToast("PDF converted and added to corpus!");
+        navigation.goBack();
+      } catch (e: unknown) {
+        alert("Conversion Failed", e instanceof Error ? e.message : "Failed to convert PDF");
+      } finally {
+        setConverting(false);
+      }
+      return;
+    }
+
+    // Non-PDF files: use existing two-step upload flow
     setUploading(true);
     try {
       const result = await api<{ upload_url: string }>(`/classrooms/${classroomId}/corpus`, {
@@ -101,8 +140,16 @@ export function CorpusUploadScreen({ route, navigation }: { route: any; navigati
     }
   };
 
+  const isPdf = file && inferFileType(file.name, file.mimeType) === "pdf";
+
   return (
     <ScreenContainer maxWidth="form">
+      <ConversionProgressModal
+        visible={converting}
+        fileName={file?.name}
+        stage="Converting PDF to LaTeX..."
+      />
+
       <View style={styles.content}>
         <Section title="Upload Corpus File">
           <Card onPress={pickFile} style={styles.fileCard}>
@@ -111,6 +158,15 @@ export function CorpusUploadScreen({ route, navigation }: { route: any; navigati
             </Text>
           </Card>
           {!file && <Text style={styles.fileHint}>Pick a PDF or text file to add to the classroom corpus.</Text>}
+
+          {isPdf && (
+            <View style={styles.pdfNote}>
+              <Text style={styles.pdfNoteText}>
+                📄 PDF will be automatically converted to LaTeX
+              </Text>
+            </View>
+          )}
+
           <Input
             placeholder="Display name"
             value={displayName}
@@ -118,8 +174,14 @@ export function CorpusUploadScreen({ route, navigation }: { route: any; navigati
           />
         </Section>
 
-        <Button onPress={handleUpload} loading={uploading} disabled={uploading} fullWidth accessibilityLabel="Upload file">
-          Upload File
+        <Button
+          onPress={handleUpload}
+          loading={uploading || converting}
+          disabled={uploading || converting}
+          fullWidth
+          accessibilityLabel="Upload file"
+        >
+          {isPdf ? "Upload & Convert PDF" : "Upload File"}
         </Button>
       </View>
     </ScreenContainer>
@@ -131,4 +193,14 @@ const styles = StyleSheet.create({
   fileCard: { marginBottom: spacing.xs },
   filePickerText: { ...typography.body, color: palette.textMuted },
   fileHint: { ...typography.caption, color: palette.textMuted, marginBottom: spacing.md },
+  pdfNote: {
+    backgroundColor: palette.primaryMutedTint,
+    padding: spacing.sm,
+    borderRadius: 4,
+    marginBottom: spacing.md,
+  },
+  pdfNoteText: {
+    ...typography.caption,
+    color: palette.primary,
+  },
 });

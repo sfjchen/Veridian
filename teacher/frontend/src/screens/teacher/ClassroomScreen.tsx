@@ -8,6 +8,7 @@ import {
   ActivityIndicator,
   RefreshControl,
   Platform,
+  ScrollView,
 } from "react-native";
 import * as Clipboard from "expo-clipboard";
 import * as Linking from "expo-linking";
@@ -16,12 +17,16 @@ import { useCorpus } from "../../hooks/useCorpus";
 import { useAssignments } from "../../hooks/useAssignments";
 import { useClassroomStudents } from "../../hooks/useClassroomStudents";
 import { ScreenContainer } from "../../components/ui";
-import { Classroom, CorpusFile } from "../../types";
-import { palette, radius, typography } from "../../constants/palette";
+import { ConfigEditor } from "../../components/ConfigEditor";
+import { InsightsContent } from "./InsightsContent";
+import { api } from "../../lib/api";
+import { Classroom, CorpusFile, AssignmentConfig } from "../../types";
+import { palette, radius } from "../../constants/palette";
+import { typography } from "../../constants/typography";
 import { spacing } from "../../constants/spacing";
 import { alert } from "../../lib/alert";
 
-type Tab = "assignments" | "corpus" | "students";
+type Tab = "assignments" | "corpus" | "students" | "insights" | "settings";
 
 function formatDueDateLabel(dueDate: string | null): { label: string; warning?: "soon" | "overdue" } {
   if (!dueDate) return { label: "No due date" };
@@ -46,6 +51,8 @@ export function TeacherClassroomScreen({ route, navigation }: { route: any; navi
   const classroom: Classroom = route.params.classroom;
   const [activeTab, setActiveTab] = useState<Tab>("assignments");
   const [refreshing, setRefreshing] = useState(false);
+  const [configDraft, setConfigDraft] = useState<Partial<AssignmentConfig>>(classroom.config ?? {});
+  const [savingConfig, setSavingConfig] = useState(false);
   const { files, loading: corpusLoading, error: corpusError, refresh: refreshCorpus } = useCorpus(classroom.id);
   const { assignments, loading: assignmentsLoading, error: assignmentsError, refresh: refreshAssignments } = useAssignments(classroom.id);
   const {
@@ -54,7 +61,6 @@ export function TeacherClassroomScreen({ route, navigation }: { route: any; navi
     error: studentsError,
     refresh: refreshStudents,
   } = useClassroomStudents(classroom.id);
-  const [refreshing, setRefreshing] = useState(false);
 
   const onRefresh = useCallback(async () => {
     setRefreshing(true);
@@ -69,12 +75,6 @@ export function TeacherClassroomScreen({ route, navigation }: { route: any; navi
       refreshStudents();
     }, [refreshAssignments, refreshCorpus, refreshStudents])
   );
-
-  const onRefresh = useCallback(async () => {
-    setRefreshing(true);
-    await Promise.all([refreshAssignments(), refreshCorpus(), refreshStudents()]);
-    setRefreshing(false);
-  }, [refreshAssignments, refreshCorpus, refreshStudents]);
 
   const copyClassCode = async () => {
     try {
@@ -91,6 +91,21 @@ export function TeacherClassroomScreen({ route, navigation }: { route: any; navi
 
   const handleOpenCorpusFile = (file: CorpusFile) => {
     if (file.download_url) Linking.openURL(file.download_url);
+  };
+
+  const handleSaveConfig = async () => {
+    setSavingConfig(true);
+    try {
+      await api(`/classrooms/${classroom.id}`, {
+        method: "PATCH",
+        body: { config: configDraft },
+      });
+      alert("Success", "Settings saved");
+    } catch (e: any) {
+      alert("Error", e instanceof Error ? e.message : "Failed to save settings");
+    } finally {
+      setSavingConfig(false);
+    }
   };
 
   const refreshControl = (
@@ -113,7 +128,7 @@ export function TeacherClassroomScreen({ route, navigation }: { route: any; navi
       </View>
 
       <View style={styles.tabs}>
-        {(["assignments", "corpus", "students"] as Tab[]).map((tab) => (
+        {(["assignments", "corpus", "students", "insights", "settings"] as Tab[]).map((tab) => (
           <TouchableOpacity
             key={tab}
             style={[styles.tab, activeTab === tab && styles.tabActive]}
@@ -282,6 +297,36 @@ export function TeacherClassroomScreen({ route, navigation }: { route: any; navi
           )}
         </View>
       )}
+      {activeTab === "insights" && (
+        <View style={styles.content}>
+          <InsightsContent classroomId={classroom.id} navigation={navigation} />
+        </View>
+      )}
+
+      {activeTab === "settings" && (
+        <ScrollView style={styles.content}>
+          <Text style={styles.settingsHint}>
+            Default settings for all assignments in this classroom.
+            Individual assignments can override these.
+          </Text>
+          <ConfigEditor
+            config={configDraft}
+            onChange={setConfigDraft}
+            mode="classroom"
+          />
+          <TouchableOpacity
+            style={[styles.addButton, savingConfig && { opacity: 0.7 }]}
+            onPress={handleSaveConfig}
+            disabled={savingConfig}
+            accessibilityRole="button"
+            accessibilityLabel={savingConfig ? "Saving settings" : "Save settings"}
+          >
+            <Text style={styles.addButtonText}>
+              {savingConfig ? "Saving..." : "Save Settings"}
+            </Text>
+          </TouchableOpacity>
+        </ScrollView>
+      )}
     </ScreenContainer>
   );
 }
@@ -338,19 +383,15 @@ const styles = StyleSheet.create({
   empty: { textAlign: "center", color: palette.textDisabled, marginTop: spacing.lg },
   errorText: { textAlign: "center", color: palette.error, marginTop: spacing.lg },
   settingsHint: { ...typography.bodySmall, color: palette.textMuted, marginBottom: spacing.md, lineHeight: 18 },
-  listItem: {
-    flexDirection: "row",
+  emptyWrap: { paddingVertical: spacing.xxl, paddingHorizontal: spacing.lg, alignItems: "center" as const },
+  emptyTitle: { ...typography.h2, color: palette.textSecondary, marginBottom: spacing.sm },
+  emptySubtitle: { ...typography.body, color: palette.textMuted, textAlign: "center" as const },
+  emptyButton: {
+    backgroundColor: palette.primary,
+    borderRadius: radius.button,
+    padding: spacing.sm,
     alignItems: "center",
-    marginBottom: spacing.sm,
-    minHeight: 56,
-    padding: spacing.md,
-    backgroundColor: palette.surface,
-    borderRadius: radius.card,
+    marginTop: spacing.md,
   },
-  addButtonText: {
-    color: palette.white,
-    fontSize: 16,
-    fontWeight: "600",
-    textAlign: "center",
-  },
+  emptyButtonText: { color: palette.white, fontSize: 16, fontWeight: "600" },
 });

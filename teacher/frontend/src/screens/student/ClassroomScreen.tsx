@@ -1,5 +1,6 @@
 import React from "react";
 import {
+  View,
   Text,
   FlatList,
   TouchableOpacity,
@@ -9,10 +10,7 @@ import {
 import { useAssignments } from "../../hooks/useAssignments";
 import { ScreenContainer } from "../../components/ui";
 import { Classroom } from "../../types";
-import { ScreenContainer } from "../../components/ui/ScreenContainer";
-import { palette } from "../../constants/palette";
-import { elevation } from "../../constants/palette";
-import { radius } from "../../constants/palette";
+import { palette, radius, elevation } from "../../constants/palette";
 import { spacing } from "../../constants/spacing";
 import { typography } from "../../constants/typography";
 

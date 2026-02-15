@@ -18,6 +18,9 @@ import { useSubmissions } from "../../hooks/useSubmissions";
 import { LatexRenderer } from "../../components/LatexRenderer";
 import { FileUploader } from "../../components/FileUploader";
 import { ProblemEditor } from "../../components/ProblemEditor";
+import { DateField } from "../../components/DateField";
+import { palette, radius } from "../../constants/palette";
+import { typography } from "../../constants/typography";
 import { AssignmentConfig, AssignmentDetail, Problem, Submission } from "../../types";
 import { alert } from "../../lib/alert";
 import {
@@ -29,10 +32,7 @@ import {
   ScreenContainer,
   Section,
 } from "../../components/ui";
-import { palette, radius } from "../../constants/palette";
 import { spacing } from "../../constants/spacing";
-import { AssignmentDetail, Submission } from "../../types";
-import { alert } from "../../lib/alert";
 
 const MAX_CONTENT_LENGTH = 100_000;
 const DATE_PATTERN = /^\d{4}-\d{2}-\d{2}$/;
@@ -629,29 +629,10 @@ export function TeacherAssignmentScreen({ route, navigation }: { route: any; nav
             ))
           )}
 
-              {assignmentContent && (
-                <View style={styles.contentPreview}>
-                  <Text style={styles.sectionTitle}>Assignment Preview (LaTeX)</Text>
-                  <LatexRenderer latex={assignmentContent} />
-                </View>
-              )}
-              {imagePreviewUrl && (
-                <View style={styles.contentPreview}>
-                  <Text style={styles.sectionTitle}>Assignment Preview (Image)</Text>
-                  <Image source={{ uri: imagePreviewUrl }} style={styles.assignmentImage} resizeMode="contain" />
-                </View>
-              )}
-              {binaryDownloadUrl && (
-                <Card style={styles.binaryNotice}>
-                  <Text style={styles.binaryNoticeText}>This file type cannot be previewed in-app.</Text>
-                  <Button size="sm" onPress={() => handleOpenFile(binaryDownloadUrl)}>Download File</Button>
-                </Card>
-              )}
-            </View>
-          )}
         </View>
       )}
-    </ScrollView>
+        </View>
+      </ScrollView>
     </ScreenContainer>
   );
 }

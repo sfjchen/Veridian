@@ -14,6 +14,7 @@ import {
 } from 'react-native';
 
 import { palette, radius } from '@/constants/palette';
+import { useAccessToken } from '@/hooks/useAccessToken';
 import { useClassrooms } from '@/hooks/useClassrooms';
 import type { Classroom } from '@/lib/api';
 import { joinClassroom } from '@/lib/api';
@@ -54,22 +55,26 @@ function JoinClassModal({
   visible,
   onClose,
   onJoined,
+  token,
 }: {
   visible: boolean;
   onClose: () => void;
   onJoined: () => void;
+  token: string | undefined;
 }) {
   const [code, setCode] = useState('');
   const [joining, setJoining] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
   const handleJoin = async () => {
+    if (!token) {
+      setError('You must be signed in to join a class.');
+      return;
+    }
     setError(null);
     setJoining(true);
     try {
-      const session = await supabase?.auth.getSession();
-      const token = session?.data?.session?.access_token;
-      await joinClassroom(code.trim(), token ?? undefined);
+      await joinClassroom(code.trim(), token);
       setCode('');
       onClose();
       onJoined();
@@ -134,6 +139,7 @@ function JoinClassModal({
 export default function ClassroomsScreen() {
   const router = useRouter();
   const { classrooms, loading, error, refresh } = useClassrooms();
+  const accessToken = useAccessToken() ?? undefined;
   const [joinModalVisible, setJoinModalVisible] = useState(false);
 
   if (loading) {
@@ -254,6 +260,7 @@ export default function ClassroomsScreen() {
         visible={joinModalVisible}
         onClose={() => setJoinModalVisible(false)}
         onJoined={refresh}
+        token={accessToken}
       />
     </SafeAreaView>
   );

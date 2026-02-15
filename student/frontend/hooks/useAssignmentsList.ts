@@ -1,8 +1,10 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
 
+import { useAccessToken } from '@/hooks/useAccessToken';
 import { fetchAssignments, type AssignmentListItem } from '@/lib/api';
 
 export function useAssignmentsList(classroomId: string | null) {
+  const token = useAccessToken();
   const [assignments, setAssignments] = useState<AssignmentListItem[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
@@ -27,7 +29,7 @@ export function useAssignmentsList(classroomId: string | null) {
     setLoading(true);
     setError(null);
     try {
-      const data = await fetchAssignments(classroomId);
+      const data = await fetchAssignments(classroomId, token ?? undefined);
       if (mountedRef.current) setAssignments(data);
     } catch (e) {
       if (mountedRef.current) {
@@ -36,7 +38,7 @@ export function useAssignmentsList(classroomId: string | null) {
     } finally {
       if (mountedRef.current) setLoading(false);
     }
-  }, [classroomId]);
+  }, [classroomId, token]);
 
   useEffect(() => {
     refresh();

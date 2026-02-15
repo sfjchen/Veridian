@@ -278,128 +278,118 @@ export function StudentExperienceScreen({ route, navigation }: { route: any; nav
 
   return (
     <SafeAreaView style={styles.screen}>
-      <View style={styles.header}>
-        <Pressable
-          style={({ pressed }) => [styles.headerBackBtn, pressed && { opacity: 0.7 }]}
-          onPress={() => navigation.goBack()}
-          hitSlop={{ top: 12, bottom: 12, left: 12, right: 12 }}
-          accessibilityRole="button"
-          accessibilityLabel="Back">
-          <MaterialCommunityIcons name="arrow-left" size={24} color={palette.primary} />
-        </Pressable>
-        <Text style={styles.title} numberOfLines={1}>{assignment.title}</Text>
-        {checkButtonVisible && (
-          <Pressable
-            style={({ pressed }) => [styles.checkButton, pressed && { opacity: 0.7 }]}
-            onPress={handleCheckWork}
-            disabled={isAnalyzing}
-            accessibilityRole="button"
-            accessibilityLabel="Check my work">
-            {isAnalyzing ? (
-              <ActivityIndicator size="small" color={palette.white} />
-            ) : (
-              <Text style={styles.checkButtonText}>Check</Text>
-            )}
-          </Pressable>
-        )}
-      </View>
-
+      <ScreenHeader title={assignment.title} onBack={() => navigation.goBack()}
+        checkVisible={checkButtonVisible} isAnalyzing={isAnalyzing} onCheck={handleCheckWork} />
       <View style={styles.previewBanner}>
         <Text style={styles.previewBannerText}>Teacher Preview</Text>
       </View>
-
       {currentProblem && (
         <View style={styles.problemHeaderWrap}>
           <ProblemHeader problemNum={currentProblem.num} statementTex={currentProblem.statement_tex} />
         </View>
       )}
-
       {badgeStatus && (
-        <View style={styles.badgeBar}>
-          <StatusBadge label={badgeStatus.label} tone={badgeStatus.tone} />
-        </View>
+        <View style={styles.badgeBar}><StatusBadge label={badgeStatus.label} tone={badgeStatus.tone} /></View>
       )}
-
-      <View style={styles.pagerBar}>
-        <Pressable
-          style={({ pressed }) => [styles.pageBtn, currentPage <= 1 && styles.pageBtnDisabled, currentPage > 1 && pressed && { opacity: 0.7 }]}
-          onPress={() => changePage(currentPage - 1)}
-          disabled={currentPage <= 1}
-          accessibilityRole="button"
-          accessibilityLabel="Previous">
-          <MaterialCommunityIcons name="chevron-left" size={28} color={currentPage <= 1 ? palette.textDisabled : palette.primary} />
-        </Pressable>
-        <Text style={styles.pageText}>Problem {currentPage} of {totalPages}</Text>
-        <Pressable
-          style={({ pressed }) => [styles.pageBtn, currentPage >= totalPages && styles.pageBtnDisabled, currentPage < totalPages && pressed && { opacity: 0.7 }]}
-          onPress={() => changePage(currentPage + 1)}
-          disabled={currentPage >= totalPages}
-          accessibilityRole="button"
-          accessibilityLabel="Next">
-          <MaterialCommunityIcons name="chevron-right" size={28} color={currentPage >= totalPages ? palette.textDisabled : palette.primary} />
-        </Pressable>
-      </View>
-
-      {totalPages > 1 && (
-        <View style={styles.pageStrip}>
-          {Array.from({ length: totalPages }, (_, i) => i + 1).map((p) => (
-            <Pressable
-              key={p}
-              style={({ pressed }) => [styles.pageThumb, currentPage === p && styles.pageThumbActive, currentPage !== p && pressed && { opacity: 0.7 }]}
-              onPress={() => changePage(p)}
-              accessibilityRole="button"
-              accessibilityLabel={`Problem ${p}`}>
-              <Text style={[styles.pageThumbText, currentPage === p && styles.pageThumbTextActive]}>{p}</Text>
-            </Pressable>
-          ))}
-        </View>
-      )}
-
-      <View style={styles.contentWrap}>
-        <View style={styles.canvasFull}>
-          <InkCanvas
-            key={pageIndex}
-            viewShotRef={viewShotRef}
-            strokes={currentStrokes}
-            onStrokesChange={handleStrokesChange}
-            onCanvasLayout={(w, h) => setCanvasDims({ w, h })}
-            showToolbar
-            style={styles.inkCanvas}
-          />
-          {currentMistakes.length > 0 && (
-            <MistakeOverlay
-              mistakes={currentMistakes}
-              revealMode={revealMode}
-              dotThreshold={config.dot_threshold}
-              maxDotsShown={config.max_dots_shown}
-              onAskAboutMistake={chatEnabled ? handleAskAboutMistake : undefined}
-            />
-          )}
-        </View>
-      </View>
-
-      {chatEnabled && !chatVisible && (
-        <Pressable
-          style={({ pressed }) => [styles.chatFab, pressed && { opacity: 0.8 }]}
-          onPress={handleOpenChat}
-          accessibilityRole="button"
-          accessibilityLabel="Open chat"
-        >
-          <MaterialCommunityIcons name="chat-outline" size={24} color={palette.white} />
-        </Pressable>
-      )}
-
-      <ChatPanel
-        visible={chatVisible && chatEnabled}
-        onClose={() => setChatVisible(false)}
-        assignmentId={assignmentId}
-        problemNum={chatProblemNum}
-      />
-
-      {config.notification_style === 'toast' && (
-        <ToastHost toast={toast} onHide={hideToast} />
-      )}
+      <PagerBar currentPage={currentPage} totalPages={totalPages} onChangePage={changePage} />
+      {totalPages > 1 && <PageStrip currentPage={currentPage} totalPages={totalPages} onChangePage={changePage} />}
+      <CanvasArea pageIndex={pageIndex} viewShotRef={viewShotRef} strokes={currentStrokes}
+        onStrokesChange={handleStrokesChange} onCanvasLayout={(w, h) => setCanvasDims({ w, h })}
+        mistakes={currentMistakes} revealMode={revealMode} config={config}
+        chatEnabled={chatEnabled} onAskAboutMistake={handleAskAboutMistake} />
+      {chatEnabled && !chatVisible && <ChatFab onPress={handleOpenChat} />}
+      <ChatPanel visible={chatVisible && chatEnabled} onClose={() => setChatVisible(false)}
+        assignmentId={assignmentId} problemNum={chatProblemNum} />
+      {config.notification_style === 'toast' && <ToastHost toast={toast} onHide={hideToast} />}
     </SafeAreaView>
+  );
+}
+
+function ScreenHeader({ title, onBack, checkVisible, isAnalyzing, onCheck }: {
+  title: string; onBack: () => void; checkVisible: boolean; isAnalyzing: boolean; onCheck: () => void;
+}) {
+  return (
+    <View style={styles.header}>
+      <Pressable style={({ pressed }) => [styles.headerBackBtn, pressed && { opacity: 0.7 }]}
+        onPress={onBack} hitSlop={{ top: 12, bottom: 12, left: 12, right: 12 }}
+        accessibilityRole="button" accessibilityLabel="Back">
+        <MaterialCommunityIcons name="arrow-left" size={24} color={palette.primary} />
+      </Pressable>
+      <Text style={styles.title} numberOfLines={1}>{title}</Text>
+      {checkVisible && (
+        <Pressable style={({ pressed }) => [styles.checkButton, pressed && { opacity: 0.7 }]}
+          onPress={onCheck} disabled={isAnalyzing} accessibilityRole="button" accessibilityLabel="Check my work">
+          {isAnalyzing ? <ActivityIndicator size="small" color={palette.white} /> : <Text style={styles.checkButtonText}>Check</Text>}
+        </Pressable>
+      )}
+    </View>
+  );
+}
+
+function PagerBar({ currentPage, totalPages, onChangePage }: {
+  currentPage: number; totalPages: number; onChangePage: (p: number) => void;
+}) {
+  return (
+    <View style={styles.pagerBar}>
+      <Pressable
+        style={({ pressed }) => [styles.pageBtn, currentPage <= 1 && styles.pageBtnDisabled, currentPage > 1 && pressed && { opacity: 0.7 }]}
+        onPress={() => onChangePage(currentPage - 1)} disabled={currentPage <= 1}
+        accessibilityRole="button" accessibilityLabel="Previous">
+        <MaterialCommunityIcons name="chevron-left" size={28} color={currentPage <= 1 ? palette.textDisabled : palette.primary} />
+      </Pressable>
+      <Text style={styles.pageText}>Problem {currentPage} of {totalPages}</Text>
+      <Pressable
+        style={({ pressed }) => [styles.pageBtn, currentPage >= totalPages && styles.pageBtnDisabled, currentPage < totalPages && pressed && { opacity: 0.7 }]}
+        onPress={() => onChangePage(currentPage + 1)} disabled={currentPage >= totalPages}
+        accessibilityRole="button" accessibilityLabel="Next">
+        <MaterialCommunityIcons name="chevron-right" size={28} color={currentPage >= totalPages ? palette.textDisabled : palette.primary} />
+      </Pressable>
+    </View>
+  );
+}
+
+function PageStrip({ currentPage, totalPages, onChangePage }: {
+  currentPage: number; totalPages: number; onChangePage: (p: number) => void;
+}) {
+  return (
+    <View style={styles.pageStrip}>
+      {Array.from({ length: totalPages }, (_, i) => i + 1).map((p) => (
+        <Pressable key={p}
+          style={({ pressed }) => [styles.pageThumb, currentPage === p && styles.pageThumbActive, currentPage !== p && pressed && { opacity: 0.7 }]}
+          onPress={() => onChangePage(p)} accessibilityRole="button" accessibilityLabel={`Problem ${p}`}>
+          <Text style={[styles.pageThumbText, currentPage === p && styles.pageThumbTextActive]}>{p}</Text>
+        </Pressable>
+      ))}
+    </View>
+  );
+}
+
+function CanvasArea({ pageIndex, viewShotRef, strokes, onStrokesChange, onCanvasLayout, mistakes, revealMode, config, chatEnabled, onAskAboutMistake }: {
+  pageIndex: number; viewShotRef: React.RefObject<any>; strokes: Stroke[];
+  onStrokesChange: (s: Stroke[]) => void; onCanvasLayout: (w: number, h: number) => void;
+  mistakes: Mistake[]; revealMode: string; config: any; chatEnabled: boolean; onAskAboutMistake: (m: Mistake) => void;
+}) {
+  return (
+    <View style={styles.contentWrap}>
+      <View style={styles.canvasFull}>
+        <InkCanvas key={pageIndex} viewShotRef={viewShotRef} strokes={strokes}
+          onStrokesChange={onStrokesChange} onCanvasLayout={onCanvasLayout} showToolbar style={styles.inkCanvas} />
+        {mistakes.length > 0 && (
+          <MistakeOverlay mistakes={mistakes} revealMode={revealMode}
+            dotThreshold={config.dot_threshold} maxDotsShown={config.max_dots_shown}
+            onAskAboutMistake={chatEnabled ? onAskAboutMistake : undefined} />
+        )}
+      </View>
+    </View>
+  );
+}
+
+function ChatFab({ onPress }: { onPress: () => void }) {
+  return (
+    <Pressable style={({ pressed }) => [styles.chatFab, pressed && { opacity: 0.8 }]}
+      onPress={onPress} accessibilityRole="button" accessibilityLabel="Open chat">
+      <MaterialCommunityIcons name="chat-outline" size={24} color={palette.white} />
+    </Pressable>
   );
 }
 

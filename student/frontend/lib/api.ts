@@ -1,3 +1,5 @@
+import type { ResolvedConfig } from '@/lib/teacherConfig';
+
 const BASE_URL = (process.env.EXPO_PUBLIC_BACKEND_URL ?? '').replace(/\/$/, '');
 
 /** Prefer passing the logged-in user's token (e.g. from Supabase session) when available; env token is for dev/sample. */
@@ -31,11 +33,10 @@ export type Assignment = {
   id: string;
   title: string;
   problems: Problem[];
-  hint_level: 'minimal' | 'guided' | 'detailed';
-  reveal_mode: 'single-tap' | 'progressive';
-  auto_analyze: boolean;
-  analysis_debounce_seconds: number;
-  notification_level: 'passive' | 'nudge' | 'interrupt';
+  auto_analyze?: boolean;
+  analysis_debounce_seconds?: number;
+  reveal_mode?: 'single-tap' | 'progressive';
+  resolved_config?: Partial<ResolvedConfig>;
 };
 
 export type MistakeDot = { x: number; y: number };

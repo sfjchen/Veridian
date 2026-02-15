@@ -63,7 +63,7 @@ function StaggeredCard({ index, children }: { index: number; children: React.Rea
 }
 
 const staggerStyles = StyleSheet.create({
-  wrapper: { flex: 1 },
+  wrapper: { width: "100%" },
 });
 
 /* ── Gradient-style top border ── */
@@ -178,17 +178,17 @@ function ClassroomCard({
           <View style={styles.cardLeafCorner}>
             <LeafAccent size={12} color={even ? palette.forestLeaf : palette.forestCanopy} />
           </View>
-          <View style={styles.cardIconWrap}>
-            <TreeIcon size={28} color={even ? palette.forestCanopy : palette.forestLeaf} />
-          </View>
-          <Text style={styles.cardTitle} numberOfLines={2}>
-            {classroom.name}
-          </Text>
-          {classroom.class_code ? (
-            <Text style={styles.cardCode} numberOfLines={1}>
-              {classroom.class_code}
+          <TreeIcon size={28} color={even ? palette.forestCanopy : palette.forestLeaf} />
+          <View style={styles.cardTextCol}>
+            <Text style={styles.cardTitle} numberOfLines={2}>
+              {classroom.name}
             </Text>
-          ) : null}
+            {classroom.class_code ? (
+              <Text style={styles.cardCode} numberOfLines={1}>
+                {classroom.class_code}
+              </Text>
+            ) : null}
+          </View>
         </View>
       </Animated.View>
     </Pressable>
@@ -431,8 +431,6 @@ export default function ClassroomsScreen() {
           <FlatList
             data={classrooms}
             keyExtractor={(item) => item.id}
-            numColumns={2}
-            columnWrapperStyle={styles.gridRow}
             renderItem={({ item, index }) => (
               <StaggeredCard index={index}>
                 <ClassroomCard
@@ -528,31 +526,27 @@ const styles = StyleSheet.create({
   listContent: {
     padding: spacing.md,
     paddingBottom: spacing.xl,
-  },
-  gridRow: {
     gap: spacing.sm,
   },
   skeletonList: { padding: spacing.md },
 
   /* ── Card ── */
   cardPressable: {
-    flex: 1,
-    marginBottom: spacing.sm,
+    width: "100%",
   },
   card: {
-    flex: 1,
-    minHeight: 140,
+    height: 100,
     backgroundColor: palette.card,
     borderRadius: radius.organic,
     overflow: "hidden",
   },
   cardBody: {
     flex: 1,
+    flexDirection: "row",
     alignItems: "center",
-    justifyContent: "center",
-    padding: spacing.sm,
-    paddingTop: spacing.md,
-    gap: spacing.xxs,
+    padding: spacing.md,
+    paddingTop: spacing.sm,
+    gap: spacing.md,
     position: "relative",
   },
   cardLeafCorner: {
@@ -561,19 +555,18 @@ const styles = StyleSheet.create({
     right: spacing.xs,
     opacity: 0.5,
   },
-  cardIconWrap: {
-    marginBottom: spacing.xxs,
+  cardTextCol: {
+    flex: 1,
   },
   cardTitle: {
     ...typography.body,
     fontWeight: "600",
     color: palette.textPrimary,
-    textAlign: "center",
   },
   cardCode: {
     ...typography.caption,
     color: palette.textMuted,
-    textAlign: "center",
+    marginTop: 2,
   },
 
   /* ── Welcome banner ── */

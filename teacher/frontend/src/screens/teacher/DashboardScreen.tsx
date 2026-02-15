@@ -282,8 +282,6 @@ export function TeacherDashboardScreen({ navigation }: { navigation: { navigate:
           <FlatList
             data={classrooms}
             keyExtractor={(item) => item.id}
-            numColumns={2}
-            columnWrapperStyle={classrooms.length > 0 ? styles.cardRow : undefined}
             contentContainerStyle={classrooms.length === 0 ? styles.emptyList : styles.list}
             renderItem={({ item, index }) => (
               <StaggeredCard index={index} style={styles.cardWrapper}>
@@ -409,25 +407,26 @@ const styles = StyleSheet.create({
   },
   modalButton: { flex: 1 },
 
-  /* ── List / Grid ── */
+  /* ── List ── */
   listFadeWrap: { flex: 1 },
-  list: { paddingBottom: spacing.xl },
+  list: { paddingBottom: spacing.xl, gap: spacing.sm },
   emptyList: { flexGrow: 1 },
-  cardRow: { gap: spacing.sm, marginBottom: spacing.sm },
-  cardWrapper: { flex: 1 },
+  cardWrapper: { width: "100%" },
 
   /* ── Card ── */
   card: {
-    flex: 1,
-    minHeight: 140,
+    height: 100,
     borderRadius: radius.organic,
     padding: 0,
     overflow: "hidden",
   },
   cardContent: {
     flex: 1,
+    flexDirection: "row",
+    alignItems: "center",
     padding: spacing.md,
     paddingTop: spacing.sm,
+    gap: spacing.md,
     position: "relative",
   },
   cardLeafCorner: {

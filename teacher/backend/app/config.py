@@ -13,6 +13,8 @@ def _parse_cors_allowed_origins(raw_value: str | None) -> list[str]:
         "http://127.0.0.1:3000",
         "http://localhost:8081",
         "http://127.0.0.1:8081",
+        "http://localhost:8082",
+        "http://127.0.0.1:8082",
         "http://localhost:19006",
         "http://127.0.0.1:19006",
     ]

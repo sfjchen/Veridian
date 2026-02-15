@@ -210,8 +210,6 @@ export function TeacherClassroomScreen({ route, navigation }: { route: any; navi
             <FlatList
               data={assignments}
               keyExtractor={(item) => item.id}
-              numColumns={2}
-              columnWrapperStyle={styles.gridRow}
               refreshControl={refreshControl}
               renderItem={({ item, index }) => {
                 const { label, warning } = formatDueDateLabel(item.due_date);
@@ -226,13 +224,15 @@ export function TeacherClassroomScreen({ route, navigation }: { route: any; navi
                     <View style={styles.assignmentCardAccent} />
                     <View style={styles.assignmentCardBody}>
                       <Text style={styles.itemTitle} numberOfLines={2}>{item.title}</Text>
-                      <Text style={[styles.itemSub, warning === "overdue" && styles.dueOverdue, warning === "soon" && styles.dueSoon]} numberOfLines={1}>
-                        {label}
-                      </Text>
-                      {warning === "overdue" && <Text style={styles.badgeOverdue}>Overdue</Text>}
-                      {warning === "soon" && warning !== "overdue" && (
-                        <Text style={styles.badgeSoon}>Due soon</Text>
-                      )}
+                      <View style={styles.assignmentMeta}>
+                        <Text style={[styles.itemSub, warning === "overdue" && styles.dueOverdue, warning === "soon" && styles.dueSoon]} numberOfLines={1}>
+                          {label}
+                        </Text>
+                        {warning === "overdue" && <Text style={styles.badgeOverdue}>Overdue</Text>}
+                        {warning === "soon" && warning !== "overdue" && (
+                          <Text style={styles.badgeSoon}>Due soon</Text>
+                        )}
+                      </View>
                     </View>
                   </TouchableOpacity>
                   </StaggeredFade>
@@ -429,26 +429,26 @@ const styles = StyleSheet.create({
   },
   addButtonText: { color: palette.white, fontSize: 16, fontWeight: "600" },
   skeletonList: { marginTop: 8 },
-  gridRow: { gap: spacing.sm },
   assignmentCard: {
-    flex: 1,
-    minHeight: 120,
+    height: 100,
     backgroundColor: palette.card,
     borderRadius: radius.organic,
     marginBottom: spacing.sm,
     overflow: "hidden",
-    borderTopWidth: 4,
-    borderTopColor: palette.forestCanopy,
   },
   assignmentCardAccent: {
-    height: 0,
+    height: 4,
+    backgroundColor: palette.forestCanopy,
   },
   assignmentCardBody: {
     flex: 1,
+    flexDirection: "row",
     alignItems: "center",
-    justifyContent: "center",
-    padding: spacing.sm,
-    gap: 4,
+    padding: spacing.md,
+    gap: spacing.md,
+  },
+  assignmentMeta: {
+    flex: 1,
   },
   listItem: {
     backgroundColor: palette.card,
@@ -459,7 +459,7 @@ const styles = StyleSheet.create({
     alignItems: "center",
   },
   listItemContent: { flex: 1 },
-  itemTitle: { fontSize: 16, fontWeight: "500", color: palette.textPrimary, textAlign: "center" },
+  itemTitle: { fontSize: 16, fontWeight: "600", color: palette.textPrimary },
   dueRow: { flexDirection: "row", alignItems: "center", gap: 8, marginTop: 4 },
   itemSub: { ...typography.caption, color: palette.textMuted },
   dueOverdue: { color: palette.error },

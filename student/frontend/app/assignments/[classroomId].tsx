@@ -14,8 +14,8 @@ import {
   ScreenContainer,
   SkeletonCard,
 } from "@/components/ui";
-import { TreeIcon } from "@/components/forest";
-import { palette, radius } from "@/constants/palette";
+import { TreeIcon, LeafAccent } from "@/components/forest";
+import { palette, radius, elevation } from "@/constants/palette";
 import { spacing } from "@/constants/spacing";
 import { typography } from "@/constants/typography";
 import { useAssignments } from "@/hooks/useAssignments";
@@ -39,33 +39,45 @@ function formatDueDate(dueDate: string | null): string {
 
 function AssignmentCard({
   assignment,
+  index,
   onPress,
 }: {
   assignment: AssignmentListItem;
+  index: number;
   onPress: () => void;
 }) {
   const dueStr = formatDueDate(assignment.due_date);
+  const even = index % 2 === 0;
   return (
     <Pressable
       style={({ pressed }) => [
         styles.card,
-        pressed && { backgroundColor: palette.rowPressed, opacity: 0.9 },
+        elevation.shadowMd,
+        pressed && { opacity: 0.9 },
       ]}
       onPress={onPress}
       accessibilityRole="button"
       accessibilityLabel={`Open assignment ${assignment.title}`}
     >
-      <View style={styles.cardAccent} />
+      <View style={styles.cardGradient}>
+        <View style={[styles.cardGradientHalf, { backgroundColor: even ? palette.forestCanopy : palette.forestLeaf }]} />
+        <View style={[styles.cardGradientHalf, { backgroundColor: even ? palette.forestLeaf : palette.forestCanopy }]} />
+      </View>
       <View style={styles.cardBody}>
-        <MaterialCommunityIcons name="file-document-outline" size={28} color={palette.primary} />
-        <Text style={styles.cardTitle} numberOfLines={2}>
-          {assignment.title}
-        </Text>
-        {dueStr ? (
-          <Text style={styles.cardDue} numberOfLines={1}>
-            Due {dueStr}
+        <View style={styles.cardLeafCorner}>
+          <LeafAccent size={12} color={even ? palette.forestLeaf : palette.forestCanopy} />
+        </View>
+        <MaterialCommunityIcons name="file-document-outline" size={28} color={even ? palette.forestCanopy : palette.forestLeaf} />
+        <View style={styles.cardTextCol}>
+          <Text style={styles.cardTitle} numberOfLines={2}>
+            {assignment.title}
           </Text>
-        ) : null}
+          {dueStr ? (
+            <Text style={styles.cardDue} numberOfLines={1}>
+              Due {dueStr}
+            </Text>
+          ) : null}
+        </View>
       </View>
     </Pressable>
   );
@@ -162,11 +174,10 @@ export default function AssignmentsScreen() {
         <FlatList
           data={assignments}
           keyExtractor={(item) => item.id}
-          numColumns={2}
-          columnWrapperStyle={styles.gridRow}
-          renderItem={({ item }) => (
+          renderItem={({ item, index }) => (
             <AssignmentCard
               assignment={item}
+              index={index}
               onPress={() =>
                 router.push({
                   pathname: "/document/[id]",
@@ -220,40 +231,49 @@ const styles = StyleSheet.create({
   listContent: {
     padding: spacing.md,
     paddingBottom: spacing.xl,
-  },
-  gridRow: {
     gap: spacing.sm,
   },
   card: {
-    flex: 1,
-    minHeight: 120,
+    height: 100,
     backgroundColor: palette.card,
-    borderRadius: radius.card,
-    marginBottom: spacing.sm,
-    borderWidth: 1,
-    borderColor: palette.border,
+    borderRadius: radius.organic,
     overflow: "hidden",
   },
-  cardAccent: {
+  cardGradient: {
+    flexDirection: "row",
     height: 4,
-    backgroundColor: palette.forestCanopy,
+    borderTopLeftRadius: radius.organic,
+    borderTopRightRadius: radius.organic,
+    overflow: "hidden",
   },
+  cardGradientHalf: { flex: 1 },
   cardBody: {
     flex: 1,
+    flexDirection: "row",
     alignItems: "center",
-    justifyContent: "center",
-    padding: spacing.sm,
-    gap: spacing.xxs,
+    padding: spacing.md,
+    paddingTop: spacing.sm,
+    gap: spacing.md,
+    position: "relative",
+  },
+  cardLeafCorner: {
+    position: "absolute",
+    top: spacing.xs,
+    right: spacing.xs,
+    opacity: 0.5,
+  },
+  cardTextCol: {
+    flex: 1,
   },
   cardTitle: {
     ...typography.body,
-    fontWeight: "500",
+    fontWeight: "600",
     color: palette.textPrimary,
-    textAlign: "center",
   },
   cardDue: {
     ...typography.caption,
     color: palette.textMuted,
+    marginTop: 2,
   },
   skeletonList: { padding: spacing.md },
 });

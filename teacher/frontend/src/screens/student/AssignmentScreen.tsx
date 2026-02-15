@@ -17,10 +17,9 @@ import { FileUploader } from "../../components/FileUploader";
 import { ScreenContainer } from "../../components/ui";
 import { AssignmentDetail, Submission } from "../../types";
 import { alert } from "../../lib/alert";
-import { ScreenContainer } from "../../components/ui/ScreenContainer";
 import { palette, radius } from "../../constants/palette";
-import { spacing } from "../../constants/spacing";
 import { typography } from "../../constants/typography";
+import { spacing } from "../../constants/spacing";
 
 const MAX_ASSIGNMENT_FILE_LENGTH = 100_000;
 

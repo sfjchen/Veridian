@@ -18,6 +18,7 @@ import { useSubmissions } from "../../hooks/useSubmissions";
 import { LatexRenderer } from "../../components/LatexRenderer";
 import { FileUploader } from "../../components/FileUploader";
 import { ProblemEditor } from "../../components/ProblemEditor";
+import { DateField } from "../../components/DateField";
 import { AssignmentConfig, AssignmentDetail, Problem, Submission } from "../../types";
 import { alert } from "../../lib/alert";
 import {
@@ -30,9 +31,8 @@ import {
   Section,
 } from "../../components/ui";
 import { palette, radius } from "../../constants/palette";
+import { typography } from "../../constants/typography";
 import { spacing } from "../../constants/spacing";
-import { AssignmentDetail, Submission } from "../../types";
-import { alert } from "../../lib/alert";
 
 const MAX_CONTENT_LENGTH = 100_000;
 const DATE_PATTERN = /^\d{4}-\d{2}-\d{2}$/;

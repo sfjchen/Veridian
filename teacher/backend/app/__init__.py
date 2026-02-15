@@ -47,6 +47,10 @@ def create_app() -> Flask:
     # Import WebSocket handlers (registers with socketio)
     from .routes import conversion_websocket  # noqa: F401
 
+    @app.route("/health", methods=["GET"])
+    def health() -> tuple[Response, int]:
+        return jsonify(ok=True), 200
+
     @app.errorhandler(404)
     def not_found(e: Exception) -> tuple[Response, int]:
         return jsonify(error="Not found"), 404

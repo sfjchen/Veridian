@@ -4,7 +4,7 @@ import os
 import time
 from functools import lru_cache
 from uuid import uuid4
-from typing import Any, Dict, List, TypedDict
+from typing import Any, Dict, List, Literal, TypedDict
 
 from anthropic import Anthropic
 
@@ -121,7 +121,7 @@ def _chat_context(student_id: str, assignment_id: str, problem_num: int) -> Chat
     return {"student_id": student_id, "assignment_id": assignment_id, "problem_num": problem_num}
 
 
-def _chat_persist_request(context: ChatContext, role: str, content: str) -> ChatMessageInsert:
+def _chat_persist_request(context: ChatContext, role: Literal["student", "assistant"], content: str) -> ChatMessageInsert:
     return {
         "message_id": str(uuid4()),
         "student_id": context["student_id"],

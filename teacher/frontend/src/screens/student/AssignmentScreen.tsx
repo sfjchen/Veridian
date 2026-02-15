@@ -274,7 +274,7 @@ const styles = StyleSheet.create({
     padding: spacing.md,
     marginBottom: spacing.md,
   },
-  pdfNoticeText: { fontSize: 14, color: "#92400E", marginBottom: spacing.xs },
+  pdfNoticeText: { fontSize: 14, color: palette.warningText, marginBottom: spacing.xs },
   pdfPreview: {
     width: "100%",
     minHeight: 220,
@@ -284,12 +284,12 @@ const styles = StyleSheet.create({
     marginBottom: spacing.xs,
   },
   binaryNotice: {
-    backgroundColor: "#EFF6FF",
+    backgroundColor: palette.infoBg,
     borderRadius: radius.button,
     padding: spacing.md,
     marginBottom: spacing.md,
   },
-  binaryNoticeText: { fontSize: 14, color: "#1E3A8A", marginBottom: 8 },
+  binaryNoticeText: { fontSize: 14, color: palette.info, marginBottom: 8 },
   downloadLink: {
     backgroundColor: palette.primary,
     borderRadius: 6,
@@ -304,7 +304,7 @@ const styles = StyleSheet.create({
     padding: 14,
     marginTop: spacing.md,
   },
-  alreadySubmittedText: { color: "#065F46", fontSize: 14, fontWeight: "500" },
+  alreadySubmittedText: { color: palette.successText, fontSize: 14, fontWeight: "500" },
   historySection: { marginTop: spacing.lg, marginBottom: spacing.xl },
   emptyText: { color: palette.textDisabled, marginTop: spacing.xs },
   submissionCard: {

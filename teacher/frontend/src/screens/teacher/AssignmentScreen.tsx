@@ -76,12 +76,6 @@ export function TeacherAssignmentScreen({ route, navigation }: { route: any; nav
     refresh: refreshSubmissions,
   } = useSubmissions(assignmentId);
 
-  const onRefresh = useCallback(async () => {
-    setRefreshing(true);
-    await Promise.all([fetchAssignment(), refreshSubmissions()]);
-    if (mountedRef.current) setRefreshing(false);
-  }, [fetchAssignment, refreshSubmissions]);
-
   const fetchAssignment = useCallback(async () => {
     try {
       const data = await api<AssignmentDetail>(`/assignments/${assignmentId}`);
@@ -134,6 +128,12 @@ export function TeacherAssignmentScreen({ route, navigation }: { route: any; nav
       if (mountedRef.current) setLoading(false);
     }
   }, [assignmentId]);
+
+  const onRefresh = useCallback(async () => {
+    setRefreshing(true);
+    await Promise.all([fetchAssignment(), refreshSubmissions()]);
+    if (mountedRef.current) setRefreshing(false);
+  }, [fetchAssignment, refreshSubmissions]);
 
   const handleConvertPdf = async () => {
     if (!assignment?.assignment_file_download_url) return;
@@ -581,7 +581,7 @@ const styles = StyleSheet.create({
 
   previewBanner: {
     backgroundColor: palette.warningBg,
-    color: "#92400E",
+    color: palette.warningText,
     textAlign: "center",
     padding: 8,
     borderRadius: radius.button,
@@ -645,7 +645,7 @@ const styles = StyleSheet.create({
   convertSection: { marginTop: 24, backgroundColor: palette.successBg, borderRadius: radius.button, padding: 16 },
   convertHint: { fontSize: 14, color: palette.textSecondary, marginBottom: 12 },
   convertButton: {
-    backgroundColor: "#059669",
+    backgroundColor: palette.successButton,
     borderRadius: radius.button,
     padding: 14,
     alignItems: "center",
@@ -668,11 +668,11 @@ const styles = StyleSheet.create({
   },
   binaryNotice: {
     marginTop: 16,
-    backgroundColor: "#EFF6FF",
+    backgroundColor: palette.infoBg,
     borderRadius: radius.button,
     padding: 16,
   },
-  binaryNoticeText: { fontSize: 14, color: "#1E3A8A", marginBottom: 8 },
+  binaryNoticeText: { fontSize: 14, color: palette.info, marginBottom: 8 },
 
   submissionCard: {
     backgroundColor: palette.surface,

@@ -27,13 +27,13 @@ cd student/frontend && vercel deploy --prod
 ### Vercel Env Vars (Project Settings)
 
 **veridian-teacher:**
-- EXPO_PUBLIC_API_URL (production backend URL)
-- EXPO_PUBLIC_STUDENT_API_URL
+- EXPO_PUBLIC_API_URL=https://veridian-teach.onrender.com
+- EXPO_PUBLIC_STUDENT_API_URL=https://veridian-fi00.onrender.com
 - EXPO_PUBLIC_SUPABASE_URL
 - EXPO_PUBLIC_SUPABASE_ANON_KEY
 
 **veridian-student:**
-- EXPO_PUBLIC_BACKEND_URL (production backend URL)
+- EXPO_PUBLIC_BACKEND_URL=https://veridian-fi00.onrender.com
 - EXPO_PUBLIC_SUPABASE_URL
 - EXPO_PUBLIC_SUPABASE_ANON_KEY
 

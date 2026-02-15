@@ -55,20 +55,8 @@ export type InkCanvasProps = {
   onStrokeComplete?: (strokes: Stroke[], completedStrokeId: string) => void;
   style?: object;
   showToolbar?: boolean;
-  showAcceptButton?: boolean;
-  onAccept?: () => void;
   viewShotRef?: React.RefObject<ViewShot | null>;
   onCanvasLayout?: (width: number, height: number) => void;
-  /** Called when a new undoable stroke/erase action is recorded. */
-  onStrokeAction?: () => void;
-  /** Return true to intercept undo (parent handled it). */
-  beforeUndo?: () => boolean;
-  /** Return true to intercept redo (parent handled it). */
-  beforeRedo?: () => boolean;
-  /** External undoable state exists (keeps undo button enabled). */
-  hasExternalUndo?: boolean;
-  /** External redoable state exists (keeps redo button enabled). */
-  hasExternalRedo?: boolean;
   /** Background color for the ViewShot capture (e.g. white for OCR). */
   canvasBackground?: string;
 };
@@ -81,15 +69,8 @@ export function InkCanvas({
   onStrokeComplete,
   style,
   showToolbar = true,
-  showAcceptButton,
-  onAccept,
   viewShotRef: externalViewShotRef,
   onCanvasLayout,
-  onStrokeAction,
-  beforeUndo,
-  beforeRedo,
-  hasExternalUndo,
-  hasExternalRedo,
   canvasBackground,
 }: InkCanvasProps) {
   const [tool, setTool] = useState<Tool>('pen');
@@ -99,8 +80,6 @@ export function InkCanvas({
   const activeStrokeIdRef = useRef<string | null>(null);
   const shiftHeldRef = useRef(false);
   const handlersRef = useRef({ handleUndo: () => {}, handleRedo: () => {}, commitErase: () => {} });
-  const externalRef = useRef({ onStrokeAction, beforeUndo, beforeRedo });
-  externalRef.current = { onStrokeAction, beforeUndo, beforeRedo };
   const internalViewShotRef = useRef<ViewShot | null>(null);
   const viewShotRef = externalViewShotRef ?? internalViewShotRef;
   const strokesRef = useRef<Stroke[]>(strokes);
@@ -114,11 +93,9 @@ export function InkCanvas({
     redoRef.current = [];
     setCanUndo(true);
     setCanRedo(false);
-    externalRef.current.onStrokeAction?.();
   };
 
   const handleUndo = () => {
-    if (externalRef.current.beforeUndo?.()) return;
     if (historyRef.current.length === 0) return;
     redoRef.current = [...redoRef.current, deepCopyStrokes(strokesRef.current)];
     const previous = historyRef.current[historyRef.current.length - 1];
@@ -130,7 +107,6 @@ export function InkCanvas({
   };
 
   const handleRedo = () => {
-    if (externalRef.current.beforeRedo?.()) return;
     if (redoRef.current.length === 0) return;
     historyRef.current = [...historyRef.current, deepCopyStrokes(strokesRef.current)];
     const next = redoRef.current[redoRef.current.length - 1];
@@ -260,7 +236,7 @@ export function InkCanvas({
       window.removeEventListener('keydown', onKeyDown);
       window.removeEventListener('keyup', onKeyUp);
     };
-  }, [tool]);
+  }, [onStrokeComplete, tool]);
 
   const handleWebMouseMove = (e: { nativeEvent: { clientX: number; clientY: number; target?: HTMLElement } }) => {
     if (Platform.OS !== 'web' || !shiftHeldRef.current) return;
@@ -340,46 +316,36 @@ export function InkCanvas({
           <Pressable
             style={({ pressed }) => [
               styles.toolIconButton,
-              !(canUndo || hasExternalUndo) && styles.toolIconButtonDisabled,
-              pressed && (canUndo || hasExternalUndo) && { opacity: 0.7 },
+              !canUndo && styles.toolIconButtonDisabled,
+              pressed && canUndo && { opacity: 0.7 },
             ]}
             onPress={handleUndo}
-            disabled={!(canUndo || hasExternalUndo)}
+            disabled={!canUndo}
             accessibilityRole="button"
             accessibilityLabel="Undo">
             <MaterialCommunityIcons
               name="undo"
               size={20}
-              color={(canUndo || hasExternalUndo) ? palette.primary : palette.textDisabled}
+              color={canUndo ? palette.primary : palette.textDisabled}
             />
           </Pressable>
           <Pressable
             style={({ pressed }) => [
               styles.toolIconButton,
-              !(canRedo || hasExternalRedo) && styles.toolIconButtonDisabled,
-              pressed && (canRedo || hasExternalRedo) && { opacity: 0.7 },
+              !canRedo && styles.toolIconButtonDisabled,
+              pressed && canRedo && { opacity: 0.7 },
             ]}
             onPress={handleRedo}
-            disabled={!(canRedo || hasExternalRedo)}
+            disabled={!canRedo}
             accessibilityRole="button"
             accessibilityLabel="Redo">
             <MaterialCommunityIcons
               name="redo"
               size={20}
-              color={(canRedo || hasExternalRedo) ? palette.primary : palette.textDisabled}
+              color={canRedo ? palette.primary : palette.textDisabled}
             />
           </Pressable>
           <View style={styles.toolbarSpacer} />
-          {showAcceptButton && onAccept && (
-            <Pressable
-              style={({ pressed }) => [styles.acceptButton, pressed && { opacity: 0.7 }]}
-              onPress={onAccept}
-              accessibilityRole="button"
-              accessibilityLabel="Accept suggestion">
-              <MaterialCommunityIcons name="check" size={16} color={palette.white} />
-              <Text style={styles.acceptButtonText}>Accept</Text>
-            </Pressable>
-          )}
           <Pressable
             style={({ pressed }) => [styles.clearButton, pressed && { opacity: 0.7 }]}
             onPress={handleClear}
@@ -461,21 +427,6 @@ const styles = StyleSheet.create({
     opacity: 0.5,
   },
   toolbarSpacer: { flex: 1 },
-  acceptButton: {
-    backgroundColor: palette.primary,
-    borderRadius: radius.button,
-    paddingVertical: 10,
-    paddingHorizontal: spacing.sm,
-    flexDirection: "row",
-    alignItems: "center",
-    gap: spacing.xxs,
-    marginRight: spacing.xs,
-  },
-  acceptButtonText: {
-    ...typography.caption,
-    color: palette.textOnPrimary,
-    fontWeight: "600",
-  },
   clearButton: {
     backgroundColor: palette.card,
     borderRadius: radius.button,

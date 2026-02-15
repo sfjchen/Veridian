@@ -1,7 +1,7 @@
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { MaterialCommunityIcons } from '@expo/vector-icons';
 import { useLocalSearchParams, useRouter } from 'expo-router';
-import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import { useCallback, useEffect, useRef, useState } from 'react';
 import { Pressable, SafeAreaView, StyleSheet, Text, View } from 'react-native';
 import ViewShot from 'react-native-view-shot';
 
@@ -12,10 +12,7 @@ import { spacing } from "@/constants/spacing";
 import { typography } from "@/constants/typography";
 import { useAuth } from '@/hooks/useAuth';
 import { useNotes, strokeKeyForNote } from '@/hooks/useNotes';
-import { useStrokeAutocomplete, type AutocompleteState } from '@/hooks/useStrokeAutocomplete';
-import type { BBox } from '@/lib/line-grouping';
-
-type AcceptedSuggestion = { text: string; lineBBox: BBox; lineKey: string };
+import { useStrokeAutocomplete } from '@/hooks/useStrokeAutocomplete';
 
 export default function NoteScreen() {
   const { id } = useLocalSearchParams<{ id: string }>();
@@ -60,88 +57,7 @@ export default function NoteScreen() {
   }, [STROKES_KEY, strokesLoaded, strokes]);
 
   // --- Autocomplete ---
-  const [accepted, setAccepted] = useState<AcceptedSuggestion[]>([]);
-  const [completedLineKeys, setCompletedLineKeys] = useState<Set<string>>(new Set());
-
-  const actionOrderRef = useRef<('stroke' | 'accept')[]>([]);
-  const redoOrderRef = useRef<('stroke' | 'accept')[]>([]);
-  const acceptRedoStackRef = useRef<AcceptedSuggestion[]>([]);
-  const [, forceUpdate] = useState(0);
-
-  const hasAcceptUndo = actionOrderRef.current.some((a) => a === 'accept');
-  const hasAcceptRedo = redoOrderRef.current.some((a) => a === 'accept');
-
-  const { onStrokeComplete, autocomplete, dismiss: dismissAutocomplete } = useStrokeAutocomplete({
-    canvasDims,
-    completedLineKeys,
-  });
-
-  const handleStrokeAction = useCallback(() => {
-    actionOrderRef.current.push('stroke');
-    redoOrderRef.current = [];
-    acceptRedoStackRef.current = [];
-    forceUpdate((v) => v + 1);
-  }, []);
-
-  const handleAccept = useCallback(() => {
-    if (!autocomplete.suggestion || !autocomplete.targetLineBBox || !autocomplete.targetLineKey) return;
-    const item: AcceptedSuggestion = {
-      text: autocomplete.suggestion,
-      lineBBox: autocomplete.targetLineBBox,
-      lineKey: autocomplete.targetLineKey,
-    };
-    setAccepted((prev) => [...prev, item]);
-    setCompletedLineKeys((prev) => { const next = new Set(prev); next.add(item.lineKey); return next; });
-    actionOrderRef.current.push('accept');
-    redoOrderRef.current = [];
-    acceptRedoStackRef.current = [];
-    dismissAutocomplete();
-    forceUpdate((v) => v + 1);
-  }, [autocomplete, dismissAutocomplete]);
-
-  const beforeUndo = useCallback((): boolean => {
-    const order = actionOrderRef.current;
-    if (order.length === 0) return false;
-    const last = order[order.length - 1];
-    if (last !== 'accept') {
-      order.pop();
-      redoOrderRef.current.push('stroke');
-      return false;
-    }
-    order.pop();
-    redoOrderRef.current.push('accept');
-    setAccepted((prev) => {
-      const list = [...prev];
-      const removed = list.pop();
-      if (removed) {
-        acceptRedoStackRef.current.push(removed);
-        setCompletedLineKeys((keys) => { const next = new Set(keys); next.delete(removed.lineKey); return next; });
-      }
-      return list;
-    });
-    forceUpdate((v) => v + 1);
-    return true;
-  }, []);
-
-  const beforeRedo = useCallback((): boolean => {
-    const redo = redoOrderRef.current;
-    if (redo.length === 0) return false;
-    const last = redo[redo.length - 1];
-    if (last !== 'accept') {
-      redo.pop();
-      actionOrderRef.current.push('stroke');
-      return false;
-    }
-    redo.pop();
-    actionOrderRef.current.push('accept');
-    const restored = acceptRedoStackRef.current.pop();
-    if (restored) {
-      setAccepted((prev) => [...prev, restored]);
-      setCompletedLineKeys((keys) => { const next = new Set(keys); next.add(restored.lineKey); return next; });
-    }
-    forceUpdate((v) => v + 1);
-    return true;
-  }, []);
+  const { onStrokeComplete, autocomplete, dismiss: dismissAutocomplete } = useStrokeAutocomplete({ canvasDims });
 
   const handleStrokesChange = useCallback((s: Stroke[]) => {
     setStrokes(s);
@@ -184,21 +100,11 @@ export default function NoteScreen() {
           onStrokeComplete={onStrokeComplete}
           onCanvasLayout={(w, h) => setCanvasDims({ w, h })}
           showToolbar
-          showAcceptButton={!!autocomplete.suggestion}
-          onAccept={handleAccept}
-          onStrokeAction={handleStrokeAction}
-          beforeUndo={beforeUndo}
-          beforeRedo={beforeRedo}
-          hasExternalUndo={hasAcceptUndo}
-          hasExternalRedo={hasAcceptRedo}
           style={styles.canvas}
         />
         {autocomplete.suggestion && autocomplete.targetLineBBox && (
           <SuggestionGhost text={autocomplete.suggestion} lineBBox={autocomplete.targetLineBBox} />
         )}
-        {accepted.map((a, i) => (
-          <SuggestionGhost key={i} text={a.text} lineBBox={a.lineBBox} opacity={0.85} color={palette.inkStroke} />
-        ))}
       </View>
     </SafeAreaView>
   );

@@ -30,7 +30,6 @@ from assignment_service import (
     can_student_access_assignment,
     get_assignment,
     get_problem,
-    get_problems,
     get_resolved_config,
 )
 from auth_middleware import require_auth, require_auth_or_sample, require_auth_or_sample_chat
@@ -1511,13 +1510,18 @@ def get_assignment_endpoint(assignment_id: str) -> Any:
 
 
 @app.get("/assignments/<assignment_id>/problems")
+@require_auth
 def get_assignment_problems(assignment_id: str) -> Any:
     if not _is_valid_uuid(assignment_id):
         return jsonify({"error": "Invalid assignment_id format."}), 400
-    try:
-        problems = get_problems(assignment_id)
-    except ValueError as exc:
-        return jsonify({"error": str(exc)}), 404
+    assignment = get_assignment(assignment_id)
+    if assignment is None:
+        return jsonify({"error": "Assignment not found."}), 404
+    if not can_student_access_assignment(assignment_id, g.user_id):
+        return jsonify({"error": "Access denied"}), 403
+    problems = assignment.get("problems", [])
+    if not isinstance(problems, list):
+        problems = []
     return jsonify({"problems": problems})
 
 

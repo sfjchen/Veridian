@@ -131,6 +131,57 @@ class AssignmentConfigContractTests(unittest.TestCase):
         self.assertIn("assignment", payload)
         self.assertEqual(payload["assignment"]["resolved_config"]["analysis_trigger"], "auto_page_change")
 
+    def test_get_assignment_problems_requires_auth(self) -> None:
+        response = self.client.get("/assignments/11111111-1111-1111-1111-111111111111/problems")
+        self.assertEqual(response.status_code, 401)
+
+    def test_get_assignment_problems_forbids_non_member(self) -> None:
+        with (
+            patch("auth_middleware.get_supabase_auth_client", return_value=_auth_client()),
+            patch.object(
+                self.get_coords,
+                "get_assignment",
+                return_value={
+                    "id": "11111111-1111-1111-1111-111111111111",
+                    "classroom_id": "classroom-1",
+                    "title": "A1",
+                    "problems": [{"num": 1, "statement_tex": "x+1=2"}],
+                },
+            ),
+            patch.object(self.get_coords, "can_student_access_assignment", return_value=False),
+        ):
+            response = self.client.get(
+                "/assignments/11111111-1111-1111-1111-111111111111/problems",
+                headers={"Authorization": "Bearer token"},
+            )
+
+        self.assertEqual(response.status_code, 403)
+        self.assertEqual(response.get_json().get("error"), "Access denied")
+
+    def test_get_assignment_problems_returns_for_member(self) -> None:
+        expected_problems = [{"num": 1, "statement_tex": "x+1=2"}, {"num": 2, "statement_tex": "x+2=4"}]
+        with (
+            patch("auth_middleware.get_supabase_auth_client", return_value=_auth_client()),
+            patch.object(
+                self.get_coords,
+                "get_assignment",
+                return_value={
+                    "id": "11111111-1111-1111-1111-111111111111",
+                    "classroom_id": "classroom-1",
+                    "title": "A1",
+                    "problems": expected_problems,
+                },
+            ),
+            patch.object(self.get_coords, "can_student_access_assignment", return_value=True),
+        ):
+            response = self.client.get(
+                "/assignments/11111111-1111-1111-1111-111111111111/problems",
+                headers={"Authorization": "Bearer token"},
+            )
+
+        self.assertEqual(response.status_code, 200)
+        self.assertEqual(response.get_json().get("problems"), expected_problems)
+
 
 if __name__ == "__main__":
     unittest.main()

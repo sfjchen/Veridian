@@ -69,6 +69,47 @@ function sanitizeContent(raw: string): string {
 
 type ViewMode = "teacher" | "student";
 
+type FilePreviewState = {
+  isPdf: boolean;
+  pdfPreviewUri: string | null;
+  imagePreviewUrl: string | null;
+  assignmentContent: string | null;
+  binaryDownloadUrl: string | null;
+};
+
+async function processAssignmentFile(url: string, mountedRef: React.MutableRefObject<boolean>): Promise<FilePreviewState | null> {
+  const resp = await fetch(url);
+  if (!mountedRef.current || !resp.ok) return null;
+
+  const blob = await resp.blob();
+  const bytes = new Uint8Array(await blob.arrayBuffer());
+  if (!mountedRef.current) return null;
+
+  const contentType = resp.headers.get("content-type") ?? "";
+
+  if (looksLikePdf(contentType, bytes)) {
+    let pdfPreviewUri = null;
+    try {
+      pdfPreviewUri = await createPdfPreviewDataUri(blob);
+    } catch (previewError) {
+      console.error("Failed to generate PDF preview image:", previewError);
+    }
+    return { isPdf: true, pdfPreviewUri, imagePreviewUrl: null, assignmentContent: null, binaryDownloadUrl: null };
+  }
+
+  if (looksLikeImage(contentType, bytes)) {
+    return { isPdf: false, pdfPreviewUri: null, imagePreviewUrl: url, assignmentContent: null, binaryDownloadUrl: null };
+  }
+
+  if (looksLikeText(contentType, bytes)) {
+    const text = await blob.text();
+    if (!mountedRef.current) return null;
+    return { isPdf: false, pdfPreviewUri: null, imagePreviewUrl: null, assignmentContent: sanitizeContent(text), binaryDownloadUrl: null };
+  }
+
+  return { isPdf: false, pdfPreviewUri: null, imagePreviewUrl: null, assignmentContent: null, binaryDownloadUrl: url };
+}
+
 export function TeacherAssignmentScreen({ route, navigation }: { route: any; navigation: any }) {
   const { assignmentId } = route.params;
   const mountedRef = useRef(true);
@@ -111,6 +152,7 @@ export function TeacherAssignmentScreen({ route, navigation }: { route: any; nav
     try {
       const data = await api<AssignmentDetail>(`/assignments/${assignmentId}`);
       if (!mountedRef.current) return;
+
       setAssignment(data);
       setEditTitle(data.title);
       setEditDueDate(data.due_date ? data.due_date.split("T")[0] : "");
@@ -164,8 +206,9 @@ export function TeacherAssignmentScreen({ route, navigation }: { route: any; nav
           console.warn("Could not load assignment file");
         }
       }
-    } catch (e: any) {
-      if (mountedRef.current) alert("Error", e.message);
+    } catch (e) {
+      const message = e instanceof Error ? e.message : "Failed to load assignment";
+      if (mountedRef.current) alert("Error", message);
     } finally {
       if (mountedRef.current) setLoading(false);
     }
@@ -211,8 +254,9 @@ export function TeacherAssignmentScreen({ route, navigation }: { route: any; nav
       setPdfPreviewUri(null);
       setImagePreviewUrl(null);
       setBinaryDownloadUrl(null);
-    } catch (e: any) {
-      alert("Conversion Error", e.message);
+    } catch (e) {
+      const message = e instanceof Error ? e.message : "Conversion failed";
+      alert("Conversion Error", message);
     } finally {
       setConverting(false);
     }
@@ -247,8 +291,9 @@ export function TeacherAssignmentScreen({ route, navigation }: { route: any; nav
       setAssignment((prev) => prev ? { ...prev, ...updated } : updated);
       setEditing(false);
       navigation.setOptions({ title: updated.title });
-    } catch (e: any) {
-      alert("Error", e.message);
+    } catch (e) {
+      const message = e instanceof Error ? e.message : "Failed to save";
+      alert("Error", message);
     } finally {
       setSaving(false);
     }
@@ -262,8 +307,9 @@ export function TeacherAssignmentScreen({ route, navigation }: { route: any; nav
         answer_key_upload_url?: string;
       }>(`/assignments/${assignmentId}/reupload`, { method: "POST" });
       setReuploadUrls(urls);
-    } catch (e: any) {
-      alert("Error", e.message);
+    } catch (e) {
+      const message = e instanceof Error ? e.message : "Failed to prepare re-upload";
+      alert("Error", message);
     } finally {
       setReuploading(false);
     }
@@ -610,46 +656,61 @@ export function TeacherAssignmentScreen({ route, navigation }: { route: any; nav
               <SkeletonCard />
             </View>
           ) : submissionsError ? (
-            <Text style={styles.errorText}>{submissionsError}</Text>
+            <ErrorState message={submissionsError} onRetry={refreshSubmissions} />
           ) : submissions.length === 0 ? (
-            <View style={styles.emptySubmissions}>
-              <Text style={styles.emptySubmissionsTitle}>No submissions yet</Text>
-              <Text style={styles.emptySubmissionsSubtitle}>
-                Students’ work will appear here after they submit.
-              </Text>
-            </View>
+            <EmptyState
+              title="No submissions yet"
+              description="Students’ work will appear here after they submit."
+            />
           ) : (
-            submissions.map((submission: Submission) => (
-              <View key={submission.id} style={styles.submissionCard}>
-                <View style={styles.listItemContent}>
-                  <Text style={styles.itemTitle}>
-                    {submission.student_display_name ?? `Student ${submission.student_id.slice(0, 8)}`}
-                  </Text>
-                  <Text style={styles.itemSub}>
-                    Submitted {new Date(submission.submitted_at).toLocaleString("en-US", {
-                      year: "numeric",
-                      month: "short",
-                      day: "numeric",
-                      hour: "numeric",
-                      minute: "2-digit",
-                      timeZone: "UTC",
-                    })}
-                  </Text>
+            submissions.map((submission: Submission) => {
+              const displayName = submission.student_display_name ?? `Student ${submission.student_id.slice(0, 8)}`;
+              return (
+                <View key={submission.id} style={styles.submissionCard}>
+                  <View style={styles.listItemContent}>
+                    <Text style={styles.itemTitle}>{displayName}</Text>
+                    <Text style={styles.itemSub}>
+                      Submitted {new Date(submission.submitted_at).toLocaleString("en-US", {
+                        year: "numeric",
+                        month: "short",
+                        day: "numeric",
+                        hour: "numeric",
+                        minute: "2-digit",
+                        timeZone: "UTC",
+                      })}
+                    </Text>
+                  </View>
+                  <View style={styles.submissionActions}>
+                    {assignment.classroom_id && (
+                      <TouchableOpacity
+                        style={styles.analysisLink}
+                        onPress={() => navigation.navigate("StudentMistakeDetail", {
+                          classroomId: assignment.classroom_id,
+                          studentId: submission.student_id,
+                          displayName,
+                        })}
+                        accessibilityRole="button"
+                        accessibilityLabel={`View analysis for ${displayName}`}
+                      >
+                        <Text style={styles.analysisLinkText}>View analysis</Text>
+                      </TouchableOpacity>
+                    )}
+                    {submission.download_url ? (
+                      <TouchableOpacity
+                        style={styles.downloadButton}
+                        onPress={() => handleOpenFile(submission.download_url!)}
+                        accessibilityRole="button"
+                        accessibilityLabel={`Open submission by ${displayName}`}
+                      >
+                        <Text style={styles.downloadButtonText}>Open</Text>
+                      </TouchableOpacity>
+                    ) : (
+                      <Text style={styles.noFile}>Unavailable</Text>
+                    )}
+                  </View>
                 </View>
-                {submission.download_url ? (
-                  <TouchableOpacity
-                    style={styles.downloadButton}
-                    onPress={() => handleOpenFile(submission.download_url!)}
-                    accessibilityRole="button"
-                    accessibilityLabel={`Open submission by ${submission.student_display_name ?? "student"}`}
-                  >
-                    <Text style={styles.downloadButtonText}>Open</Text>
-                  </TouchableOpacity>
-                ) : (
-                  <Text style={styles.noFile}>Unavailable</Text>
-                )}
-              </View>
-            ))
+              );
+            })
           )}
 
         </View>
@@ -780,17 +841,16 @@ const styles = StyleSheet.create({
     borderRadius: radius.button,
     padding: 14,
     marginBottom: 8,
-    flexDirection: "row",
-    alignItems: "center",
-    justifyContent: "space-between",
+    flexDirection: "row" as const,
+    alignItems: "center" as const,
+    justifyContent: "space-between" as const,
   },
-  listItemContent: { flex: 1 },
-  itemTitle: { fontSize: 16, fontWeight: "500", color: palette.textPrimary },
+  listItemContent: { flex: 1, marginRight: spacing.sm },
+  itemTitle: { fontSize: 16, fontWeight: "500" as const, color: palette.textPrimary },
   itemSub: { ...typography.caption, color: palette.textMuted, marginTop: 4 },
-
-  emptySubmissions: { paddingVertical: 24, paddingHorizontal: 16 },
-  emptySubmissionsTitle: { fontSize: 16, fontWeight: "600", color: palette.textSecondary, marginBottom: 8 },
-  emptySubmissionsSubtitle: { fontSize: 14, color: palette.textMuted },
+  submissionActions: { flexDirection: "row" as const, alignItems: "center" as const, gap: spacing.sm },
+  analysisLink: { paddingVertical: 6, paddingHorizontal: 10 },
+  analysisLinkText: { ...typography.caption, fontWeight: "600" as const, color: palette.primary },
 
   configFallbackHint: {
     ...typography.caption,

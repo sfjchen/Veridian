@@ -40,13 +40,20 @@ function buildHtml(content: string, fontSize: number, color: string): string {
     ],
     throwOnError: false,
   });
-  var h = document.body.scrollHeight;
-  window.ReactNativeWebView && window.ReactNativeWebView.postMessage(JSON.stringify({ height: h }));
+  function sendHeight() {
+    var h = document.body.scrollHeight;
+    if (window.ReactNativeWebView) window.ReactNativeWebView.postMessage(JSON.stringify({ height: h }));
+    else if (window.parent) window.parent.postMessage({ height: h }, '*');
+  }
+  sendHeight();
+  new ResizeObserver(sendHeight).observe(document.body);
 </script>
 </body></html>`;
 }
 
-function WebInlineLatex({ html, height }: { html: string; height: number }) {
+function WebInlineLatex({ html }: { html: string }) {
+  const [height, setHeight] = React.useState(60);
+  const iframeRef = React.useRef<HTMLIFrameElement>(null);
   const blobUrl = useMemo(() => {
     const blob = new Blob([html], { type: 'text/html' });
     return URL.createObjectURL(blob);
@@ -54,11 +61,24 @@ function WebInlineLatex({ html, height }: { html: string; height: number }) {
 
   React.useEffect(() => () => URL.revokeObjectURL(blobUrl), [blobUrl]);
 
+  React.useEffect(() => {
+    const handler = (e: MessageEvent) => {
+      if (e.source !== iframeRef.current?.contentWindow) return;
+      try {
+        const data = typeof e.data === 'string' ? JSON.parse(e.data) : e.data;
+        if (data.height) setHeight(Math.ceil(data.height) + 4);
+      } catch {}
+    };
+    window.addEventListener('message', handler);
+    return () => window.removeEventListener('message', handler);
+  }, []);
+
   return (
     <View style={styles.wrap}>
       <iframe
+        ref={iframeRef}
         src={blobUrl}
-        style={{ width: '100%', height, border: 'none', overflow: 'hidden' } as any}
+        style={{ width: '100%', height, border: 'none' } as any}
         sandbox="allow-scripts allow-same-origin"
         title="LaTeX content"
       />
@@ -92,7 +112,7 @@ function NativeInlineLatex({ html }: { html: string }) {
 export function InlineLatex({ content, fontSize = 14, color = palette.textPrimary }: InlineLatexProps) {
   const html = useMemo(() => buildHtml(content, fontSize, color), [content, fontSize, color]);
 
-  if (Platform.OS === 'web') return <WebInlineLatex html={html} height={60} />;
+  if (Platform.OS === 'web') return <WebInlineLatex html={html} />;
   return <NativeInlineLatex html={html} />;
 }
 
@@ -102,6 +122,6 @@ export function hasLatex(text: string): boolean {
 }
 
 const styles = StyleSheet.create({
-  wrap: { overflow: 'hidden', minHeight: 30 },
+  wrap: { minHeight: 30 },
   webView: { backgroundColor: 'transparent' },
 });

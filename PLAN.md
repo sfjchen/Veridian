@@ -52,6 +52,18 @@ Teacher UI/UX polish and PLAN.md P1/P2 items. Broken into five PRs; status below
 - **A4**: Submission review screen (Card, Badge, Skeleton, ErrorState); bulk actions with confirmation and toast.
 - **A5**: InvalidRoleScreen tokens + Button; loading uses palette.primary; toasts via ToastContext.
 
+### Track B: Student UI/UX Overhaul
+
+Student UI/UX foundation matching teacher design system. Parallel to Track A but for student frontend. Broken into two PRs.
+
+| PR   | Title                          | Status   |
+|------|--------------------------------|----------|
+| **B1** | Veridian design tokens (student) | Done    |
+| **B2** | UI primitives (student)        | Done    |
+
+- **B1**: Design tokens mirroring teacher system — `constants/palette.ts` (colors, radii, elevation), `constants/typography.ts`, `constants/spacing.ts`, `constants/motion.ts`, `constants/theme.ts` (unified export).
+- **B2**: UI primitives — `components/ui/ScreenContainer.tsx`, `Button.tsx`, `Card.tsx`, `Input.tsx`, `EmptyState.tsx`, `ErrorState.tsx`, `Skeleton.tsx` (+ index).
+
 ---
 
 ## Student Side (student/backend/, student/frontend/)

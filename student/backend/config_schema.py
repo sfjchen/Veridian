@@ -21,6 +21,7 @@ HARDCODED_DEFAULTS: dict[str, Any] = {
     "notification_style": "toast",
     "chat_enabled": True,
     "hint_level": "guided",
+    "student_mistake_visibility": False,
 }
 
 VALID_VALUES: dict[str, list[str]] = {
@@ -30,7 +31,7 @@ VALID_VALUES: dict[str, list[str]] = {
     "hint_level": ["guided", "minimal", "detailed"],
 }
 
-_BOOL_FIELDS = {"check_button_visible", "chat_enabled"}
+_BOOL_FIELDS = {"check_button_visible", "chat_enabled", "student_mistake_visibility"}
 _INT_FIELDS = {"max_dots_shown", "analysis_debounce_seconds"}
 _ENUM_FIELDS = set(VALID_VALUES.keys())
 

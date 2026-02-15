@@ -110,10 +110,10 @@ def _serialize_file(file_record: dict[str, Any]) -> dict[str, Any]:
     storage_path = str(file_copy["storage_path"])
     try:
         file_copy["download_url"] = generate_download_url(CORPUS_BUCKET, storage_path)
-    except Exception:
+    except Exception as exc:
         log.exception("Failed to generate corpus download URL for %s", storage_path)
         file_copy["download_url"] = None
-        file_copy["download_url_error"] = str(e)
+        file_copy["download_url_error"] = str(exc)
     return file_copy
 
 

@@ -67,23 +67,16 @@ def _format_context_block(context: Dict[str, Any]) -> str:
     return "\n\n".join(parts) if parts else "No problem context available."
 
 
-class ChatInput(TypedDict):
-    history: List[Dict[str, Any]]
-    context: Dict[str, Any]
-    message: str
-
-
-def _build_messages(chat_input: ChatInput, limit: int = 50) -> List[Dict[str, str]]:
+def _build_messages(history: List[Dict[str, Any]], context: Dict[str, Any], message: str, limit: int = 50) -> List[Dict[str, str]]:
     messages: List[Dict[str, str]] = []
-    context_block = _format_context_block(chat_input["context"])
+    context_block = _format_context_block(context)
     messages.append({"role": "user", "content": f"[Context for this problem]\n{context_block}"})
     messages.append({"role": "assistant", "content": "I've reviewed the problem and the student's work. I'm ready to help."})
-    history = chat_input["history"]
     recent = history[-limit:] if len(history) > limit else history
     for entry in recent:
         role = "user" if entry["role"] == "student" else "assistant"
         messages.append({"role": role, "content": entry["content"]})
-    messages.append({"role": "user", "content": chat_input["message"]})
+    messages.append({"role": "user", "content": message})
     return messages
 
 
@@ -165,8 +158,7 @@ def generate_chat_response(student_id: str, assignment_id: str, problem_num: int
     context = build_chat_context(student_id, assignment_id, problem_num)
     chat_ctx = _chat_context(student_id, assignment_id, problem_num)
     _save_message_with_retry(_chat_persist_request(chat_ctx, "student", message))
-    chat_input: ChatInput = {"history": history, "context": context, "message": message}
-    messages = _build_messages(chat_input)
+    messages = _build_messages(history, context, message)
     mistake_context = _fetch_mistake_context(student_id, assignment_id)
     response_text = _call_claude(messages, extra_context=mistake_context)
     _save_message_with_retry(_chat_persist_request(chat_ctx, "assistant", response_text))

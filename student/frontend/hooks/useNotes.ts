@@ -27,7 +27,7 @@ export function useNotes(userId: string | null) {
       const raw = await AsyncStorage.getItem(storageKey);
       setNotes(raw ? JSON.parse(raw) : []);
     } catch (e) {
-      if (__DEV__) console.warn('[useNotes] Failed to load notes:', e);
+      console.warn('[useNotes] Failed to load notes:', e);
       setNotes([]);
     } finally {
       setLoading(false);
@@ -53,7 +53,7 @@ export function useNotes(userId: string | null) {
     await save(notes.filter((n) => n.id !== id));
     if (userId) {
       await AsyncStorage.removeItem(strokeKeyForNote(userId, id)).catch((e) => {
-        if (__DEV__) console.warn('[useNotes] Failed to remove strokes for note:', id, e);
+        console.warn('[useNotes] Failed to remove strokes for note:', id, e);
       });
     }
   }, [notes, save, userId]);

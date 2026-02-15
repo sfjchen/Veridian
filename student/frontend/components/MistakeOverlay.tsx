@@ -8,6 +8,8 @@ import {
   type LayoutChangeEvent,
 } from 'react-native';
 
+import { palette, radius } from '@/constants/palette';
+import { spacing, typography } from '@/constants/theme';
 import type { Mistake } from '@/lib/api';
 import type { DotThreshold } from '@/lib/teacherConfig';
 
@@ -230,7 +232,6 @@ function HintBubble({
 }
 
 const styles = StyleSheet.create({
-  // Dot overlay styles
   overlay: {
     ...StyleSheet.absoluteFillObject,
   },
@@ -242,7 +243,7 @@ const styles = StyleSheet.create({
     width: DOT_RADIUS * 2,
     height: DOT_RADIUS * 2,
     borderRadius: DOT_RADIUS,
-    backgroundColor: '#ef4444',
+    backgroundColor: palette.error,
     shadowColor: '#000',
     shadowOpacity: 0.25,
     shadowRadius: 4,
@@ -251,36 +252,34 @@ const styles = StyleSheet.create({
   },
   bubble: {
     position: 'absolute',
-    bottom: DOT_RADIUS * 2 + 8,
+    bottom: DOT_RADIUS * 2 + spacing.xs,
     left: -80,
     width: 180,
-    backgroundColor: 'rgba(17, 24, 39, 0.92)',
-    borderRadius: 8,
-    paddingHorizontal: 12,
-    paddingVertical: 8,
+    backgroundColor: palette.textPrimary,
+    borderRadius: radius.button,
+    paddingHorizontal: spacing.sm,
+    paddingVertical: spacing.xs,
     zIndex: 20,
   },
   bubbleText: {
-    color: '#ffffff',
-    fontSize: 13,
-    lineHeight: 18,
+    ...typography.bodySmall,
+    color: palette.card,
   },
   askLink: {
-    marginTop: 6,
-    paddingTop: 6,
+    marginTop: spacing.xs,
+    paddingTop: spacing.xs,
     borderTopWidth: StyleSheet.hairlineWidth,
-    borderTopColor: 'rgba(255, 255, 255, 0.3)',
+    borderTopColor: palette.border,
   },
   askLinkText: {
-    color: '#93c5fd',
-    fontSize: 12,
+    ...typography.caption,
     fontWeight: '600',
+    color: palette.primaryMutedTint,
   },
-  // Box overlay styles
   box: {
     position: 'absolute',
     borderWidth: 2,
-    borderColor: '#dc2626',
-    backgroundColor: 'rgba(220, 38, 38, 0.15)',
+    borderColor: palette.error,
+    backgroundColor: palette.errorBg,
   },
 });

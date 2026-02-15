@@ -1,22 +1,27 @@
-import { StyleSheet, Text, View } from "react-native";
-import { palette } from "@/constants/palette";
-import { spacing } from "@/constants/spacing";
-import { typography } from "@/constants/typography";
-import { Button } from "./Button";
+import { Pressable, StyleSheet, Text, View } from 'react-native';
+import { palette, radius } from '@/constants/palette';
+import { spacing, typography } from '@/constants/theme';
 
-interface ErrorStateProps {
+export interface ErrorStateProps {
   message: string;
   onRetry?: () => void;
 }
+
+const MIN_TOUCH = 44;
 
 export function ErrorState({ message, onRetry }: ErrorStateProps) {
   return (
     <View style={styles.container}>
       <Text style={styles.message}>{message}</Text>
       {onRetry ? (
-        <Button onPress={onRetry} variant="primary" size="sm" style={styles.button}>
-          Retry
-        </Button>
+        <Pressable
+          style={({ pressed }) => [styles.button, pressed && styles.buttonPressed]}
+          onPress={onRetry}
+          accessibilityRole="button"
+          accessibilityLabel="Retry"
+        >
+          <Text style={styles.buttonText}>Retry</Text>
+        </Pressable>
       ) : null}
     </View>
   );
@@ -24,14 +29,26 @@ export function ErrorState({ message, onRetry }: ErrorStateProps) {
 
 const styles = StyleSheet.create({
   container: {
+    flex: 1,
+    justifyContent: 'center',
+    alignItems: 'center',
     padding: spacing.lg,
-    alignItems: "center",
   },
   message: {
     ...typography.body,
     color: palette.error,
-    textAlign: "center",
+    textAlign: 'center',
     marginBottom: spacing.sm,
   },
-  button: { marginTop: spacing.xs },
+  button: {
+    minHeight: MIN_TOUCH,
+    paddingVertical: spacing.sm,
+    paddingHorizontal: spacing.md,
+    borderRadius: radius.button,
+    backgroundColor: palette.primary,
+    justifyContent: 'center',
+    marginTop: spacing.xs,
+  },
+  buttonPressed: { opacity: 0.9 },
+  buttonText: { ...typography.buttonSmall, color: palette.textOnPrimary },
 });

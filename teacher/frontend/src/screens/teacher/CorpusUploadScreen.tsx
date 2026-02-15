@@ -82,7 +82,7 @@ export function CorpusUploadScreen({ route, navigation }: { route: any; navigati
     try {
       const result = await api<{ upload_url: string }>(`/classrooms/${classroomId}/corpus`, {
         method: "POST",
-        body: { display_name: displayName.trim(), file_type: fileType },
+        body: { display_name: displayName.trim(), file_type: fileType, has_file: true },
       });
 
       await uploadFile({
@@ -118,7 +118,7 @@ export function CorpusUploadScreen({ route, navigation }: { route: any; navigati
           />
         </Section>
 
-        <Button onPress={handleUpload} loading={uploading} disabled={uploading} fullWidth>
+        <Button onPress={handleUpload} loading={uploading} disabled={uploading} fullWidth accessibilityLabel="Upload file">
           Upload File
         </Button>
       </View>

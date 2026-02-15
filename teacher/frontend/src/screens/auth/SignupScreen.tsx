@@ -1,5 +1,5 @@
 import React, { useState } from "react";
-import { KeyboardAvoidingView, Platform, ScrollView, StyleSheet, Text, TouchableOpacity } from "react-native";
+import { ScrollView, StyleSheet, Text, TouchableOpacity } from "react-native";
 import { NativeStackNavigationProp } from "@react-navigation/native-stack";
 import { useAuth } from "../../stores/auth";
 import { UserRole } from "../../types";
@@ -58,89 +58,68 @@ export function SignupScreen({ navigation }: SignupScreenProps) {
 
   return (
     <ScreenContainer maxWidth="form">
-      <KeyboardAvoidingView
-        style={styles.keyboardWrap}
-        behavior={Platform.OS === "ios" ? "padding" : undefined}
-        keyboardVerticalOffset={Platform.OS === "ios" ? 60 : 0}
+      <ScrollView
+        contentContainerStyle={styles.scroll}
+        keyboardShouldPersistTaps="handled"
+        showsVerticalScrollIndicator={false}
       >
-        <ScrollView
-          contentContainerStyle={styles.scroll}
-          keyboardShouldPersistTaps="handled"
-          showsVerticalScrollIndicator={false}
-        >
-          <Card style={StyleSheet.flatten([styles.card, elevation.shadowMd])}>
-            <Text style={styles.wordmark}>Veridian</Text>
-            <Text style={styles.tagline}>Math, clearer.</Text>
-            <Text style={styles.title}>Create Account</Text>
-            <Input
-              placeholder="Display Name"
-              value={displayName}
-              onChangeText={setDisplayName}
-              autoComplete="name"
-              accessibilityLabel="Display name"
-            />
-            <Input
-              placeholder="Email"
-              value={email}
-              onChangeText={setEmail}
-              autoCapitalize="none"
-              keyboardType="email-address"
-              autoComplete="email"
-              accessibilityLabel="Email"
-            />
-            <Input
-              placeholder="Password"
-              value={password}
-              onChangeText={setPassword}
-              secureTextEntry
-              autoComplete="password-new"
-              accessibilityLabel="Password"
-            />
-            <Text style={styles.roleLabel}>I am a:</Text>
-            <Row gap={spacing.sm} style={styles.roleRow}>
-              <TouchableOpacity
-                style={[styles.roleButton, role === "student" && styles.roleActive]}
-                onPress={() => setRole("student")}
-                accessibilityRole="button"
-                accessibilityLabel="Student"
-                accessibilityState={{ selected: role === "student" }}
-              >
-                <Text style={[styles.roleText, role === "student" && styles.roleTextActive]}>
-                  Student
-                </Text>
-              </TouchableOpacity>
-              <TouchableOpacity
-                style={[styles.roleButton, role === "teacher" && styles.roleActive]}
-                onPress={() => setRole("teacher")}
-                accessibilityRole="button"
-                accessibilityLabel="Teacher"
-                accessibilityState={{ selected: role === "teacher" }}
-              >
-                <Text style={[styles.roleText, role === "teacher" && styles.roleTextActive]}>
-                  Teacher
-                </Text>
-              </TouchableOpacity>
-            </Row>
-            <Button onPress={handleSignup} loading={loading} fullWidth style={styles.button}>
-              Sign Up
-            </Button>
+        <Card style={StyleSheet.flatten([styles.card, elevation.shadowMd])}>
+          <Text style={styles.wordmark}>Veridian</Text>
+          <Text style={styles.tagline}>Math, clearer.</Text>
+          <Text style={styles.title}>Create Account</Text>
+          <Input
+            placeholder="Display Name"
+            value={displayName}
+            onChangeText={setDisplayName}
+            autoComplete="name"
+          />
+          <Input
+            placeholder="Email"
+            value={email}
+            onChangeText={setEmail}
+            autoCapitalize="none"
+            keyboardType="email-address"
+            autoComplete="email"
+          />
+          <Input
+            placeholder="Password"
+            value={password}
+            onChangeText={setPassword}
+            secureTextEntry
+            autoComplete="password-new"
+          />
+          <Text style={styles.roleLabel}>I am a:</Text>
+          <Row gap={spacing.sm} style={styles.roleRow}>
             <TouchableOpacity
-              onPress={() => navigation.navigate("Login")}
-              style={styles.linkWrap}
-              accessibilityRole="button"
-              accessibilityLabel="Sign in"
+              style={[styles.roleButton, role === "student" && styles.roleActive]}
+              onPress={() => setRole("student")}
             >
-              <Text style={styles.link}>Already have an account? Sign In</Text>
+              <Text style={[styles.roleText, role === "student" && styles.roleTextActive]}>
+                Student
+              </Text>
             </TouchableOpacity>
-          </Card>
-        </ScrollView>
-      </KeyboardAvoidingView>
+            <TouchableOpacity
+              style={[styles.roleButton, role === "teacher" && styles.roleActive]}
+              onPress={() => setRole("teacher")}
+            >
+              <Text style={[styles.roleText, role === "teacher" && styles.roleTextActive]}>
+                Teacher
+              </Text>
+            </TouchableOpacity>
+          </Row>
+          <Button onPress={handleSignup} loading={loading} fullWidth style={styles.button} accessibilityLabel="Sign up">
+            Sign Up
+          </Button>
+          <TouchableOpacity onPress={() => navigation.navigate("Login")} style={styles.linkWrap} accessibilityLabel="Go to sign in">
+            <Text style={styles.link}>Already have an account? Sign In</Text>
+          </TouchableOpacity>
+        </Card>
+      </ScrollView>
     </ScreenContainer>
   );
 }
 
 const styles = StyleSheet.create({
-  keyboardWrap: { flex: 1 },
   scroll: {
     flexGrow: 1,
     justifyContent: "center",

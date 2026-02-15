@@ -88,23 +88,31 @@ def _user_can_access_classroom(client: Client, classroom_id: str) -> bool:
 def _base_file_metadata(file_record: dict[str, Any]) -> dict[str, Any]:
     file_copy = dict(file_record)
     classroom_id = str(file_copy["classroom_id"])
-    storage_path = str(file_copy["storage_path"])
-    folder_path, filename = _storage_components(classroom_id, storage_path)
-    file_copy["folder_path"] = folder_path
-    file_copy["file_name"] = filename
+    storage_path = file_copy.get("storage_path")
+    if storage_path:
+        folder_path, filename = _storage_components(classroom_id, storage_path)
+        file_copy["folder_path"] = folder_path
+        file_copy["file_name"] = filename
+    else:
+        file_copy["folder_path"] = ""
+        file_copy["file_name"] = ""
     file_copy["date_uploaded"] = file_copy.get("uploaded_at")
     return file_copy
 
 
 def _serialize_file(file_record: dict[str, Any]) -> dict[str, Any]:
     file_copy = _base_file_metadata(file_record)
-    storage_path = str(file_copy["storage_path"])
-    try:
-        file_copy["download_url"] = generate_download_url(CORPUS_BUCKET, storage_path)
-    except Exception as exc:
-        log.exception("Failed to generate corpus download URL for %s", storage_path)
+    storage_path = file_copy.get("storage_path")
+    if storage_path:
+        try:
+            file_copy["download_url"] = generate_download_url(CORPUS_BUCKET, storage_path)
+        except Exception as exc:
+            log.exception("Failed to generate corpus download URL for %s", storage_path)
+            file_copy["download_url"] = None
+            file_copy["download_url_error"] = str(exc)
+    else:
         file_copy["download_url"] = None
-        file_copy["download_url_error"] = str(exc)
+        file_copy["download_url_error"] = "File was not uploaded"
     return file_copy
 
 
@@ -170,6 +178,8 @@ def create_corpus_file(classroom_id: str) -> tuple[Response, int]:
 
     display_name = str(data.get("display_name", "")).strip()
     file_type = str(data.get("file_type", "")).strip().lower()
+    has_file = bool(data.get("has_file", False))
+
     if not display_name or not file_type:
         return jsonify({"error": "display_name and file_type required"}), 400
     if len(display_name) > MAX_DISPLAY_NAME_LENGTH:
@@ -188,16 +198,19 @@ def create_corpus_file(classroom_id: str) -> tuple[Response, int]:
         return jsonify({"error": "Classroom not found"}), 404
 
     file_id = str(uuid.uuid4())
-    storage_path = _build_storage_path(classroom_id, file_id, file_type, folder_path)
+    storage_path = _build_storage_path(classroom_id, file_id, file_type, folder_path) if has_file else None
+
+    insert_data: dict[str, Any] = {
+        "id": file_id,
+        "classroom_id": classroom_id,
+        "display_name": display_name,
+        "file_type": file_type,
+    }
+    if storage_path:
+        insert_data["storage_path"] = storage_path
 
     try:
-        record = client.table("corpus_files").insert({
-            "id": file_id,
-            "classroom_id": classroom_id,
-            "display_name": display_name,
-            "storage_path": storage_path,
-            "file_type": file_type,
-        }).execute()
+        record = client.table("corpus_files").insert(insert_data).execute()
     except APIError:
         log.exception("Failed to insert corpus file")
         return jsonify({"error": "Failed to create corpus file"}), 500
@@ -205,21 +218,21 @@ def create_corpus_file(classroom_id: str) -> tuple[Response, int]:
     if not record.data:
         return jsonify({"error": "Failed to create corpus file"}), 500
 
-    try:
-        upload_url = generate_upload_url(CORPUS_BUCKET, storage_path)
-    except Exception:
-        log.exception("Failed to generate upload URL for corpus file %s", file_id)
-        try:
-            client.table("corpus_files").delete().eq("id", file_id).execute()
-        except Exception:
-            log.exception("Failed to clean up orphaned corpus_file %s", file_id)
-            return jsonify({"error": "Failed to generate upload URL", "orphaned_file_id": file_id}), 500
-        return jsonify({"error": "Failed to generate upload URL"}), 500
+    response: dict[str, Any] = {**_serialize_file(record.data[0])}
 
-    return jsonify({
-        **_serialize_file(record.data[0]),
-        "upload_url": upload_url,
-    }), 201
+    if storage_path:
+        try:
+            response["upload_url"] = generate_upload_url(CORPUS_BUCKET, storage_path)
+        except Exception:
+            log.exception("Failed to generate upload URL for corpus file %s", file_id)
+            try:
+                client.table("corpus_files").delete().eq("id", file_id).execute()
+            except Exception:
+                log.exception("Failed to clean up orphaned corpus_file %s", file_id)
+                return jsonify({"error": "Failed to generate upload URL", "orphaned_file_id": file_id}), 500
+            return jsonify({"error": "Failed to generate upload URL"}), 500
+
+    return jsonify(response), 201
 
 
 @corpus_bp.route("/classrooms/<classroom_id>/corpus", methods=["GET"])
@@ -304,9 +317,11 @@ def update_corpus_file(file_id: str) -> tuple[Response, int]:
             return jsonify({"error": f"display_name must be <= {MAX_DISPLAY_NAME_LENGTH} characters"}), 400
         updates["display_name"] = display_name
 
-    old_storage_path = file_record["storage_path"]
+    old_storage_path = file_record.get("storage_path")
     new_storage_path = old_storage_path
     if "folder_path" in data:
+        if not old_storage_path:
+            return jsonify({"error": "Cannot move file that was never uploaded"}), 400
         try:
             folder_path = _normalize_folder_path(data.get("folder_path"))
         except ValueError as e:
@@ -371,8 +386,10 @@ def delete_corpus_file(file_id: str) -> tuple[Response, int]:
     if not deleted.data:
         return jsonify({"error": "File not found"}), 404
 
-    try:
-        delete_object(CORPUS_BUCKET, file_record["storage_path"])
-    except ValueError:
-        log.exception("DB deleted but storage cleanup failed for %s", file_id)
+    storage_path = file_record.get("storage_path")
+    if storage_path:
+        try:
+            delete_object(CORPUS_BUCKET, storage_path)
+        except ValueError:
+            log.exception("DB deleted but storage cleanup failed for %s", file_id)
     return Response(status=204)

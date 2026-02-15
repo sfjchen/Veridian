@@ -188,6 +188,7 @@ export function CreateAssignmentScreen({ route, navigation }: { route: any; navi
           disabled={creating}
           fullWidth
           style={styles.submitButton}
+          accessibilityLabel="Create assignment"
         >
           Create Assignment
         </Button>

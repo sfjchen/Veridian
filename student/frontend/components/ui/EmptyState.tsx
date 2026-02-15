@@ -1,23 +1,21 @@
-import type { ReactNode } from "react";
-import { StyleSheet, Text, View } from "react-native";
-import { palette } from "@/constants/palette";
-import { spacing } from "@/constants/spacing";
-import { typography } from "@/constants/typography";
-import { Button } from "./Button";
+import { ReactNode } from 'react';
+import { Pressable, StyleSheet, Text, View } from 'react-native';
+import { palette, radius } from '@/constants/palette';
+import { spacing, typography } from '@/constants/theme';
 
-interface EmptyStateProps {
+export interface EmptyStateProps {
   title: string;
   description?: string;
-  descriptionSecondary?: string;
   icon?: ReactNode;
   actionLabel?: string;
   onAction?: () => void;
 }
 
+const MIN_TOUCH = 44;
+
 export function EmptyState({
   title,
   description,
-  descriptionSecondary,
   icon,
   actionLabel,
   onAction,
@@ -27,13 +25,15 @@ export function EmptyState({
       {icon ? <View style={styles.iconWrap}>{icon}</View> : null}
       <Text style={styles.title}>{title}</Text>
       {description ? <Text style={styles.description}>{description}</Text> : null}
-      {descriptionSecondary ? (
-        <Text style={styles.descriptionSecondary}>{descriptionSecondary}</Text>
-      ) : null}
       {actionLabel && onAction ? (
-        <Button onPress={onAction} variant="primary" style={styles.button}>
-          {actionLabel}
-        </Button>
+        <Pressable
+          style={({ pressed }) => [styles.button, pressed && styles.buttonPressed]}
+          onPress={onAction}
+          accessibilityRole="button"
+          accessibilityLabel={actionLabel}
+        >
+          <Text style={styles.buttonText}>{actionLabel}</Text>
+        </Pressable>
       ) : null}
     </View>
   );
@@ -41,28 +41,34 @@ export function EmptyState({
 
 const styles = StyleSheet.create({
   container: {
+    flex: 1,
+    justifyContent: 'center',
+    alignItems: 'center',
     paddingVertical: spacing.xxxl,
     paddingHorizontal: spacing.xl,
-    alignItems: "center",
   },
   iconWrap: { marginBottom: spacing.lg },
   title: {
     ...typography.h2,
     color: palette.textPrimary,
-    textAlign: "center",
+    textAlign: 'center',
     marginBottom: spacing.sm,
   },
   description: {
     ...typography.bodySmall,
     color: palette.textMuted,
-    textAlign: "center",
-    marginBottom: spacing.xs,
-  },
-  descriptionSecondary: {
-    ...typography.caption,
-    color: palette.textMuted,
-    textAlign: "center",
+    textAlign: 'center',
     marginBottom: spacing.lg,
   },
-  button: { marginTop: spacing.md },
+  button: {
+    minHeight: MIN_TOUCH,
+    paddingVertical: spacing.sm,
+    paddingHorizontal: spacing.lg,
+    borderRadius: radius.button,
+    backgroundColor: palette.primary,
+    justifyContent: 'center',
+    marginTop: spacing.md,
+  },
+  buttonPressed: { opacity: 0.9 },
+  buttonText: { ...typography.button, color: palette.textOnPrimary },
 });

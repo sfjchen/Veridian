@@ -9,6 +9,7 @@ import time
 import uuid
 from collections import defaultdict
 from contextlib import contextmanager
+from functools import lru_cache
 from io import BytesIO
 from pathlib import Path
 from typing import Any, Callable, Dict, Iterator, List, Optional, TypedDict
@@ -32,7 +33,13 @@ from assignment_service import (
     get_problem,
     get_resolved_config,
 )
-from auth_middleware import require_auth, require_auth_or_sample, require_auth_or_sample_chat
+from auth_middleware import (
+    extract_user_from_auth_response,
+    get_field,
+    require_auth,
+    require_auth_or_sample,
+    require_auth_or_sample_chat,
+)
 from classroom_service import join_classroom_by_code, list_assignments_for_classroom, list_classrooms_for_student
 from chat import generate_chat_response
 from chat_service import SAMPLE_ALGEBRA_ASSIGNMENT_ID, get_chat_history
@@ -381,7 +388,6 @@ def _replay_persist_dead_letters() -> None:
             claim_path.unlink(missing_ok=True)
             continue
         try:
-            _rewrite_persist_dead_letter_file(claim_path, failed)
             for task in failed:
                 _append_persist_dead_letter(task)
         except OSError as exc:
@@ -434,25 +440,6 @@ def _is_valid_assignment_identifier(raw: str) -> bool:
     return _is_valid_uuid(raw)
 
 
-def _get_field(value: Any, field: str, default: Any = None) -> Any:
-    if value is None:
-        return default
-    if isinstance(value, dict):
-        return value.get(field, default)
-    return getattr(value, field, default)
-
-
-def _extract_user_from_auth_response(response: Any) -> Any:
-    user = _get_field(response, "user")
-    if user is not None:
-        return user
-
-    data = _get_field(response, "data")
-    if data is not None:
-        return _get_field(data, "user")
-    return None
-
-
 def _owner_id_from_auth_header() -> tuple[str | None, bool]:
     auth_header = request.headers.get("Authorization", "")
     if not auth_header.lower().startswith("bearer "):
@@ -467,8 +454,8 @@ def _owner_id_from_auth_header() -> tuple[str | None, bool]:
     except Exception as exc:
         raise ValueError(f"Invalid bearer token: {exc}") from exc
 
-    user = _extract_user_from_auth_response(auth_response)
-    user_id = _get_field(user, "id")
+    user = extract_user_from_auth_response(auth_response)
+    user_id = get_field(user, "id")
     if not user_id:
         raise ValueError("Invalid bearer token.")
     return (str(user_id), True)
@@ -672,7 +659,7 @@ def _extract_json_fragment(raw_text: str) -> Any:
         array_match = re.search(r"\[[\s\S]*\]", raw_text)
         candidate = None
         if object_match and array_match:
-            candidate = min((object_match.group(0), array_match.group(0)), key=len)
+            candidate = max((object_match.group(0), array_match.group(0)), key=len)
         elif object_match:
             candidate = object_match.group(0)
         elif array_match:
@@ -926,11 +913,12 @@ def _downscale_image_for_ocr(image_bytes: bytes) -> bytes:
         w, h = im.size
         if max(w, h) <= max_side:
             return image_bytes
+        original_format = im.format or "PNG"
         scale = max_side / max(w, h)
         new_w, new_h = int(w * scale), int(h * scale)
-        im = im.resize((new_w, new_h), Image.LANCZOS)
+        resized = im.resize((new_w, new_h), Image.LANCZOS)
         out = BytesIO()
-        im.save(out, format=im.format or "PNG")
+        resized.save(out, format=original_format)
         return out.getvalue()
 
 
@@ -1247,11 +1235,15 @@ def image_to_latex() -> Any:
     return jsonify({"latex": latex})
 
 
-def _gpt_autocomplete(image_b64: str, problem_context: str) -> tuple[str, int]:
+@lru_cache(maxsize=1)
+def _get_openai_client() -> Any:
     from openai import OpenAI
+    return OpenAI(api_key=OPENAI_API_KEY)
 
+
+def _gpt_autocomplete(image_b64: str, problem_context: str) -> tuple[str, int]:
     t0 = time.perf_counter()
-    oai = OpenAI(api_key=OPENAI_API_KEY)
+    oai = _get_openai_client()
     data_uri = f"data:image/png;base64,{image_b64}"
     prompt = (
         f"You are a math tutor watching a student solve a problem in real-time.\n\n"
@@ -1588,9 +1580,9 @@ ASSIGNMENTS_BUCKET = "assignments"
 
 
 def _assignment_download_url(storage_path: str) -> str | None:
-    client = get_supabase_service_client()
+    supabase = get_supabase_service_client()
     try:
-        result = client.storage.from_(ASSIGNMENTS_BUCKET).create_signed_url(storage_path, 3600)
+        result = supabase.storage.from_(ASSIGNMENTS_BUCKET).create_signed_url(storage_path, 3600)
     except Exception:
         log.exception("Failed to generate download URL for %s", storage_path)
         return None

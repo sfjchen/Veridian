@@ -386,7 +386,7 @@ def _mastery_entry(topic: str, students: set[str], n: int, agg: ErrorAgg) -> dic
     }
 
 
-def _classify_mastery(e: dict[str, Any], s: InsightSettings, m: list, nr: list, ins: list) -> None:
+def _classify_mastery(e: dict[str, Any], s: InsightSettings, m: list[dict], nr: list[dict], ins: list[dict]) -> None:
     if e["error_event_count"] < s.min_topic_events:
         ins.append(e)
     elif e["mastery_score"] >= s.mastery_target:

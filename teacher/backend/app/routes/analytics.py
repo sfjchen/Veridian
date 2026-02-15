@@ -15,9 +15,11 @@ from app.services.analytics import (
     build_classroom_trends,
     build_mistake_heatmap,
     build_student_profile,
+    fetch_chat_messages_for_classrooms,
     fetch_classroom_chat_messages,
     fetch_classroom_results,
     get_student_count,
+    get_total_student_count,
 )
 from app.services.live_monitoring import validate_uuid
 from app.services.supabase_client import get_supabase_admin_client
@@ -122,11 +124,8 @@ def get_teacher_faq() -> Tuple[Response, int]:
     if not cids:
         return jsonify({"topics": [], "total_students": 0}), 200
     try:
-        all_messages: list[dict[str, Any]] = []
-        total_students = 0
-        for cid in cids:
-            all_messages.extend(fetch_classroom_chat_messages(client, cid))
-            total_students += get_student_count(client, cid)
+        all_messages = fetch_chat_messages_for_classrooms(client, cids)
+        total_students = get_total_student_count(client, cids)
         faq = aggregate_faq(all_messages, total_students)
     except Exception:
         log.exception("Failed to compute teacher FAQ")

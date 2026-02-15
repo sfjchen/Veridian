@@ -7,6 +7,7 @@ from postgrest.exceptions import APIError
 from supabase import Client
 
 from app.middleware.auth import require_auth, require_role
+from app.services.live_monitoring import validate_uuid
 from app.services.storage import delete_object, generate_download_url, generate_upload_url, move_object
 from app.services.supabase_client import get_supabase_admin_client
 
@@ -17,14 +18,6 @@ corpus_bp = Blueprint("corpus", __name__)
 CORPUS_BUCKET = "corpus"
 ALLOWED_FILE_TYPES = frozenset({"pdf", "txt", "docx", "doc", "md", "tex", "rtf", "csv", "json", "ipynb"})
 MAX_DISPLAY_NAME_LENGTH = 300  # DB column limit; matches frontend validation
-
-
-def _validate_uuid(value: str) -> bool:
-    try:
-        uuid.UUID(value)
-        return True
-    except ValueError:
-        return False
 
 
 def _normalize_folder_path(raw_value: Any) -> str:
@@ -83,14 +76,12 @@ def _teacher_owns_classroom(client: Client, classroom_id: str, teacher_id: str) 
     return bool(result.data)
 
 
-def _user_can_access_classroom(
-    client: Client, classroom_id: str, user_id: str, user_role: str,
-) -> bool:
-    if user_role == "teacher":
-        return _teacher_owns_classroom(client, classroom_id, user_id)
+def _user_can_access_classroom(client: Client, classroom_id: str) -> bool:
+    if g.user_role == "teacher":
+        return _teacher_owns_classroom(client, classroom_id, g.user_id)
     membership = client.table("classroom_memberships").select("student_id").eq(
         "classroom_id", classroom_id
-    ).eq("student_id", user_id).limit(1).execute()
+    ).eq("student_id", g.user_id).limit(1).execute()
     return bool(membership.data)
 
 
@@ -170,7 +161,7 @@ def _build_corpus_tree(file_records: list[dict[str, Any]]) -> list[dict[str, Any
 @corpus_bp.route("/classrooms/<classroom_id>/corpus", methods=["POST"])
 @require_role("teacher")
 def create_corpus_file(classroom_id: str) -> tuple[Response, int]:
-    if not _validate_uuid(classroom_id):
+    if not validate_uuid(classroom_id):
         return jsonify({"error": "Invalid classroom ID"}), 400
 
     data = request.get_json()
@@ -234,11 +225,11 @@ def create_corpus_file(classroom_id: str) -> tuple[Response, int]:
 @corpus_bp.route("/classrooms/<classroom_id>/corpus", methods=["GET"])
 @require_auth
 def list_corpus_files(classroom_id: str) -> tuple[Response, int]:
-    if not _validate_uuid(classroom_id):
+    if not validate_uuid(classroom_id):
         return jsonify({"error": "Invalid classroom ID"}), 400
 
     client = get_supabase_admin_client()
-    if not _user_can_access_classroom(client, classroom_id, g.user_id, g.user_role):
+    if not _user_can_access_classroom(client, classroom_id):
         return jsonify({"error": "Classroom not found or access denied"}), 404
 
     files = client.table("corpus_files").select("*").eq(
@@ -250,11 +241,11 @@ def list_corpus_files(classroom_id: str) -> tuple[Response, int]:
 @corpus_bp.route("/classrooms/<classroom_id>/corpus/tree", methods=["GET"])
 @require_auth
 def get_corpus_tree(classroom_id: str) -> tuple[Response, int]:
-    if not _validate_uuid(classroom_id):
+    if not validate_uuid(classroom_id):
         return jsonify({"error": "Invalid classroom ID"}), 400
 
     client = get_supabase_admin_client()
-    if not _user_can_access_classroom(client, classroom_id, g.user_id, g.user_role):
+    if not _user_can_access_classroom(client, classroom_id):
         return jsonify({"error": "Classroom not found or access denied"}), 404
 
     files = client.table("corpus_files").select("*").eq(
@@ -269,7 +260,7 @@ def get_corpus_tree(classroom_id: str) -> tuple[Response, int]:
 @corpus_bp.route("/corpus/<file_id>", methods=["GET"])
 @require_auth
 def get_corpus_file(file_id: str) -> tuple[Response, int]:
-    if not _validate_uuid(file_id):
+    if not validate_uuid(file_id):
         return jsonify({"error": "Invalid file ID"}), 400
 
     client = get_supabase_admin_client()
@@ -279,7 +270,7 @@ def get_corpus_file(file_id: str) -> tuple[Response, int]:
 
     file_record = file_result.data[0]
     classroom_id = file_record["classroom_id"]
-    if not _user_can_access_classroom(client, classroom_id, g.user_id, g.user_role):
+    if not _user_can_access_classroom(client, classroom_id):
         return jsonify({"error": "Access denied"}), 403
     return jsonify(_serialize_file(file_record)), 200
 
@@ -287,7 +278,7 @@ def get_corpus_file(file_id: str) -> tuple[Response, int]:
 @corpus_bp.route("/corpus/<file_id>", methods=["PATCH"])
 @require_role("teacher")
 def update_corpus_file(file_id: str) -> tuple[Response, int]:
-    if not _validate_uuid(file_id):
+    if not validate_uuid(file_id):
         return jsonify({"error": "Invalid file ID"}), 400
 
     data = request.get_json()
@@ -359,7 +350,7 @@ def update_corpus_file(file_id: str) -> tuple[Response, int]:
 @corpus_bp.route("/corpus/<file_id>", methods=["DELETE"])
 @require_role("teacher")
 def delete_corpus_file(file_id: str) -> tuple[Response, int]:
-    if not _validate_uuid(file_id):
+    if not validate_uuid(file_id):
         return jsonify({"error": "Invalid file ID"}), 400
 
     client = get_supabase_admin_client()
@@ -373,16 +364,15 @@ def delete_corpus_file(file_id: str) -> tuple[Response, int]:
         return jsonify({"error": "Access denied"}), 403
 
     try:
-        delete_object(CORPUS_BUCKET, file_record["storage_path"])
-    except ValueError:
-        log.exception("Failed to delete storage object for %s", file_id)
-        return jsonify({"error": "Failed to delete file from storage"}), 500
-
-    try:
         deleted = client.table("corpus_files").delete().eq("id", file_id).execute()
     except APIError:
-        log.exception("Storage deleted but DB delete failed for %s", file_id)
+        log.exception("Failed to delete corpus file record %s", file_id)
         return jsonify({"error": "Failed to delete file record"}), 500
     if not deleted.data:
         return jsonify({"error": "File not found"}), 404
+
+    try:
+        delete_object(CORPUS_BUCKET, file_record["storage_path"])
+    except ValueError:
+        log.exception("DB deleted but storage cleanup failed for %s", file_id)
     return Response(status=204)

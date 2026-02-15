@@ -162,6 +162,35 @@ def get_student_count(client: Any, classroom_id: str) -> int:
     return resp.count or 0
 
 
+def get_total_student_count(client: Any, classroom_ids: list[str]) -> int:
+    if not classroom_ids:
+        return 0
+    resp = (
+        client.table("classroom_memberships")
+        .select("student_id", count="exact")
+        .in_("classroom_id", classroom_ids)
+        .execute()
+    )
+    return resp.count or 0
+
+
+def fetch_chat_messages_for_classrooms(client: Any, classroom_ids: list[str]) -> list[dict[str, Any]]:
+    if not classroom_ids:
+        return []
+    resp = client.table("assignments").select("id").in_("classroom_id", classroom_ids).execute()
+    assignment_ids = [r["id"] for r in (resp.data or [])]
+    if not assignment_ids:
+        return []
+    resp = (
+        client.table("chat_messages")
+        .select("student_id,content,created_at")
+        .eq("role", "student")
+        .in_("assignment_id", assignment_ids)
+        .execute()
+    )
+    return resp.data or []
+
+
 def fetch_classroom_results(client: Any, classroom_id: str) -> list[dict[str, Any]]:
     """Get all problem_results for assignments in a classroom."""
     assignment_ids = _get_classroom_assignment_ids(client, classroom_id)

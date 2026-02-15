@@ -6,7 +6,7 @@ from flask import g, jsonify, request
 from supabase_service import get_supabase_auth_client
 
 
-def _get_field(value: Any, field: str, default: Any = None) -> Any:
+def get_field(value: Any, field: str, default: Any = None) -> Any:
     if value is None:
         return default
     if isinstance(value, dict):
@@ -14,13 +14,13 @@ def _get_field(value: Any, field: str, default: Any = None) -> Any:
     return getattr(value, field, default)
 
 
-def _extract_user_from_auth_response(response: Any) -> Any:
-    user = _get_field(response, "user")
+def extract_user_from_auth_response(response: Any) -> Any:
+    user = get_field(response, "user")
     if user is not None:
         return user
-    data = _get_field(response, "data")
+    data = get_field(response, "data")
     if data is not None:
-        return _get_field(data, "user")
+        return get_field(data, "user")
     return None
 
 
@@ -34,14 +34,14 @@ def _try_bearer_auth() -> tuple[str, str] | None:
         return None
     try:
         auth_response = get_supabase_auth_client().auth.get_user(token)
-        user = _extract_user_from_auth_response(auth_response)
+        user = extract_user_from_auth_response(auth_response)
     except Exception as exc:
         raise ValueError(f"Invalid auth token: {exc}") from exc
-    user_id = _get_field(user, "id")
+    user_id = get_field(user, "id")
     if not user_id:
         raise ValueError("Invalid auth token.")
-    user_metadata = _get_field(user, "user_metadata", {}) or {}
-    app_metadata = _get_field(user, "app_metadata", {}) or {}
+    user_metadata = get_field(user, "user_metadata", {}) or {}
+    app_metadata = get_field(user, "app_metadata", {}) or {}
     user_role = user_metadata.get("role") or app_metadata.get("role") or "unknown"
     return (str(user_id), str(user_role))
 

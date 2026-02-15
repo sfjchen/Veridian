@@ -6,6 +6,7 @@ from flask import Blueprint, Response, request, jsonify, g
 from postgrest.exceptions import APIError
 from supabase import Client
 
+from app.constants import POSTGRES_UNIQUE_VIOLATION
 from app.middleware.auth import require_auth, require_role
 from app.services.config_schema import resolve_config, validate_config
 from app.services.supabase_client import get_supabase_admin_client
@@ -18,7 +19,6 @@ assignments_bp = Blueprint("assignments", __name__)
 ASSIGNMENTS_BUCKET = "assignments"
 SUBMISSIONS_BUCKET = "submissions"
 MAX_TITLE_LENGTH = 500
-POSTGRES_UNIQUE_VIOLATION = "23505"
 
 
 def _is_classroom_teacher(client: Client, classroom_id: str) -> bool:
@@ -44,26 +44,6 @@ def _validate_context_file_ids(
         "classroom_id", classroom_id
     ).in_("id", file_ids).execute()
     return len(valid_files.data) == len(file_ids)
-
-
-def _build_assignment_insert(
-    assignment_id: str, classroom_id: str, title: str,
-    prompt_path: str, answer_key_path: str,
-    context_file_ids: list[str], due_date: str | None,
-    config: dict[str, Any] | None,
-) -> dict[str, Any]:
-    insert_data: dict[str, Any] = {
-        "id": assignment_id,
-        "classroom_id": classroom_id,
-        "title": title,
-        "prompt_storage_path": prompt_path,
-        "answer_key_storage_path": answer_key_path,
-        "context_file_ids": context_file_ids,
-        "due_date": due_date,
-    }
-    if config:
-        insert_data["config"] = config
-    return insert_data
 
 
 def _generate_upload_urls_or_rollback(
@@ -116,11 +96,17 @@ def create_assignment(classroom_id: str) -> Tuple[Response, int]:
     prompt_path = f"{classroom_id}/{assignment_id}/prompt"
     answer_key_path = f"{classroom_id}/{assignment_id}/answer_key"
 
-    insert_data = _build_assignment_insert(
-        assignment_id, classroom_id, title,
-        prompt_path, answer_key_path,
-        context_file_ids, data.get("due_date"), config,
-    )
+    insert_data: dict[str, Any] = {
+        "id": assignment_id,
+        "classroom_id": classroom_id,
+        "title": title,
+        "prompt_storage_path": prompt_path,
+        "answer_key_storage_path": answer_key_path,
+        "context_file_ids": context_file_ids,
+        "due_date": data.get("due_date"),
+    }
+    if config:
+        insert_data["config"] = config
 
     try:
         record = client.table("assignments").insert(insert_data).execute()
@@ -479,7 +465,7 @@ def create_submission(assignment_id: str) -> Tuple[Response, int]:
                 "upload_url": upload_url,
             }), 200
 
-    def _insert_submission_row(submission_id: str, storage_path: str) -> object:
+    def _insert_submission_row(submission_id: str, storage_path: str) -> Any:
         return client.table("submissions").insert({
             "id": submission_id,
             "assignment_id": assignment_id,

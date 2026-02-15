@@ -83,7 +83,7 @@ def _is_classroom_teacher(classroom_id: str, user_id: str) -> bool:
 
 
 def can_student_access_assignment(
-    assignment_id: str, user_id: str, user_role: str = "student"
+    assignment_id: str, user_id: str, user_role: str = "student",
 ) -> bool:
     assignment = get_assignment(assignment_id)
     if not assignment:

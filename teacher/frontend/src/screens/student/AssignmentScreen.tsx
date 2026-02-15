@@ -17,8 +17,10 @@ import { FileUploader } from "../../components/FileUploader";
 import { ScreenContainer } from "../../components/ui";
 import { AssignmentDetail, Submission } from "../../types";
 import { alert } from "../../lib/alert";
-import { palette, radius, typography } from "../../constants/palette";
+import { ScreenContainer } from "../../components/ui/ScreenContainer";
+import { palette, radius } from "../../constants/palette";
 import { spacing } from "../../constants/spacing";
+import { typography } from "../../constants/typography";
 
 const MAX_ASSIGNMENT_FILE_LENGTH = 100_000;
 
@@ -54,47 +56,54 @@ export function AssignmentScreen({ route }: { route: any }) {
     refresh: refreshSubmissions,
   } = useSubmissions(assignmentId);
 
-  useEffect(() => {
-    let cancelled = false;
-    (async () => {
-      try {
-        const data = await api<AssignmentDetail>(`/assignments/${assignmentId}`);
-        if (cancelled) return;
-        setAssignment(data);
-        setAssignmentContent(null);
-        setIsPdf(false);
-        setPdfPreviewUri(null);
-        setImagePreviewUrl(null);
-        setBinaryDownloadUrl(null);
-        if (data.assignment_file_download_url) {
-          const resp = await fetch(data.assignment_file_download_url);
-          if (!resp.ok) throw new Error(`Failed to fetch assignment file: ${resp.status}`);
-          const blob = await resp.blob();
-          const bytes = new Uint8Array(await blob.arrayBuffer());
-          if (cancelled) return;
+  const mountedRef = useRef(true);
 
-          const contentType = resp.headers.get("content-type") ?? "";
-          if (looksLikePdf(contentType, bytes)) {
-            if (!cancelled) setIsPdf(true);
-            try {
-              const previewUri = await createPdfPreviewDataUri(blob);
-              if (!cancelled) setPdfPreviewUri(previewUri);
-            } catch (previewError) {
-              console.error("Failed to generate PDF preview image:", previewError);
-              if (!cancelled) setPdfPreviewUri(null);
+  const fetchAssignment = useCallback(async () => {
+    setLoadError(null);
+    setLoading(true);
+    try {
+      const data = await api<AssignmentDetail>(`/assignments/${assignmentId}`);
+      if (!mountedRef.current) return;
+      setAssignment(data);
+      setAssignmentContent(null);
+      setIsPdf(false);
+      setPdfPreviewUri(null);
+      setImagePreviewUrl(null);
+      setBinaryDownloadUrl(null);
+      if (data.prompt_latex) {
+        setAssignmentContent(sanitizeLatexContent(data.prompt_latex));
+      } else if (data.assignment_file_download_url) {
+        try {
+          const resp = await fetch(data.assignment_file_download_url);
+          if (resp.ok) {
+            const blob = await resp.blob();
+            const bytes = new Uint8Array(await blob.arrayBuffer());
+            if (!mountedRef.current) return;
+
+            const contentType = resp.headers.get("content-type") ?? "";
+            if (looksLikePdf(contentType, bytes)) {
+              if (mountedRef.current) setIsPdf(true);
+              try {
+                const previewUri = await createPdfPreviewDataUri(blob);
+                if (mountedRef.current) setPdfPreviewUri(previewUri);
+              } catch {
+                if (mountedRef.current) setPdfPreviewUri(null);
+              }
+            } else if (looksLikeImage(contentType, bytes)) {
+              if (mountedRef.current) {
+                setImagePreviewUrl(data.assignment_file_download_url ?? null);
+                setIsPdf(false);
+              }
+            } else if (looksLikeText(contentType, bytes)) {
+              const text = await blob.text();
+              if (!mountedRef.current) return;
+              setAssignmentContent(sanitizeLatexContent(text));
+            } else {
+              if (mountedRef.current) setBinaryDownloadUrl(data.assignment_file_download_url ?? null);
             }
-          } else if (looksLikeImage(contentType, bytes)) {
-            if (!cancelled) {
-              setImagePreviewUrl(data.assignment_file_download_url ?? null);
-              setIsPdf(false);
-            }
-          } else if (looksLikeText(contentType, bytes)) {
-            const text = await blob.text();
-            if (cancelled) return;
-            setAssignmentContent(sanitizeLatexContent(text));
-          } else {
-            if (!cancelled) setBinaryDownloadUrl(data.assignment_file_download_url ?? null);
           }
+        } catch {
+          console.warn("Could not load assignment file");
         }
       } catch (e: any) {
         if (!cancelled) alert("Error", e.message);
@@ -122,15 +131,39 @@ export function AssignmentScreen({ route }: { route: any }) {
     }
   };
 
-  if (loading) return <ActivityIndicator size="large" style={{ marginTop: 40 }} />;
-  if (!assignment) return <Text style={styles.error}>Assignment not found</Text>;
+  if (loading && !assignment) {
+    return (
+      <ScreenContainer maxWidth="dashboard">
+        <ActivityIndicator size="large" style={styles.loader} color={palette.primary} />
+      </ScreenContainer>
+    );
+  }
+  if (loadError && !assignment) {
+    return (
+      <ScreenContainer maxWidth="dashboard">
+        <View style={styles.errorContainer}>
+          <Text style={styles.error}>{loadError}</Text>
+          <TouchableOpacity style={styles.retryButton} onPress={() => fetchAssignment()}>
+            <Text style={styles.retryButtonText}>Retry</Text>
+          </TouchableOpacity>
+        </View>
+      </ScreenContainer>
+    );
+  }
+  if (!assignment) {
+    return (
+      <ScreenContainer maxWidth="dashboard">
+        <Text style={styles.error}>Assignment not found</Text>
+      </ScreenContainer>
+    );
+  }
   const hasCompletedSubmission = submissions.some((submission) => Boolean(submission.download_url));
   const hasIncompleteSubmission = submissions.some((submission) => !submission.download_url);
 
   return (
-    <ScreenContainer>
-      <ScrollView style={styles.scrollContent}>
-      <Text style={styles.title}>{assignment.title}</Text>
+    <ScreenContainer maxWidth="dashboard">
+      <ScrollView style={styles.scroll} contentContainerStyle={styles.scrollContent}>
+        <Text style={styles.title}>{assignment.title}</Text>
       {assignment.due_date && (
         <Text style={styles.due}>
           Due: {new Date(assignment.due_date).toLocaleDateString("en-US", {
@@ -246,85 +279,96 @@ export function AssignmentScreen({ route }: { route: any }) {
 }
 
 const styles = StyleSheet.create({
-  scrollContent: { flex: 1 },
-  title: { ...typography.h1, color: palette.textPrimary },
+  loader: { marginTop: spacing.xxl },
+  scroll: { flex: 1 },
+  scrollContent: { paddingBottom: spacing.xxl },
+  title: { ...typography.h1 },
   due: { ...typography.bodySmall, color: palette.textMuted, marginTop: spacing.xxs, marginBottom: spacing.md },
-  sectionTitle: { fontSize: 16, fontWeight: "600", marginBottom: spacing.xs, color: palette.textPrimary },
+  sectionTitle: { ...typography.body, fontWeight: "600" as const, marginBottom: spacing.xs },
   assignmentContainer: { flex: 1, marginBottom: spacing.md },
   assignmentImage: {
     width: "100%",
     minHeight: 220,
     height: 320,
-    borderRadius: radius.button,
+    borderRadius: radius.input,
     backgroundColor: palette.surface,
   },
   submitButton: {
     backgroundColor: palette.primary,
     borderRadius: radius.button,
     padding: spacing.md,
-    alignItems: "center",
+    alignItems: "center" as const,
     marginTop: spacing.md,
   },
-  submitButtonText: { color: palette.white, fontSize: 16, fontWeight: "600" },
-  error: { textAlign: "center", color: palette.error, marginTop: spacing.xxl },
-  errorText: { color: palette.error, marginTop: spacing.xs },
+  submitButtonText: { ...typography.button, color: palette.white },
+  errorContainer: { flex: 1, padding: spacing.lg, alignItems: "center" as const, justifyContent: "center" as const },
+  error: { ...typography.body, textAlign: "center" as const, color: palette.error, marginTop: spacing.xxl },
+  retryButton: {
+    marginTop: spacing.md,
+    backgroundColor: palette.primary,
+    borderRadius: radius.button,
+    paddingVertical: spacing.sm,
+    paddingHorizontal: spacing.lg,
+  },
+  retryButtonText: { ...typography.button, color: palette.white },
+  errorText: { ...typography.bodySmall, color: palette.error, marginTop: spacing.xs },
   pdfNotice: {
     backgroundColor: palette.warningBg,
-    borderRadius: radius.button,
+    borderRadius: radius.input,
     padding: spacing.md,
     marginBottom: spacing.md,
   },
-  pdfNoticeText: { fontSize: 14, color: palette.warningText, marginBottom: spacing.xs },
+  pdfNoticeText: { ...typography.bodySmall, color: palette.warning, marginBottom: spacing.xs },
   pdfPreview: {
     width: "100%",
     minHeight: 220,
     height: 300,
-    borderRadius: radius.button,
+    borderRadius: radius.input,
     backgroundColor: palette.surface,
     marginBottom: spacing.xs,
   },
   binaryNotice: {
-    backgroundColor: palette.infoBg,
-    borderRadius: radius.button,
+    backgroundColor: palette.primaryMutedTint,
+    borderRadius: radius.input,
     padding: spacing.md,
     marginBottom: spacing.md,
   },
-  binaryNoticeText: { fontSize: 14, color: palette.info, marginBottom: 8 },
+  binaryNoticeText: { ...typography.bodySmall, color: palette.textSecondary, marginBottom: spacing.xs },
   downloadLink: {
     backgroundColor: palette.primary,
-    borderRadius: 6,
-    paddingVertical: 10,
-    paddingHorizontal: 16,
-    alignSelf: "flex-start",
+    borderRadius: radius.input,
+    paddingVertical: spacing.sm,
+    paddingHorizontal: spacing.md,
+    alignSelf: "flex-start" as const,
   },
-  downloadLinkText: { color: palette.white, fontSize: 14, fontWeight: "600" },
+  downloadLinkText: { ...typography.bodySmall, color: palette.white, fontWeight: "600" as const },
   alreadySubmitted: {
     backgroundColor: palette.successBg,
-    borderRadius: radius.button,
-    padding: 14,
+    borderRadius: radius.input,
+    padding: spacing.sm,
     marginTop: spacing.md,
   },
-  alreadySubmittedText: { color: palette.successText, fontSize: 14, fontWeight: "500" },
+  alreadySubmittedText: { ...typography.bodySmall, color: palette.success, fontWeight: "500" as const },
   historySection: { marginTop: spacing.lg, marginBottom: spacing.xl },
-  emptyText: { color: palette.textDisabled, marginTop: spacing.xs },
+  emptyText: { ...typography.bodySmall, color: palette.textDisabled, marginTop: spacing.xs },
   submissionCard: {
     backgroundColor: palette.surface,
-    borderRadius: radius.button,
+    borderRadius: radius.input,
     padding: spacing.sm,
     marginTop: spacing.xs,
-    flexDirection: "row",
-    alignItems: "center",
-    justifyContent: "space-between",
+    flexDirection: "row" as const,
+    alignItems: "center" as const,
+    justifyContent: "space-between" as const,
   },
   submissionMeta: { flex: 1 },
-  submissionDate: { fontSize: 14, color: palette.textSecondary },
+  submissionDate: { ...typography.bodySmall, color: palette.textSecondary },
   historyDownloadButton: {
     backgroundColor: palette.primary,
-    borderRadius: 6,
+    borderRadius: radius.input,
     paddingVertical: spacing.xs,
     paddingHorizontal: spacing.sm,
     marginLeft: spacing.sm,
   },
-  historyDownloadText: { color: palette.white, fontSize: 13, fontWeight: "600" },
-  unavailableText: { fontSize: 13, color: palette.textDisabled, marginLeft: spacing.sm },
+  historyDownloadText: { ...typography.bodySmall, color: palette.white, fontWeight: "600" as const },
+  unavailableText: { ...typography.bodySmall, color: palette.textDisabled, marginLeft: spacing.sm },
 });

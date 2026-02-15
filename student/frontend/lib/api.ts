@@ -61,6 +61,7 @@ export type Assignment = {
   analysis_debounce_seconds?: number;
   reveal_mode?: 'single-tap' | 'progressive';
   resolved_config?: Partial<ResolvedConfig>;
+  assignment_file_download_url?: string | null;
 };
 
 export type MistakeDot = { x: number; y: number };

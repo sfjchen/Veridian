@@ -9,15 +9,19 @@ import {
 import { useAssignments } from "../../hooks/useAssignments";
 import { ScreenContainer } from "../../components/ui";
 import { Classroom } from "../../types";
-import { palette, radius, typography } from "../../constants/palette";
+import { ScreenContainer } from "../../components/ui/ScreenContainer";
+import { palette } from "../../constants/palette";
+import { elevation } from "../../constants/palette";
+import { radius } from "../../constants/palette";
 import { spacing } from "../../constants/spacing";
+import { typography } from "../../constants/typography";
 
 export function StudentClassroomScreen({ route, navigation }: { route: any; navigation: any }) {
   const classroom: Classroom = route.params.classroom;
   const { assignments, loading, error } = useAssignments(classroom.id);
 
   return (
-    <ScreenContainer>
+    <ScreenContainer maxWidth="dashboard">
       <Text style={styles.title}>{classroom.name}</Text>
       {loading ? (
         <ActivityIndicator size="large" color={palette.primary} />
@@ -29,7 +33,7 @@ export function StudentClassroomScreen({ route, navigation }: { route: any; navi
           keyExtractor={(item) => item.id}
           renderItem={({ item }) => (
             <TouchableOpacity
-              style={styles.card}
+              style={[styles.card, elevation.shadowSm]}
               onPress={() => navigation.navigate("Assignment", { assignmentId: item.id })}
               accessibilityRole="button"
               accessibilityLabel={`${item.title}`}
@@ -60,21 +64,15 @@ export function StudentClassroomScreen({ route, navigation }: { route: any; navi
 }
 
 const styles = StyleSheet.create({
-  title: { ...typography.h1, marginBottom: spacing.md, color: palette.textPrimary },
+  title: { ...typography.h1, marginBottom: spacing.md },
   card: {
     backgroundColor: palette.card,
     borderRadius: radius.card,
     padding: spacing.md,
     marginBottom: spacing.sm,
-    shadowColor: "#000",
-    shadowOpacity: 0.05,
-    shadowRadius: 4,
-    elevation: 2,
   },
-  cardTitle: { fontSize: 18, fontWeight: "600", color: palette.textPrimary },
-  cardSub: { ...typography.caption, color: palette.textMuted, marginTop: spacing.xxs },
-  emptyWrap: { paddingVertical: spacing.xxl, paddingHorizontal: spacing.lg, alignItems: "center" },
-  emptyTitle: { fontSize: 18, fontWeight: "600", color: palette.textSecondary, marginBottom: spacing.xs },
-  emptySubtitle: { fontSize: 15, color: palette.textMuted, textAlign: "center" },
-  errorText: { textAlign: "center", color: palette.error, marginTop: spacing.xxl },
+  cardTitle: { ...typography.h2 },
+  cardSub: { ...typography.bodySmall, color: palette.textMuted, marginTop: spacing.xxs },
+  empty: { ...typography.body, textAlign: "center" as const, color: palette.textDisabled, marginTop: spacing.xxl },
+  errorText: { ...typography.body, textAlign: "center" as const, color: palette.error, marginTop: spacing.xxl },
 });

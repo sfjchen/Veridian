@@ -54,6 +54,13 @@ export function TeacherClassroomScreen({ route, navigation }: { route: any; navi
     error: studentsError,
     refresh: refreshStudents,
   } = useClassroomStudents(classroom.id);
+  const [refreshing, setRefreshing] = useState(false);
+
+  const onRefresh = useCallback(async () => {
+    setRefreshing(true);
+    await Promise.all([refreshAssignments(), refreshCorpus(), refreshStudents()]);
+    setRefreshing(false);
+  }, [refreshAssignments, refreshCorpus, refreshStudents]);
 
   useFocusEffect(
     useCallback(() => {
@@ -280,13 +287,28 @@ export function TeacherClassroomScreen({ route, navigation }: { route: any; navi
 }
 
 const styles = StyleSheet.create({
-  title: { ...typography.h1, color: palette.textPrimary, marginBottom: spacing.xxs },
-  codeRow: { flexDirection: "row", alignItems: "center", marginBottom: spacing.md, gap: spacing.xs },
-  code: { ...typography.bodySmall, color: palette.textMuted },
-  copyButton: { paddingHorizontal: 10, paddingVertical: 4, borderRadius: radius.button, backgroundColor: palette.tabInactive },
-  copyButtonText: { fontSize: 13, fontWeight: "600", color: palette.primary },
+  header: {
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "space-between",
+    gap: spacing.sm,
+    marginBottom: spacing.md,
+    paddingTop: spacing.xs,
+    paddingBottom: spacing.sm,
+    borderBottomWidth: 2,
+    borderBottomColor: palette.primaryMuted,
+  },
+  title: { ...typography.h1, color: palette.textPrimary, flex: 1 },
   tabs: { flexDirection: "row", marginBottom: spacing.md, gap: spacing.xs },
-  tab: { flex: 1, padding: 10, borderRadius: radius.button, backgroundColor: palette.tabInactive, alignItems: "center" },
+  tab: {
+    flex: 1,
+    minHeight: 44,
+    paddingVertical: spacing.sm,
+    borderRadius: radius.input,
+    backgroundColor: palette.tabInactive,
+    alignItems: "center",
+    justifyContent: "center",
+  },
   tabActive: { backgroundColor: palette.primary },
   tabText: { fontWeight: "600", color: palette.textSecondary },
   tabTextActive: { color: palette.white },
@@ -308,25 +330,27 @@ const styles = StyleSheet.create({
     flexDirection: "row",
     alignItems: "center",
   },
-  listItemContent: { flex: 1 },
-  itemTitle: { fontSize: 16, fontWeight: "500", color: palette.textPrimary },
-  dueRow: { flexDirection: "row", alignItems: "center", gap: spacing.xs, marginTop: spacing.xxs },
-  itemSub: { ...typography.caption, color: palette.textMuted },
-  dueOverdue: { color: palette.error },
-  dueSoon: { color: palette.warning },
-  badgeOverdue: { fontSize: 11, fontWeight: "600", color: palette.error },
-  badgeSoon: { fontSize: 11, fontWeight: "600", color: palette.warning },
-  chevron: { fontSize: 18, color: palette.textDisabled, marginLeft: spacing.xs },
-  downloadHint: { fontSize: 13, color: palette.primary, fontWeight: "600", marginLeft: spacing.xs },
-  emptyWrap: { paddingVertical: spacing.xxl, paddingHorizontal: spacing.lg, alignItems: "center" },
-  emptyTitle: { fontSize: 18, fontWeight: "600", color: palette.textSecondary, marginBottom: spacing.xs },
-  emptySubtitle: { fontSize: 15, color: palette.textMuted, textAlign: "center", marginBottom: 20 },
-  emptyButton: {
-    backgroundColor: palette.primary,
-    borderRadius: radius.button,
-    paddingHorizontal: 20,
-    paddingVertical: 12,
+  emptyIconText: {
+    ...typography.h1,
+    fontSize: typography.h1.fontSize,
+    color: palette.primary,
   },
-  emptyButtonText: { color: palette.white, fontSize: 16, fontWeight: "600" },
-  errorText: { textAlign: "center", color: palette.error, marginTop: 20 },
+  empty: { textAlign: "center", color: palette.textDisabled, marginTop: spacing.lg },
+  errorText: { textAlign: "center", color: palette.error, marginTop: spacing.lg },
+  settingsHint: { ...typography.bodySmall, color: palette.textMuted, marginBottom: spacing.md, lineHeight: 18 },
+  listItem: {
+    flexDirection: "row",
+    alignItems: "center",
+    marginBottom: spacing.sm,
+    minHeight: 56,
+    padding: spacing.md,
+    backgroundColor: palette.surface,
+    borderRadius: radius.card,
+  },
+  addButtonText: {
+    color: palette.white,
+    fontSize: 16,
+    fontWeight: "600",
+    textAlign: "center",
+  },
 });

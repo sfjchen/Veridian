@@ -71,12 +71,14 @@ export function CreateAssignmentScreen({ route, navigation }: { route: any; navi
     setCreating(true);
     try {
       const body: Record<string, any> = { title: title.trim(), due_date: dueDateValue };
+      if (assignmentFile) body.has_assignment_file = true;
+      if (answerKeyFile) body.has_answer_key = true;
       if (Object.keys(configDraft).length > 0) {
         body.config = configDraft;
       }
       const result = await api<{
-        assignment_file_upload_url: string;
-        answer_key_upload_url: string;
+        assignment_file_upload_url?: string;
+        answer_key_upload_url?: string;
       }>(`/classrooms/${classroomId}/assignments`, {
         method: "POST",
         body,

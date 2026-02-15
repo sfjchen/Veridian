@@ -1,6 +1,5 @@
 import { MaterialCommunityIcons } from '@expo/vector-icons';
 import { useLocalSearchParams, useRouter } from 'expo-router';
-import { useEffect } from 'react';
 import {
   ActivityIndicator,
   Pressable,
@@ -63,13 +62,6 @@ export default function AssignmentsScreen() {
     classroomId: string;
     classroomName?: string;
   }>();
-  // #region agent log
-  useEffect(() => {
-    if (typeof fetch !== 'undefined') {
-      fetch('http://127.0.0.1:7243/ingest/b95751e3-13de-4370-a43a-9eeabde26151', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ location: 'assignments/[classroomId].tsx:AssignmentsScreen', message: 'AssignmentsScreen params', data: { classroomId: classroomId ?? null, classroomName: classroomName ?? null }, hypothesisId: 'H2c', timestamp: Date.now() }) }).catch(() => {});
-    }
-  }, [classroomId, classroomName]);
-  // #endregion
   const router = useRouter();
   const { assignments, loading, error, refresh } = useAssignments(classroomId ?? null);
 

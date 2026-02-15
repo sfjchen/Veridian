@@ -20,6 +20,7 @@ type ChatPanelProps = {
   onClose: () => void;
   assignmentId: string | null;
   problemNum: number | null;
+  token?: string | null;
 };
 
 const QUICK_ACTIONS = [
@@ -162,10 +163,11 @@ function ChatInputBar({ inputText, onChangeText, onSend, loading }: ChatInputBar
   );
 }
 
-export function ChatPanel({ visible, onClose, assignmentId, problemNum }: ChatPanelProps) {
+export function ChatPanel({ visible, onClose, assignmentId, problemNum, token }: ChatPanelProps) {
   const { messages, sendMessage, loading, error } = useChat(
     visible ? assignmentId : null,
     visible ? problemNum : null,
+    token,
   );
   const [inputText, setInputText] = useState('');
 

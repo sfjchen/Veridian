@@ -9,6 +9,7 @@ type AutoAnalysisOpts = {
   assignmentId?: string;
   problemNum?: number;
   isSample?: boolean;
+  token?: string;
   debounceMs?: number;
   enabled?: boolean;
   captureScreenshot: () => Promise<CaptureResult>;
@@ -31,6 +32,7 @@ export function useAutoAnalysis({
   assignmentId,
   problemNum,
   isSample,
+  token,
   debounceMs = 15_000,
   enabled = true,
   captureScreenshot,
@@ -72,7 +74,7 @@ export function useAutoAnalysis({
         onError?.(msg);
         return;
       }
-      const result = await submitAnalysis(capture.uri, { assignmentId, problemNum, isSample });
+      const result = await submitAnalysis(capture.uri, { assignmentId, problemNum, isSample, token });
       if (runId !== runIdRef.current) return;
       const current = contextRef.current;
       if (contextMatches(result, current.assignmentId, current.problemNum)) {
@@ -91,7 +93,7 @@ export function useAutoAnalysis({
         analyzingRef.current = false;
       }
     }
-  }, [assignmentId, problemNum, isSample, captureScreenshot, cancel, onError, onStaleResult]);
+  }, [assignmentId, problemNum, isSample, token, captureScreenshot, cancel, onError, onStaleResult]);
 
   const markDirty = useCallback(() => {
     if (!enabled) return;

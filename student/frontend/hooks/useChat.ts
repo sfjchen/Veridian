@@ -6,7 +6,7 @@ import {
   type ChatMessage,
 } from '@/lib/api';
 
-export function useChat(assignmentId: string | null, problemNum: number | null) {
+export function useChat(assignmentId: string | null, problemNum: number | null, token?: string | null) {
   const [messages, setMessages] = useState<ChatMessage[]>([]);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -23,7 +23,7 @@ export function useChat(assignmentId: string | null, problemNum: number | null) 
     setLoading(true);
     setError(null);
 
-    fetchChatHistory(assignmentId, problemNum)
+    fetchChatHistory(assignmentId, problemNum, token ?? undefined)
       .then((history) => {
         if (!cancelled) setMessages(history);
       })
@@ -35,7 +35,7 @@ export function useChat(assignmentId: string | null, problemNum: number | null) 
       });
 
     return () => { cancelled = true; };
-  }, [assignmentId, problemNum]);
+  }, [assignmentId, problemNum, token]);
 
   const sendMessage = useCallback(
     async (text: string) => {
@@ -56,7 +56,7 @@ export function useChat(assignmentId: string | null, problemNum: number | null) 
       setError(null);
 
       try {
-        const response = await sendChatMessage(assignmentId, problemNum, text);
+        const response = await sendChatMessage(assignmentId, problemNum, text, token ?? undefined);
         const assistantMsg: ChatMessage = {
           id: `assistant-${++idCounter.current}`,
           role: 'assistant',
@@ -72,7 +72,7 @@ export function useChat(assignmentId: string | null, problemNum: number | null) 
         isSending.current = false;
       }
     },
-    [assignmentId, problemNum],
+    [assignmentId, problemNum, token],
   );
 
   return { messages, sendMessage, loading, error };

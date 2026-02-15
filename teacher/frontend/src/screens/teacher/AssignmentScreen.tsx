@@ -7,6 +7,7 @@ import {
   Image,
   ScrollView,
   ActivityIndicator,
+  RefreshControl,
 } from "react-native";
 import * as Linking from "expo-linking";
 import { supabase } from "../../lib/supabase";
@@ -22,7 +23,6 @@ import { alert } from "../../lib/alert";
 import {
   Button,
   Card,
-  ErrorState,
   Input,
   Row,
   ScreenContainer,
@@ -52,7 +52,6 @@ export function TeacherAssignmentScreen({ route, navigation }: { route: any; nav
   const mountedRef = useRef(true);
   const [assignment, setAssignment] = useState<AssignmentDetail | null>(null);
   const [loading, setLoading] = useState(true);
-  const [loadError, setLoadError] = useState<string | null>(null);
   const [assignmentContent, setAssignmentContent] = useState<string | null>(null);
   const [isPdf, setIsPdf] = useState(false);
   const [pdfPreviewUri, setPdfPreviewUri] = useState<string | null>(null);
@@ -78,6 +77,7 @@ export function TeacherAssignmentScreen({ route, navigation }: { route: any; nav
     answer_key_upload_url?: string;
   } | null>(null);
   const [reuploading, setReuploading] = useState(false);
+  const [refreshing, setRefreshing] = useState(false);
   const {
     submissions,
     loading: submissionsLoading,
@@ -86,24 +86,9 @@ export function TeacherAssignmentScreen({ route, navigation }: { route: any; nav
   } = useSubmissions(assignmentId);
 
   const fetchAssignment = useCallback(async () => {
-    setLoadError(null);
-    setLoading(true);
     try {
       const data = await api<AssignmentDetail>(`/assignments/${assignmentId}`);
       if (!mountedRef.current) return;
-      if (!data) {
-        setAssignment(null);
-        setEditTitle("");
-        setEditDueDate("");
-        setAssignmentContent(null);
-        setIsPdf(false);
-        setPdfPreviewUri(null);
-        setImagePreviewUrl(null);
-        setBinaryDownloadUrl(null);
-        setReuploadUrls(null);
-        if (mountedRef.current) setLoading(false);
-        return;
-      }
       setAssignment(data);
       setEditTitle(data.title);
       setEditDueDate(data.due_date ? data.due_date.split("T")[0] : "");
@@ -130,11 +115,9 @@ export function TeacherAssignmentScreen({ route, navigation }: { route: any; nav
             try {
               const previewUri = await createPdfPreviewDataUri(blob);
               if (mountedRef.current) setPdfPreviewUri(previewUri);
-            } catch {
-              if (mountedRef.current) {
-                setPdfPreviewUri(null);
-                alert("Warning", "Could not generate PDF preview image");
-              }
+            } catch (previewError) {
+              console.error("Failed to generate PDF preview image:", previewError);
+              if (mountedRef.current) setPdfPreviewUri(null);
             }
           } else if (looksLikeImage(contentType, bytes)) {
             setIsPdf(false);
@@ -151,13 +134,17 @@ export function TeacherAssignmentScreen({ route, navigation }: { route: any; nav
         }
       }
     } catch (e: any) {
-      if (mountedRef.current) {
-        setLoadError(e instanceof Error ? e.message : "Failed to load assignment");
-      }
+      if (mountedRef.current) alert("Error", e.message);
     } finally {
       if (mountedRef.current) setLoading(false);
     }
   }, [assignmentId]);
+
+  const onRefresh = useCallback(async () => {
+    setRefreshing(true);
+    await Promise.all([fetchAssignment(), refreshSubmissions()]);
+    if (mountedRef.current) setRefreshing(false);
+  }, [fetchAssignment, refreshSubmissions]);
 
   const handleConvertPdf = async () => {
     if (!assignment?.assignment_file_download_url) return;
@@ -167,8 +154,7 @@ export function TeacherAssignmentScreen({ route, navigation }: { route: any; nav
       if (!pdfResp.ok) throw new Error("Failed to download PDF");
       const blob = await pdfResp.blob();
 
-      const { data: sessionData } = await supabase.auth.getSession();
-      const session = sessionData?.session ?? null;
+      const { data: { session } } = await supabase.auth.getSession();
       const formData = new FormData();
       formData.append("file", blob as any, "assignment.pdf");
 
@@ -253,38 +239,26 @@ export function TeacherAssignmentScreen({ route, navigation }: { route: any; nav
     Linking.openURL(url);
   };
 
-  if (loading && !assignment) {
-    return (
-      <ScreenContainer>
-        <View style={styles.loadingWrap}>
-          <ActivityIndicator size="large" color={palette.primary} />
-        </View>
-      </ScreenContainer>
-    );
-  }
-  if (loadError && !assignment) {
-    return (
-      <ScreenContainer>
-        <ErrorState message={loadError} onRetry={fetchAssignment} />
-      </ScreenContainer>
-    );
-  }
-  if (!assignment) {
-    return (
-      <ScreenContainer>
-        <ErrorState message="Assignment not found" />
-      </ScreenContainer>
-    );
-  }
+  if (loading && !refreshing) return <ActivityIndicator size="large" style={{ marginTop: 40 }} color={palette.primary} />;
+  if (!assignment) return <Text style={styles.error}>Assignment not found</Text>;
 
   return (
     <ScreenContainer maxWidth="dashboard">
-      <ScrollView contentContainerStyle={styles.scroll} showsVerticalScrollIndicator={false}>
+      <ScrollView
+        contentContainerStyle={styles.scroll}
+        showsVerticalScrollIndicator={false}
+        refreshControl={
+          <RefreshControl refreshing={refreshing} onRefresh={onRefresh} colors={[palette.primary]} />
+        }
+      >
         <View style={{ flex: 1 }}>
           <View style={styles.modeToggle}>
             <TouchableOpacity
               style={[styles.modeButton, viewMode === "teacher" && styles.modeButtonActive]}
               onPress={() => setViewMode("teacher")}
+              accessibilityRole="tab"
+              accessibilityLabel="Teacher view"
+              accessibilityState={{ selected: viewMode === "teacher" }}
             >
               <Text style={[styles.modeText, viewMode === "teacher" && styles.modeTextActive]}>
                 Teacher View
@@ -293,9 +267,12 @@ export function TeacherAssignmentScreen({ route, navigation }: { route: any; nav
             <TouchableOpacity
               style={[styles.modeButton, viewMode === "student" && styles.modeButtonActive]}
               onPress={() => setViewMode("student")}
+              accessibilityRole="tab"
+              accessibilityLabel="Student view"
+              accessibilityState={{ selected: viewMode === "student" }}
             >
               <Text style={[styles.modeText, viewMode === "student" && styles.modeTextActive]}>
-                Student Preview
+                Student View
               </Text>
             </TouchableOpacity>
           </View>
@@ -543,93 +520,139 @@ export function TeacherAssignmentScreen({ route, navigation }: { route: any; nav
         </View>
       </ScrollView>
     </ScreenContainer>
-  );
 }
 
 const styles = StyleSheet.create({
-  loadingWrap: { flex: 1, justifyContent: "center", paddingTop: spacing.xxl },
-  scroll: { paddingVertical: spacing.md, paddingBottom: spacing.xxxl },
-  modeToggle: { flexDirection: "row", marginBottom: spacing.md, gap: spacing.xs },
+  container: { flex: 1, padding: 16, backgroundColor: palette.card },
+  title: { ...typography.h1, flex: 1, color: palette.textPrimary },
+  due: { ...typography.bodySmall, color: palette.textMuted, marginTop: 4, marginBottom: 16 },
+  sectionTitle: { fontSize: 16, fontWeight: "600", marginBottom: 8, color: palette.textPrimary },
+  error: { textAlign: "center", color: palette.error, marginTop: 40 },
+  errorText: { textAlign: "center", color: palette.error, marginTop: 8 },
+
+  modeToggle: { flexDirection: "row", marginBottom: 16, gap: 8 },
   modeButton: {
     flex: 1,
-    paddingVertical: spacing.sm,
-    borderRadius: radius.input,
+    padding: 10,
+    borderRadius: radius.button,
     backgroundColor: palette.tabInactive,
     alignItems: "center",
   },
   modeButtonActive: { backgroundColor: palette.primary },
-  modeText: { ...typography.bodySmall, fontWeight: "600", color: palette.textSecondary },
-  modeTextActive: { ...typography.bodySmall, fontWeight: "600", color: palette.textOnPrimary },
+  modeText: { fontWeight: "600", color: palette.textSecondary },
+  modeTextActive: { color: palette.white },
 
   previewBanner: {
     backgroundColor: palette.warningBg,
-    borderRadius: radius.input,
-    padding: spacing.xs,
-    marginBottom: spacing.md,
-    alignItems: "center",
+    color: "#92400E",
+    textAlign: "center",
+    padding: 8,
+    borderRadius: radius.button,
+    fontWeight: "600",
+    marginBottom: 16,
   },
-  previewBannerText: { ...typography.bodySmall, fontWeight: "600", color: palette.warning },
 
-  title: { ...typography.h1, color: palette.textPrimary, flex: 1 },
-  due: { ...typography.bodySmall, color: palette.textMuted, marginTop: spacing.xxs, marginBottom: spacing.md },
-  sectionTitle: { ...typography.body, fontWeight: "600", color: palette.textPrimary, marginBottom: spacing.xs },
-  headerRow: { flexDirection: "row", alignItems: "center", marginBottom: spacing.xs },
+  headerRow: { flexDirection: "row", alignItems: "center", gap: 12 },
   editChip: {
-    backgroundColor: palette.border,
-    paddingHorizontal: spacing.sm,
-    paddingVertical: spacing.xxs,
+    backgroundColor: palette.tabInactive,
+    paddingHorizontal: 12,
+    paddingVertical: 6,
     borderRadius: radius.chip,
   },
-  editChipText: { ...typography.caption, fontWeight: "600", color: palette.textSecondary },
+  editChipText: { fontSize: 13, fontWeight: "600", color: palette.textSecondary },
 
-  editActions: { marginBottom: spacing.md },
+  input: {
+    borderWidth: 1,
+    borderColor: palette.inputBorder,
+    borderRadius: radius.input,
+    padding: 14,
+    marginBottom: 12,
+    fontSize: 16,
+  },
+  editActions: { flexDirection: "row", gap: 12, marginBottom: 16 },
+  actionButton: { flex: 1, padding: 12, borderRadius: radius.button, alignItems: "center" },
+  saveButton: { backgroundColor: palette.primary },
+  cancelButton: { backgroundColor: palette.tabInactive },
+  actionButtonText: { color: palette.white, fontSize: 16, fontWeight: "600" },
+  cancelButtonText: { color: palette.textSecondary, fontSize: 16, fontWeight: "600" },
 
   fileCard: {
+    backgroundColor: palette.surface,
+    borderRadius: radius.button,
+    padding: 14,
+    marginBottom: 8,
     flexDirection: "row",
     justifyContent: "space-between",
     alignItems: "center",
-    marginBottom: spacing.xs,
   },
-  fileLabel: { ...typography.body, fontWeight: "500", color: palette.textPrimary },
-  noFile: { ...typography.caption, color: palette.textMuted },
-  reuploadButton: { marginTop: spacing.md },
-  reuploadSection: { marginTop: spacing.md },
-  cancelReupload: { marginTop: spacing.xs },
+  fileLabel: { fontSize: 15, fontWeight: "500", color: palette.textPrimary },
+  noFile: { ...typography.caption, color: palette.textDisabled },
+  downloadButton: {
+    backgroundColor: palette.primary,
+    paddingHorizontal: 14,
+    paddingVertical: 8,
+    borderRadius: 6,
+  },
+  downloadButtonText: { color: palette.white, fontSize: 13, fontWeight: "600" },
 
-  convertSection: { marginTop: spacing.lg, backgroundColor: palette.successBg },
-  convertHint: { ...typography.bodySmall, color: palette.textSecondary, marginBottom: spacing.sm },
+  reuploadButton: {
+    backgroundColor: palette.warning,
+    borderRadius: radius.button,
+    padding: 14,
+    alignItems: "center",
+    marginTop: 16,
+  },
+  reuploadButtonText: { color: palette.white, fontSize: 16, fontWeight: "600" },
+  reuploadSection: { marginTop: 16 },
 
+  convertSection: { marginTop: 24, backgroundColor: palette.successBg, borderRadius: radius.button, padding: 16 },
+  convertHint: { fontSize: 14, color: palette.textSecondary, marginBottom: 12 },
+  convertButton: {
+    backgroundColor: "#059669",
+    borderRadius: radius.button,
+    padding: 14,
+    alignItems: "center",
+  },
+  convertButtonText: { color: palette.white, fontSize: 16, fontWeight: "600" },
   pdfPreview: {
     width: "100%",
     minHeight: 220,
     height: 300,
-    borderRadius: radius.input,
-    backgroundColor: palette.border,
-    marginBottom: spacing.sm,
+    borderRadius: radius.button,
+    backgroundColor: palette.surface,
+    marginBottom: 12,
   },
   assignmentImage: {
     width: "100%",
     minHeight: 220,
     height: 320,
-    borderRadius: radius.input,
-    backgroundColor: palette.border,
+    borderRadius: radius.button,
+    backgroundColor: palette.surface,
   },
-  binaryNotice: { marginTop: spacing.md, backgroundColor: palette.surface },
-  binaryNoticeText: { ...typography.bodySmall, color: palette.textSecondary, marginBottom: spacing.xs },
+  binaryNotice: {
+    marginTop: 16,
+    backgroundColor: "#EFF6FF",
+    borderRadius: radius.button,
+    padding: 16,
+  },
+  binaryNoticeText: { fontSize: 14, color: "#1E3A8A", marginBottom: 8 },
 
   submissionCard: {
+    backgroundColor: palette.surface,
+    borderRadius: radius.button,
+    padding: 14,
+    marginBottom: 8,
     flexDirection: "row",
     alignItems: "center",
     justifyContent: "space-between",
-    marginBottom: spacing.sm,
   },
   listItemContent: { flex: 1 },
-  itemTitle: { ...typography.body, fontWeight: "500", color: palette.textPrimary },
-  itemSub: { ...typography.caption, color: palette.textMuted, marginTop: spacing.xxs },
+  itemTitle: { fontSize: 16, fontWeight: "500", color: palette.textPrimary },
+  itemSub: { ...typography.caption, color: palette.textMuted, marginTop: 4 },
 
-  contentPreview: { marginTop: spacing.lg, minHeight: 300 },
-  noContent: { ...typography.body, color: palette.textMuted, textAlign: "center", marginTop: spacing.md },
-  errorText: { ...typography.body, color: palette.error, textAlign: "center", marginTop: spacing.xs },
+  emptySubmissions: { paddingVertical: 24, paddingHorizontal: 16 },
+  emptySubmissionsTitle: { fontSize: 16, fontWeight: "600", color: palette.textSecondary, marginBottom: 8 },
+  emptySubmissionsSubtitle: { fontSize: 14, color: palette.textMuted },
 
   configFallbackHint: {
     ...typography.caption,
@@ -653,13 +676,15 @@ const styles = StyleSheet.create({
   configKey: { ...typography.bodySmall, color: palette.textMuted, textTransform: "capitalize" as const },
   configKeyOverridden: { color: palette.primary, fontWeight: "600" as const },
   configValue: { ...typography.bodySmall, fontWeight: "500" as const, color: palette.textSecondary },
+  contentPreview: { marginTop: 24, flex: 1, minHeight: 300 },
+  noContent: { color: palette.textDisabled, textAlign: "center", marginTop: 16 },
 
   disabledButton: {
-    backgroundColor: palette.border,
+    backgroundColor: palette.borderStrong,
     borderRadius: radius.button,
-    padding: spacing.md,
+    padding: 16,
     alignItems: "center",
-    marginTop: spacing.lg,
+    marginTop: 24,
   },
   disabledButtonText: { ...typography.button, color: palette.textMuted },
   tryStudentButton: {

@@ -15,6 +15,7 @@ import { palette, radius } from "@/constants/palette";
 import { spacing } from "@/constants/spacing";
 import { typography } from "@/constants/typography";
 import { useChat } from "@/hooks/useChat";
+import { hasLatex, InlineLatex } from "@/components/InlineLatex";
 import type { ChatMessage } from '@/lib/api';
 
 type ChatPanelProps = {
@@ -103,6 +104,7 @@ function MessageList({ messages, loading, problemNum }: MessageListProps) {
       )}
       {messages.map((msg) => {
         const isStudent = msg.role === 'student';
+        const showLatex = !isStudent && hasLatex(msg.content);
         return (
           <View
             key={msg.id}
@@ -111,9 +113,13 @@ function MessageList({ messages, loading, problemNum }: MessageListProps) {
               isStudent ? styles.studentBubble : styles.assistantBubble,
             ]}
           >
-            <Text style={isStudent ? styles.studentText : styles.assistantText}>
-              {msg.content}
-            </Text>
+            {showLatex ? (
+              <InlineLatex content={msg.content} color={palette.textPrimary} />
+            ) : (
+              <Text style={isStudent ? styles.studentText : styles.assistantText}>
+                {msg.content}
+              </Text>
+            )}
           </View>
         );
       })}
@@ -135,22 +141,45 @@ type ChatInputBarProps = {
 
 function ChatInputBar({ inputText, onChangeText, onSend, loading }: ChatInputBarProps) {
   const canSend = !!inputText.trim() && !loading;
+  const inputRef = useRef<TextInput>(null);
+  const onSendRef = useRef(onSend);
+  onSendRef.current = onSend;
+
+  useEffect(() => {
+    if (Platform.OS !== 'web') return;
+    const node = inputRef.current as any;
+    const el = node && (node as HTMLElement);
+    if (!el) return;
+    const handler = (e: KeyboardEvent) => {
+      if ((e.metaKey || e.ctrlKey) && e.key === 'Enter') {
+        e.preventDefault();
+        onSendRef.current();
+      }
+    };
+    el.addEventListener('keydown', handler);
+    return () => el.removeEventListener('keydown', handler);
+  }, []);
 
   return (
     <View style={styles.inputBar}>
-      <TextInput
-        style={styles.textInput}
-        value={inputText}
-        onChangeText={onChangeText}
-        placeholder="Type a message..."
-        placeholderTextColor={palette.textDisabled}
-        multiline
-        maxLength={2000}
-        editable={!loading}
-        onSubmitEditing={onSend}
-        blurOnSubmit={false}
-        accessibilityLabel="Message"
-      />
+      <View style={{ flex: 1 }}>
+        <TextInput
+          ref={inputRef}
+          style={styles.textInput}
+          value={inputText}
+          onChangeText={onChangeText}
+          placeholder="Type a message..."
+          placeholderTextColor={palette.textDisabled}
+          multiline
+          maxLength={2000}
+          editable={!loading}
+          blurOnSubmit={false}
+          accessibilityLabel="Message"
+        />
+        {Platform.OS === 'web' && (
+          <Text style={styles.sendHint}>Cmd+Enter to send</Text>
+        )}
+      </View>
       <Pressable
         style={({ pressed }) => [
           styles.sendBtn,
@@ -359,5 +388,11 @@ const styles = StyleSheet.create({
     ...typography.bodySmall,
     color: palette.textOnPrimary,
     fontWeight: "700",
+  },
+  sendHint: {
+    ...typography.caption,
+    color: palette.textDisabled,
+    marginTop: spacing.xxs,
+    marginLeft: spacing.xs,
   },
 });

@@ -137,6 +137,7 @@ export function TeacherClassroomScreen({ route, navigation }: { route: any; navi
               navigation.goBack();
               alert("Deleted", "Classroom deleted successfully.");
             } catch (e: unknown) {
+              console.error('Delete classroom failed:', e);
               alert("Error", e instanceof Error ? e.message : "Failed to delete classroom");
             }
           },
@@ -161,6 +162,14 @@ export function TeacherClassroomScreen({ route, navigation }: { route: any; navi
           accessibilityLabel="Copy class code"
         >
           <Text style={styles.copyButtonText}>Copy</Text>
+        </TouchableOpacity>
+        <TouchableOpacity
+          style={styles.headerDeleteButton}
+          onPress={handleDeleteClassroom}
+          accessibilityRole="button"
+          accessibilityLabel="Delete classroom"
+        >
+          <Text style={styles.headerDeleteButtonText}>Delete</Text>
         </TouchableOpacity>
       </View>
 
@@ -201,30 +210,30 @@ export function TeacherClassroomScreen({ route, navigation }: { route: any; navi
             <FlatList
               data={assignments}
               keyExtractor={(item) => item.id}
+              numColumns={2}
+              columnWrapperStyle={styles.gridRow}
               refreshControl={refreshControl}
               renderItem={({ item, index }) => {
                 const { label, warning } = formatDueDateLabel(item.due_date);
                 return (
                   <StaggeredFade index={index}>
                     <TouchableOpacity
-                      style={styles.listItem}
+                      style={styles.assignmentCard}
                       onPress={() => navigation.navigate("TeacherAssignment", { assignmentId: item.id })}
                       accessibilityRole="button"
                       accessibilityLabel={`${item.title}, ${label}`}
                     >
-                    <View style={styles.listItemContent}>
-                      <Text style={styles.itemTitle}>{item.title}</Text>
-                      <View style={styles.dueRow}>
-                        <Text style={[styles.itemSub, warning === "overdue" && styles.dueOverdue, warning === "soon" && styles.dueSoon]}>
-                          {label}
-                        </Text>
-                        {warning === "overdue" && <Text style={styles.badgeOverdue}>Overdue</Text>}
-                        {warning === "soon" && warning !== "overdue" && (
-                          <Text style={styles.badgeSoon}>Due soon</Text>
-                        )}
-                      </View>
+                    <View style={styles.assignmentCardAccent} />
+                    <View style={styles.assignmentCardBody}>
+                      <Text style={styles.itemTitle} numberOfLines={2}>{item.title}</Text>
+                      <Text style={[styles.itemSub, warning === "overdue" && styles.dueOverdue, warning === "soon" && styles.dueSoon]} numberOfLines={1}>
+                        {label}
+                      </Text>
+                      {warning === "overdue" && <Text style={styles.badgeOverdue}>Overdue</Text>}
+                      {warning === "soon" && warning !== "overdue" && (
+                        <Text style={styles.badgeSoon}>Due soon</Text>
+                      )}
                     </View>
-                    <Text style={styles.chevron}>&gt;</Text>
                   </TouchableOpacity>
                   </StaggeredFade>
                 );
@@ -420,6 +429,27 @@ const styles = StyleSheet.create({
   },
   addButtonText: { color: palette.white, fontSize: 16, fontWeight: "600" },
   skeletonList: { marginTop: 8 },
+  gridRow: { gap: spacing.sm },
+  assignmentCard: {
+    flex: 1,
+    minHeight: 120,
+    backgroundColor: palette.card,
+    borderRadius: radius.organic,
+    marginBottom: spacing.sm,
+    overflow: "hidden",
+    borderTopWidth: 4,
+    borderTopColor: palette.forestCanopy,
+  },
+  assignmentCardAccent: {
+    height: 0,
+  },
+  assignmentCardBody: {
+    flex: 1,
+    alignItems: "center",
+    justifyContent: "center",
+    padding: spacing.sm,
+    gap: 4,
+  },
   listItem: {
     backgroundColor: palette.card,
     borderRadius: radius.organic,
@@ -429,7 +459,7 @@ const styles = StyleSheet.create({
     alignItems: "center",
   },
   listItemContent: { flex: 1 },
-  itemTitle: { fontSize: 16, fontWeight: "500", color: palette.textPrimary },
+  itemTitle: { fontSize: 16, fontWeight: "500", color: palette.textPrimary, textAlign: "center" },
   dueRow: { flexDirection: "row", alignItems: "center", gap: 8, marginTop: 4 },
   itemSub: { ...typography.caption, color: palette.textMuted },
   dueOverdue: { color: palette.error },
@@ -475,4 +505,12 @@ const styles = StyleSheet.create({
     marginBottom: spacing.lg,
   },
   deleteButtonText: { color: palette.white, fontSize: 16, fontWeight: "600" },
+  headerDeleteButton: {
+    paddingHorizontal: 10,
+    paddingVertical: 4,
+    borderRadius: radius.button,
+    backgroundColor: palette.errorBg,
+    marginLeft: "auto",
+  },
+  headerDeleteButtonText: { fontSize: 13, fontWeight: "600", color: palette.error },
 });

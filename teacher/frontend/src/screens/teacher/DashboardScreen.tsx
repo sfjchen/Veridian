@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useRef } from "react";
+import React, { useState, useEffect, useRef, useCallback } from "react";
 import { Animated, FlatList, Modal, StyleSheet, Text, TouchableOpacity, View, ViewStyle } from "react-native";
 import { useFocusEffect } from "@react-navigation/native";
 import { useClassrooms } from "../../hooks/useClassrooms";
@@ -8,7 +8,6 @@ import {
   Button,
   Card,
   CopyableBadge,
-  EmptyState,
   Input,
   ScreenContainer,
   SkeletonCard,
@@ -21,26 +20,153 @@ import { motion } from "../../constants/motion";
 import { spacing } from "../../constants/spacing";
 import { typography } from "../../constants/typography";
 
-const STAGGER_DELAY_MS = 50;
+const STAGGER_DELAY_MS = 60;
+
+/* ── Animated classroom card with stagger + press feedback ── */
 
 function StaggeredCard({ index, style, children }: { index: number; style?: ViewStyle; children: React.ReactNode }) {
   const opacity = useRef(new Animated.Value(0)).current;
+  const translateY = useRef(new Animated.Value(12)).current;
+
   useEffect(() => {
-    Animated.timing(opacity, {
-      toValue: 1,
-      duration: motion.normal,
-      delay: index * STAGGER_DELAY_MS,
-      useNativeDriver: true,
-    }).start();
-  }, [index, opacity]);
-  return <Animated.View style={[style, { opacity }]}>{children}</Animated.View>;
+    const delay = index * STAGGER_DELAY_MS;
+    Animated.parallel([
+      Animated.timing(opacity, {
+        toValue: 1,
+        duration: motion.normal,
+        delay,
+        useNativeDriver: true,
+      }),
+      Animated.timing(translateY, {
+        toValue: 0,
+        duration: motion.normal,
+        delay,
+        useNativeDriver: true,
+      }),
+    ]).start();
+  }, [index, opacity, translateY]);
+
+  return (
+    <Animated.View style={[style, { opacity, transform: [{ translateY }] }]}>
+      {children}
+    </Animated.View>
+  );
 }
+
+/* ── Gradient-style top border (two-tone) ── */
+
+function CardGradientBorder({ even }: { even: boolean }) {
+  return (
+    <View style={borderStyles.wrapper}>
+      <View style={[borderStyles.half, { backgroundColor: even ? palette.forestCanopy : palette.forestLeaf }]} />
+      <View style={[borderStyles.half, { backgroundColor: even ? palette.forestLeaf : palette.forestCanopy }]} />
+    </View>
+  );
+}
+
+const borderStyles = StyleSheet.create({
+  wrapper: {
+    flexDirection: "row",
+    height: 4,
+    borderTopLeftRadius: radius.organic,
+    borderTopRightRadius: radius.organic,
+    overflow: "hidden",
+  },
+  half: { flex: 1 },
+});
+
+/* ── Forest-themed header ── */
+
+function DashboardHeader({ onNew }: { onNew: () => void }) {
+  return (
+    <View style={styles.header}>
+      <View style={styles.headerBg}>
+        <View style={styles.headerMistLayer} />
+      </View>
+      <View style={styles.headerContent}>
+        <View style={styles.heroRow}>
+          <View style={styles.heroIconCluster}>
+            <TreeIcon size={28} color={palette.forestCanopy} />
+            <View style={styles.heroLeafOffset}>
+              <LeafAccent size={16} color={palette.forestLeaf} />
+            </View>
+          </View>
+          <View>
+            <Text style={styles.hero}>My Classrooms</Text>
+            <Text style={styles.heroSubtitle}>Manage your teaching forest</Text>
+          </View>
+        </View>
+        <View style={styles.headerActions}>
+          <Button onPress={onNew} variant="primary" size="sm" accessibilityLabel="New classroom">
+            + New classroom
+          </Button>
+        </View>
+      </View>
+    </View>
+  );
+}
+
+/* ── Rich empty state ── */
+
+function ForestEmptyState({ onAction }: { onAction: () => void }) {
+  const breathe = useRef(new Animated.Value(0.7)).current;
+
+  useEffect(() => {
+    Animated.loop(
+      Animated.sequence([
+        Animated.timing(breathe, { toValue: 1, duration: 2000, useNativeDriver: true }),
+        Animated.timing(breathe, { toValue: 0.7, duration: 2000, useNativeDriver: true }),
+      ])
+    ).start();
+  }, [breathe]);
+
+  return (
+    <View style={styles.emptyContainer}>
+      <View style={styles.emptyForestScene}>
+        {/* Mist layer behind trees */}
+        <View style={styles.emptyMistBg} />
+
+        {/* Tree cluster */}
+        <View style={styles.emptyTreeRow}>
+          <View style={styles.emptyTreeSmallLeft}>
+            <TreeIcon size={36} color={palette.forestLayer4} />
+          </View>
+          <TreeIcon size={64} color={palette.forestCanopy} />
+          <View style={styles.emptyTreeSmallRight}>
+            <TreeIcon size={44} color={palette.forestLayer5} />
+          </View>
+        </View>
+
+        {/* Floating leaves */}
+        <Animated.View style={[styles.emptyLeafLeft, { opacity: breathe }]}>
+          <LeafAccent size={14} color={palette.forestLeaf} />
+        </Animated.View>
+        <Animated.View style={[styles.emptyLeafRight, { opacity: breathe }]}>
+          <LeafAccent size={10} color={palette.forestCanopy} />
+        </Animated.View>
+      </View>
+
+      <Text style={styles.emptyTitle}>Plant your first classroom</Text>
+      <Text style={styles.emptyDescription}>
+        Create a classroom to share assignments and watch your students grow.
+      </Text>
+      <Text style={styles.emptyDescSecondary}>
+        Every great forest starts with a single seed.
+      </Text>
+      <Button onPress={onAction} variant="primary" style={styles.emptyButton}>
+        + New classroom
+      </Button>
+    </View>
+  );
+}
+
+/* ── Main screen ── */
 
 export function TeacherDashboardScreen({ navigation }: { navigation: { navigate: (a: string, b: { classroom: { id: string; name: string; class_code: string } }) => void } }) {
   const { classrooms, loading, error, create, refresh } = useClassrooms();
 
   useFocusEffect(
-    React.useCallback(() => {
+    useCallback(() => {
       refresh();
     }, [refresh])
   );
@@ -59,6 +185,7 @@ export function TeacherDashboardScreen({ navigation }: { navigation: { navigate:
 
   const modalScale = useRef(new Animated.Value(0.96)).current;
   const listFade = useRef(new Animated.Value(0)).current;
+
   useEffect(() => {
     if (modalVisible) {
       modalScale.setValue(0.96);
@@ -69,6 +196,7 @@ export function TeacherDashboardScreen({ navigation }: { navigation: { navigate:
       }).start();
     }
   }, [modalVisible, modalScale]);
+
   useEffect(() => {
     if (!loading && !error) {
       listFade.setValue(0);
@@ -101,17 +229,7 @@ export function TeacherDashboardScreen({ navigation }: { navigation: { navigate:
 
   return (
     <ScreenContainer maxWidth="dashboard">
-      <View style={styles.header}>
-        <View style={styles.heroRow}>
-          <LeafAccent size={28} />
-          <Text style={styles.hero}>My Classrooms</Text>
-        </View>
-        <View style={styles.headerActions}>
-          <Button onPress={openModal} variant="primary" size="sm" accessibilityLabel="New classroom">
-            + New classroom
-          </Button>
-        </View>
-      </View>
+      <DashboardHeader onNew={openModal} />
 
       <Modal
         visible={modalVisible}
@@ -126,7 +244,10 @@ export function TeacherDashboardScreen({ navigation }: { navigation: { navigate:
         >
           <TouchableOpacity activeOpacity={1} onPress={() => {}}>
             <Animated.View style={[styles.modalCard, elevation.shadowLg, { transform: [{ scale: modalScale }] }]}>
-              <Text style={styles.modalTitle}>New classroom</Text>
+              <View style={styles.modalHeader}>
+                <LeafAccent size={18} color={palette.forestLeaf} />
+                <Text style={styles.modalTitle}>New classroom</Text>
+              </View>
               <Section>
                 <Input
                   placeholder="Classroom name"
@@ -170,26 +291,19 @@ export function TeacherDashboardScreen({ navigation }: { navigation: { navigate:
                   onPress={() => navigation.navigate("Classroom", { classroom: item })}
                   style={styles.card}
                 >
-                  <Text style={styles.cardTitle} numberOfLines={2}>{item.name}</Text>
-                  <Text style={styles.cardLabel}>Class code</Text>
-                  <CopyableBadge text={item.class_code} onCopy={() => showToast("Class code copied")} />
+                  <CardGradientBorder even={index % 2 === 0} />
+                  <View style={styles.cardContent}>
+                    <View style={styles.cardLeafCorner}>
+                      <LeafAccent size={14} color={index % 2 === 0 ? palette.forestLeaf : palette.forestCanopy} />
+                    </View>
+                    <Text style={styles.cardTitle} numberOfLines={2}>{item.name}</Text>
+                    <Text style={styles.cardLabel}>Class code</Text>
+                    <CopyableBadge text={item.class_code} onCopy={() => showToast("Class code copied")} />
+                  </View>
                 </Card>
               </StaggeredCard>
             )}
-          ListEmptyComponent={
-            <EmptyState
-              title="No classrooms yet"
-              description="Tap “New classroom” to create your first one."
-              descriptionSecondary="Create a classroom to share assignments and see how students think."
-              icon={
-                <View style={styles.emptyIconWrap}>
-                  <TreeIcon size={40} color={palette.primary} />
-                </View>
-              }
-              actionLabel="New classroom"
-              onAction={openModal}
-            />
-          }
+            ListEmptyComponent={<ForestEmptyState onAction={openModal} />}
           />
         </Animated.View>
       )}
@@ -198,29 +312,70 @@ export function TeacherDashboardScreen({ navigation }: { navigation: { navigate:
 }
 
 const styles = StyleSheet.create({
+  /* ── Header ── */
   header: {
+    position: "relative",
+    marginBottom: spacing.lg,
+    paddingTop: spacing.xs,
+    overflow: "hidden",
+    borderRadius: radius.organic,
+  },
+  headerBg: {
+    ...StyleSheet.absoluteFillObject,
+    backgroundColor: palette.forestGradientStart,
+    borderRadius: radius.organic,
+  },
+  headerMistLayer: {
+    position: "absolute",
+    bottom: 0,
+    left: 0,
+    right: 0,
+    height: 20,
+    backgroundColor: palette.forestMist,
+    opacity: 0.4,
+  },
+  headerContent: {
     flexDirection: "row",
     justifyContent: "space-between",
     alignItems: "center",
     flexWrap: "wrap",
     gap: spacing.sm,
-    marginBottom: spacing.lg,
-    paddingTop: spacing.xs,
+    paddingHorizontal: spacing.lg,
+    paddingVertical: spacing.md,
   },
   heroRow: {
     flexDirection: "row",
     alignItems: "center",
-    gap: spacing.xs,
+    gap: spacing.sm,
+  },
+  heroIconCluster: {
+    position: "relative",
+    width: 36,
+    height: 36,
+    justifyContent: "center",
+    alignItems: "center",
+  },
+  heroLeafOffset: {
+    position: "absolute",
+    top: -4,
+    right: -6,
   },
   hero: {
     ...typography.display,
-    color: palette.textPrimary,
+    color: palette.forestCanopy,
+  },
+  heroSubtitle: {
+    ...typography.caption,
+    color: palette.forestLayer4,
+    marginTop: 2,
   },
   headerActions: {
     flexDirection: "row",
     alignItems: "center",
     gap: spacing.sm,
   },
+
+  /* ── Modal ── */
   modalBackdrop: {
     flex: 1,
     backgroundColor: palette.overlay,
@@ -234,11 +389,18 @@ const styles = StyleSheet.create({
     padding: spacing.lg,
     width: "100%",
     maxWidth: 400,
+    borderTopWidth: 3,
+    borderTopColor: palette.forestCanopy,
+  },
+  modalHeader: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: spacing.xs,
+    marginBottom: spacing.md,
   },
   modalTitle: {
     ...typography.h1,
     color: palette.textPrimary,
-    marginBottom: spacing.md,
   },
   modalActions: {
     flexDirection: "row",
@@ -246,16 +408,33 @@ const styles = StyleSheet.create({
     marginTop: spacing.sm,
   },
   modalButton: { flex: 1 },
+
+  /* ── List / Grid ── */
   listFadeWrap: { flex: 1 },
   list: { paddingBottom: spacing.xl },
   emptyList: { flexGrow: 1 },
   cardRow: { gap: spacing.sm, marginBottom: spacing.sm },
+  cardWrapper: { flex: 1 },
+
+  /* ── Card ── */
   card: {
     flex: 1,
-    minHeight: 120,
-    borderTopWidth: 4,
-    borderTopColor: palette.forestCanopy,
+    minHeight: 140,
     borderRadius: radius.organic,
+    padding: 0,
+    overflow: "hidden",
+  },
+  cardContent: {
+    flex: 1,
+    padding: spacing.md,
+    paddingTop: spacing.sm,
+    position: "relative",
+  },
+  cardLeafCorner: {
+    position: "absolute",
+    top: spacing.xs,
+    right: spacing.xs,
+    opacity: 0.6,
   },
   cardTitle: {
     ...typography.h2,
@@ -267,13 +446,72 @@ const styles = StyleSheet.create({
     color: palette.textMuted,
     marginBottom: spacing.xxs,
   },
-  emptyIconWrap: {
-    width: 64,
-    height: 64,
-    borderRadius: 32,
-    backgroundColor: palette.primaryMuted,
-    justifyContent: "center",
+
+  /* ── Empty state ── */
+  emptyContainer: {
+    paddingVertical: spacing.xxxl,
+    paddingHorizontal: spacing.xl,
     alignItems: "center",
   },
-  cardWrapper: { flex: 1 },
+  emptyForestScene: {
+    position: "relative",
+    width: 180,
+    height: 100,
+    alignItems: "center",
+    justifyContent: "flex-end",
+    marginBottom: spacing.lg,
+  },
+  emptyMistBg: {
+    position: "absolute",
+    bottom: 0,
+    left: 0,
+    right: 0,
+    height: 40,
+    borderRadius: 20,
+    backgroundColor: palette.forestMist,
+    opacity: 0.5,
+  },
+  emptyTreeRow: {
+    flexDirection: "row",
+    alignItems: "flex-end",
+    gap: spacing.xs,
+  },
+  emptyTreeSmallLeft: {
+    marginBottom: 4,
+  },
+  emptyTreeSmallRight: {
+    marginBottom: 2,
+  },
+  emptyLeafLeft: {
+    position: "absolute",
+    top: 8,
+    left: 16,
+  },
+  emptyLeafRight: {
+    position: "absolute",
+    top: 14,
+    right: 20,
+  },
+  emptyTitle: {
+    ...typography.h2,
+    color: palette.textPrimary,
+    textAlign: "center",
+    marginBottom: spacing.sm,
+  },
+  emptyDescription: {
+    ...typography.bodySmall,
+    color: palette.textMuted,
+    textAlign: "center",
+    marginBottom: spacing.xs,
+  },
+  emptyDescSecondary: {
+    ...typography.caption,
+    color: palette.forestLayer4,
+    textAlign: "center",
+    fontStyle: "italic",
+    marginBottom: spacing.lg,
+  },
+  emptyButton: {
+    marginTop: spacing.md,
+  },
 });

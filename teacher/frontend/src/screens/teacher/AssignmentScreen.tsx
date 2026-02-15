@@ -18,6 +18,7 @@ import { API_URL } from "../../lib/apiBaseUrl";
 import { createPdfPreviewDataUri, looksLikeImage, looksLikePdf, looksLikeText } from "../../lib/pdfPreview";
 import { useSubmissions } from "../../hooks/useSubmissions";
 import { LatexRenderer } from "../../components/LatexRenderer";
+import { InlineLatexRenderer } from "../../components/InlineLatexRenderer";
 import { FileUploader } from "../../components/FileUploader";
 import { DateField } from "../../components/DateField";
 import { ProblemEditor } from "../../components/ProblemEditor";
@@ -232,7 +233,7 @@ export function TeacherAssignmentScreen({ route, navigation }: { route: any; nav
   const handleAnswerKeyUpload = async () => {
     try {
       const result = await DocumentPicker.getDocumentAsync({
-        type: ["application/pdf", "text/*"],
+        type: ["application/pdf", "text/*", "application/x-tex", "application/x-latex"],
         copyToCacheDirectory: true,
       });
 
@@ -307,6 +308,7 @@ export function TeacherAssignmentScreen({ route, navigation }: { route: any; nav
               await api(`/assignments/${assignmentId}`, { method: "DELETE" });
               navigation.goBack();
             } catch (e: any) {
+              console.error('Delete assignment failed:', e);
               alert("Error", e.message);
             }
           },
@@ -499,9 +501,13 @@ export function TeacherAssignmentScreen({ route, navigation }: { route: any; nav
                   {assignment.problems.map((p) => (
                     <View key={p.num} style={styles.problemRow}>
                       <Text style={styles.problemNum}>#{p.num}</Text>
-                      <Text style={styles.problemTex} numberOfLines={2}>
-                        {p.statement_tex || "(no statement)"}
-                      </Text>
+                      {p.statement_tex ? (
+                        <View style={{ flex: 1 }}>
+                          <InlineLatexRenderer latex={`$${p.statement_tex}$`} />
+                        </View>
+                      ) : (
+                        <Text style={styles.problemTex}>(no statement)</Text>
+                      )}
                     </View>
                   ))}
                 </View>
@@ -512,14 +518,18 @@ export function TeacherAssignmentScreen({ route, navigation }: { route: any; nav
                   {assignment.solutions.map((s) => (
                     <View key={s.num} style={styles.problemRow}>
                       <Text style={styles.problemNum}>#{s.num}</Text>
-                      <Text style={styles.problemTex} numberOfLines={2}>
-                        {s.solution_tex || "(no solution)"}
-                      </Text>
+                      {s.solution_tex ? (
+                        <View style={{ flex: 1 }}>
+                          <InlineLatexRenderer latex={`$${s.solution_tex}$`} />
+                        </View>
+                      ) : (
+                        <Text style={styles.problemTex}>(no solution)</Text>
+                      )}
                     </View>
                   ))}
                 </View>
               )}
-              {!assignment.answer_key_latex && !detectedSolutions && (
+              {!detectedSolutions && (
                 <View style={{ marginTop: 16 }}>
                   <Text style={styles.sectionTitle}>Answer Key</Text>
                   <Button
@@ -527,7 +537,9 @@ export function TeacherAssignmentScreen({ route, navigation }: { route: any; nav
                     loading={uploadingAnswerKey}
                     disabled={uploadingAnswerKey}
                   >
-                    Upload Answer Key (PDF/TEX)
+                    {assignment.answer_key_latex
+                      ? "Re-upload Answer Key (PDF/TEX)"
+                      : "Upload Answer Key (PDF/TEX)"}
                   </Button>
                   {uploadingAnswerKey && (
                     <Text style={styles.convertHint}>

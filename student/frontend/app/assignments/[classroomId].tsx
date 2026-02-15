@@ -1,6 +1,7 @@
 import { MaterialCommunityIcons } from "@expo/vector-icons";
 import { useLocalSearchParams, useRouter } from "expo-router";
 import {
+  FlatList,
   Pressable,
   StyleSheet,
   Text,
@@ -13,6 +14,7 @@ import {
   ScreenContainer,
   SkeletonCard,
 } from "@/components/ui";
+import { TreeIcon } from "@/components/forest";
 import { palette, radius } from "@/constants/palette";
 import { spacing } from "@/constants/spacing";
 import { typography } from "@/constants/typography";
@@ -35,7 +37,7 @@ function formatDueDate(dueDate: string | null): string {
   }
 }
 
-function AssignmentRow({
+function AssignmentCard({
   assignment,
   onPress,
 }: {
@@ -46,27 +48,25 @@ function AssignmentRow({
   return (
     <Pressable
       style={({ pressed }) => [
-        styles.row,
+        styles.card,
         pressed && { backgroundColor: palette.rowPressed, opacity: 0.9 },
       ]}
       onPress={onPress}
       accessibilityRole="button"
       accessibilityLabel={`Open assignment ${assignment.title}`}
     >
-      <View style={styles.rowIcon}>
-        <MaterialCommunityIcons name="file-document-outline" size={28} color={palette.textMuted} />
-      </View>
-      <View style={styles.rowContent}>
-        <Text style={styles.rowTitle} numberOfLines={2}>
+      <View style={styles.cardAccent} />
+      <View style={styles.cardBody}>
+        <MaterialCommunityIcons name="file-document-outline" size={28} color={palette.primary} />
+        <Text style={styles.cardTitle} numberOfLines={2}>
           {assignment.title}
         </Text>
         {dueStr ? (
-          <Text style={styles.rowDue} numberOfLines={1}>
+          <Text style={styles.cardDue} numberOfLines={1}>
             Due {dueStr}
           </Text>
         ) : null}
       </View>
-      <MaterialCommunityIcons name="chevron-right" size={24} color={palette.textDisabled} />
     </Pressable>
   );
 }
@@ -154,28 +154,33 @@ export default function AssignmentsScreen() {
 
       {assignments.length === 0 ? (
         <EmptyState
+          icon={<TreeIcon size={48} color={palette.primary} />}
           title="No assignments yet"
           description="Assignments from your teacher will appear here."
         />
       ) : (
-        <View style={styles.listContent}>
-          {assignments.map((a) => (
-            <AssignmentRow
-              key={a.id}
-              assignment={a}
+        <FlatList
+          data={assignments}
+          keyExtractor={(item) => item.id}
+          numColumns={2}
+          columnWrapperStyle={styles.gridRow}
+          renderItem={({ item }) => (
+            <AssignmentCard
+              assignment={item}
               onPress={() =>
                 router.push({
                   pathname: "/document/[id]",
                   params: {
-                    id: a.id,
-                    assignmentId: a.id,
+                    id: item.id,
+                    assignmentId: item.id,
                     classroomName: classroomName ?? undefined,
                   },
                 })
               }
             />
-          ))}
-        </View>
+          )}
+          contentContainerStyle={styles.listContent}
+        />
       )}
     </ScreenContainer>
   );
@@ -212,28 +217,43 @@ const styles = StyleSheet.create({
     color: palette.textPrimary,
   },
   headerSpacer: { width: 88 },
-  listContent: { padding: 16, paddingBottom: 32 },
-  row: {
-    flexDirection: "row",
-    alignItems: "center",
+  listContent: {
+    padding: spacing.md,
+    paddingBottom: spacing.xl,
+  },
+  gridRow: {
+    gap: spacing.sm,
+  },
+  card: {
+    flex: 1,
+    minHeight: 120,
     backgroundColor: palette.card,
-    padding: 14,
     borderRadius: radius.card,
-    marginBottom: 10,
+    marginBottom: spacing.sm,
     borderWidth: 1,
     borderColor: palette.border,
+    overflow: "hidden",
   },
-  rowIcon: { marginRight: 12 },
-  rowContent: { flex: 1, minWidth: 0 },
-  rowTitle: {
+  cardAccent: {
+    height: 4,
+    backgroundColor: palette.forestCanopy,
+  },
+  cardBody: {
+    flex: 1,
+    alignItems: "center",
+    justifyContent: "center",
+    padding: spacing.sm,
+    gap: spacing.xxs,
+  },
+  cardTitle: {
     ...typography.body,
     fontWeight: "500",
-    color: palette.textSecondary,
+    color: palette.textPrimary,
+    textAlign: "center",
   },
-  rowDue: {
+  cardDue: {
     ...typography.caption,
     color: palette.textMuted,
-    marginTop: 2,
   },
   skeletonList: { padding: spacing.md },
 });

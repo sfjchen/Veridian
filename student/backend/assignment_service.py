@@ -4,6 +4,7 @@ from config_schema import resolve_config, validate_config
 from supabase_service import get_supabase_service_client, unwrap_supabase_data
 
 ASSIGNMENTS_TABLE = "assignments"
+MEMBERSHIPS_TABLE = "classroom_memberships"
 
 
 def get_assignment(assignment_id: str) -> Optional[Dict[str, Any]]:
@@ -51,6 +52,30 @@ def _fetch_classroom_config(classroom_id: str) -> Dict[str, Any]:
         return {}
     config = rows[0].get("config")
     return config if isinstance(config, dict) else {}
+
+
+def _is_classroom_member(classroom_id: str, student_id: str) -> bool:
+    supabase = get_supabase_service_client()
+    response = (
+        supabase.table(MEMBERSHIPS_TABLE)
+        .select("classroom_id")
+        .eq("classroom_id", classroom_id)
+        .eq("student_id", student_id)
+        .limit(1)
+        .execute()
+    )
+    rows = unwrap_supabase_data(response) or []
+    return isinstance(rows, list) and len(rows) > 0
+
+
+def can_student_access_assignment(assignment_id: str, student_id: str) -> bool:
+    assignment = get_assignment(assignment_id)
+    if not assignment:
+        return False
+    classroom_id = assignment.get("classroom_id")
+    if not isinstance(classroom_id, str) or not classroom_id:
+        return False
+    return _is_classroom_member(classroom_id, student_id)
 
 
 def get_resolved_config(assignment_id: str) -> Dict[str, Any]:

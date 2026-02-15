@@ -107,8 +107,10 @@ export async function fetchAssignments(
   return Array.isArray(list) ? list : [];
 }
 
-export async function fetchAssignment(assignmentId: string): Promise<Assignment> {
-  const res = await fetch(`${BASE_URL}/assignments/${assignmentId}`);
+export async function fetchAssignment(assignmentId: string, token?: string): Promise<Assignment> {
+  const res = await fetch(`${BASE_URL}/assignments/${assignmentId}`, {
+    headers: getAuthHeaders(token),
+  });
   if (!res.ok) {
     const body = await res.json().catch(() => ({}));
     throw new Error(body.error ?? `Failed to fetch assignment (${res.status})`);

@@ -1,6 +1,7 @@
 import { useEffect, useState } from 'react';
 
 import { fetchAssignment, type Assignment, type Problem } from '@/lib/api';
+import { getSessionAccessToken } from '@/lib/sessionToken';
 
 export function useAssignment(assignmentId: string | null) {
   const [assignment, setAssignment] = useState<Assignment | null>(null);
@@ -12,25 +13,28 @@ export function useAssignment(assignmentId: string | null) {
     if (!assignmentId) {
       setAssignment(null);
       setProblems([]);
+      setLoading(false);
+      setError(null);
       return;
     }
     let cancelled = false;
     setLoading(true);
     setError(null);
 
-    fetchAssignment(assignmentId)
-      .then((a) => {
+    (async () => {
+      try {
+        const accessToken = await getSessionAccessToken();
+        const a = await fetchAssignment(assignmentId, accessToken);
         if (cancelled) return;
         setAssignment(a);
         setProblems(a.problems ?? []);
-      })
-      .catch((e) => {
+      } catch (e) {
         if (cancelled) return;
         setError(e instanceof Error ? e.message : String(e));
-      })
-      .finally(() => {
+      } finally {
         if (!cancelled) setLoading(false);
-      });
+      }
+    })();
 
     return () => { cancelled = true; };
   }, [assignmentId]);

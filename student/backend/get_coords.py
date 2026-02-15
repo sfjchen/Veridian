@@ -6,6 +6,7 @@ import re
 import sys
 import threading
 import time
+import uuid
 from collections import defaultdict
 from contextlib import contextmanager
 from io import BytesIO
@@ -25,11 +26,16 @@ from artifact_service import (
     list_artifacts,
     mark_artifact_uploaded,
 )
-from assignment_service import get_assignment, get_problem, get_problems, get_resolved_config
+from assignment_service import (
+    can_student_access_assignment,
+    get_assignment,
+    get_problem,
+    get_resolved_config,
+)
 from auth_middleware import require_auth, require_auth_or_sample, require_auth_or_sample_chat
 from classroom_service import list_assignments_for_classroom, list_classrooms_for_student
 from chat import generate_chat_response
-from chat_service import get_chat_history
+from chat_service import SAMPLE_ALGEBRA_ASSIGNMENT_ID, get_chat_history
 from dotenv import load_dotenv
 from flask import Flask, g, jsonify, request
 from flask_cors import CORS
@@ -412,6 +418,20 @@ def _parse_problem_num(raw: str) -> Optional[int]:
     except ValueError:
         return None
     return value if value >= 1 else None
+
+
+def _is_valid_uuid(raw: str) -> bool:
+    try:
+        uuid.UUID(raw)
+        return True
+    except ValueError:
+        return False
+
+
+def _is_valid_assignment_identifier(raw: str) -> bool:
+    if raw == SAMPLE_ALGEBRA_ASSIGNMENT_ID:
+        return True
+    return _is_valid_uuid(raw)
 
 
 def _get_field(value: Any, field: str, default: Any = None) -> Any:
@@ -1483,25 +1503,45 @@ def list_classroom_assignments(classroom_id: str) -> Any:
 
 
 @app.get("/assignments/<assignment_id>")
+@require_auth
 def get_assignment_endpoint(assignment_id: str) -> Any:
+    if not _is_valid_uuid(assignment_id):
+        return jsonify({"error": "Invalid assignment_id format."}), 400
     assignment = get_assignment(assignment_id)
     if assignment is None:
         return jsonify({"error": "Assignment not found."}), 404
-    return jsonify({"assignment": assignment})
+    if not can_student_access_assignment(assignment_id, g.user_id):
+        return jsonify({"error": "Access denied"}), 403
+    try:
+        resolved_config = get_resolved_config(assignment_id)
+    except ValueError as exc:
+        return jsonify({"error": str(exc)}), 400
+    payload = dict(assignment)
+    payload["resolved_config"] = resolved_config
+    return jsonify({"assignment": payload})
 
 
 @app.get("/assignments/<assignment_id>/problems")
+@require_auth
 def get_assignment_problems(assignment_id: str) -> Any:
-    try:
-        problems = get_problems(assignment_id)
-    except ValueError as exc:
-        return jsonify({"error": str(exc)}), 404
+    if not _is_valid_uuid(assignment_id):
+        return jsonify({"error": "Invalid assignment_id format."}), 400
+    assignment = get_assignment(assignment_id)
+    if assignment is None:
+        return jsonify({"error": "Assignment not found."}), 404
+    if not can_student_access_assignment(assignment_id, g.user_id):
+        return jsonify({"error": "Access denied"}), 403
+    problems = assignment.get("problems", [])
+    if not isinstance(problems, list):
+        problems = []
     return jsonify({"problems": problems})
 
 
 @app.get("/results/<assignment_id>")
 @require_auth
 def results_for_assignment(assignment_id: str) -> Any:
+    if not _is_valid_uuid(assignment_id):
+        return jsonify({"error": "Invalid assignment_id format."}), 400
     results = get_assignment_results(student_id=g.user_id, assignment_id=assignment_id)
     return jsonify({"results": results})
 
@@ -1509,6 +1549,8 @@ def results_for_assignment(assignment_id: str) -> Any:
 @app.get("/results/<assignment_id>/<int:problem_num>")
 @require_auth
 def result_for_problem(assignment_id: str, problem_num: int) -> Any:
+    if not _is_valid_uuid(assignment_id):
+        return jsonify({"error": "Invalid assignment_id format."}), 400
     result = get_result(student_id=g.user_id, assignment_id=assignment_id, problem_num=problem_num)
     if result is None:
         return jsonify({"error": "No result found."}), 404
@@ -1528,6 +1570,8 @@ def chat_send() -> Any:
 
     if not assignment_id or problem_num is None or not message:
         return jsonify({"error": "assignment_id, problem_num, and message are required."}), 400
+    if not _is_valid_assignment_identifier(assignment_id):
+        return jsonify({"error": "Invalid assignment_id format."}), 400
 
     if _is_chat_rate_limited(g.user_id):
         return jsonify({"error": "Rate limit exceeded. Max 10 messages per minute."}), 429
@@ -1558,6 +1602,8 @@ def chat_send() -> Any:
 @app.get("/chat/<assignment_id>/<int:problem_num>")
 @_chat_auth
 def chat_history(assignment_id: str, problem_num: int) -> Any:
+    if not _is_valid_assignment_identifier(assignment_id):
+        return jsonify({"error": "Invalid assignment_id format."}), 400
     try:
         messages = get_chat_history(g.user_id, assignment_id, problem_num)
     except ValueError as exc:

@@ -66,6 +66,26 @@ Constants: `mistake_analysis/constants.py` — SEVERITIES, TAG_BANK, ALL_TAGS, T
 - Minimal comments — code should be self-documenting
 - **NEVER silently swallow exceptions** — always surface errors to the user or implement proper retry/recovery. No bare `except: pass`, no `catch { /* ignore */ }`. If an operation can fail, handle the failure visibly (toast, error state, retry) rather than hiding it.
 
+## Parallel PR Work with Git Worktrees
+
+When addressing review feedback on multiple PRs simultaneously, use git worktrees so each agent works in its own directory on its own branch without conflicts:
+
+```bash
+mkdir -p .worktrees
+git worktree add .worktrees/pr57 feat/branch-name-57
+git worktree add .worktrees/pr58 feat/branch-name-58
+# main repo stays on its current branch for the third PR
+```
+
+Each spawned agent gets its own worktree path as its working directory. Commit, push, and comment from within each worktree independently. Clean up when done:
+
+```bash
+git worktree remove .worktrees/pr57
+git worktree remove .worktrees/pr58
+```
+
+`.worktrees/` is gitignored.
+
 ## Env layout (dev)
 
 Four `.env` files — one per app — is intentional. Each app loads from its own directory when run (`cd teacher/backend && python run.py`). Shared vars (Supabase) are duplicated; app-specific vars (e.g. `ANTHROPIC_API_KEY` for teacher, `OPENAI_API_KEY` for student) stay isolated. Copy from `.env.example` per app; see README Setup.

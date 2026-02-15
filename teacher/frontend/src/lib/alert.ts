@@ -10,7 +10,7 @@ const isWeb = (Platform.OS as string) === 'web';
 export function alert(
   title: string,
   message?: string,
-  buttons?: Array<AlertButton>
+  buttons?: AlertButton[]
 ): void {
   if (!title) return;
 

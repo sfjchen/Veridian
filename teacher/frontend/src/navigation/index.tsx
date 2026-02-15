@@ -15,10 +15,34 @@ import { StudentMistakeDetailScreen } from "../screens/teacher/StudentMistakeDet
 import { StudentDashboardScreen } from "../screens/student/DashboardScreen";
 import { StudentClassroomScreen } from "../screens/student/ClassroomScreen";
 import { AssignmentScreen } from "../screens/student/AssignmentScreen";
+import { palette } from "../constants/palette";
+import { spacing } from "../constants/spacing";
+import { typography } from "../constants/typography";
+import { TeacherHeaderLeft } from "../components/TeacherHeaderLeft";
+import { TeacherHeaderRight } from "../components/TeacherHeaderRight";
 
 const AuthStack = createNativeStackNavigator();
 const TeacherStack = createNativeStackNavigator();
 const StudentStack = createNativeStackNavigator();
+
+const headerScreenOptions = {
+  headerStyle: {
+    backgroundColor: palette.surfaceElevated,
+    borderBottomWidth: 1,
+    borderBottomColor: palette.border,
+  },
+  headerTintColor: palette.textPrimary,
+  headerTitleStyle: { ...typography.h2 },
+  headerShadowVisible: false,
+};
+
+const teacherScreenOptions = {
+  ...headerScreenOptions,
+  headerLeft: () => <TeacherHeaderLeft />,
+  headerLeftContainerStyle: { paddingLeft: spacing.sm },
+  headerRightContainerStyle: { paddingRight: spacing.sm },
+  headerTitleContainerStyle: { paddingHorizontal: spacing.xs },
+};
 
 function AuthNavigator() {
   return (
@@ -31,8 +55,12 @@ function AuthNavigator() {
 
 function TeacherNavigator() {
   return (
-    <TeacherStack.Navigator>
-      <TeacherStack.Screen name="TeacherDashboard" component={TeacherDashboardScreen} options={{ title: "Dashboard" }} />
+    <TeacherStack.Navigator screenOptions={teacherScreenOptions}>
+      <TeacherStack.Screen
+        name="TeacherDashboard"
+        component={TeacherDashboardScreen}
+        options={{ headerTitle: () => null, headerRight: () => <TeacherHeaderRight /> }}
+      />
       <TeacherStack.Screen name="Classroom" component={TeacherClassroomScreen} options={{ title: "Classroom" }} />
       <TeacherStack.Screen name="CorpusUpload" component={CorpusUploadScreen} options={{ title: "Upload File" }} />
       <TeacherStack.Screen name="CreateAssignment" component={CreateAssignmentScreen} options={{ title: "New Assignment" }} />
@@ -45,7 +73,7 @@ function TeacherNavigator() {
 
 function StudentNavigator() {
   return (
-    <StudentStack.Navigator>
+    <StudentStack.Navigator screenOptions={headerScreenOptions}>
       <StudentStack.Screen name="StudentDashboard" component={StudentDashboardScreen} options={{ title: "My Classes" }} />
       <StudentStack.Screen name="StudentClassroom" component={StudentClassroomScreen} options={{ title: "Classroom" }} />
       <StudentStack.Screen name="Assignment" component={AssignmentScreen} options={{ title: "Assignment" }} />
@@ -73,7 +101,7 @@ export function RootNavigator() {
   if (loading) {
     return (
       <View style={styles.center}>
-        <ActivityIndicator size="large" />
+        <ActivityIndicator size="large" color={palette.primary} />
       </View>
     );
   }
@@ -94,14 +122,14 @@ export function RootNavigator() {
 }
 
 const styles = StyleSheet.create({
-  center: { flex: 1, justifyContent: "center", alignItems: "center", padding: 24 },
-  errorText: { fontSize: 18, fontWeight: "600", marginBottom: 8, textAlign: "center" },
-  errorSubtext: { fontSize: 14, color: "#666", marginBottom: 24, textAlign: "center" },
+  center: { flex: 1, justifyContent: "center", alignItems: "center", padding: 24, backgroundColor: palette.surface },
+  errorText: { ...typography.h2, color: palette.textPrimary, marginBottom: 8, textAlign: "center" },
+  errorSubtext: { ...typography.bodySmall, color: palette.textMuted, marginBottom: 24, textAlign: "center" },
   signOutButton: {
-    backgroundColor: "#EF4444",
+    backgroundColor: palette.error,
     borderRadius: 8,
     paddingVertical: 12,
     paddingHorizontal: 24,
   },
-  signOutText: { color: "#fff", fontSize: 16, fontWeight: "600" },
+  signOutText: { color: palette.white, fontSize: 16, fontWeight: "600" },
 });

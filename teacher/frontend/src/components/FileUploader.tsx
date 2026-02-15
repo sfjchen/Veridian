@@ -1,8 +1,12 @@
 import React, { useState } from "react";
-import { View, Text, TouchableOpacity, StyleSheet, ActivityIndicator } from "react-native";
+import { StyleSheet, Text, View } from "react-native";
 import * as DocumentPicker from "expo-document-picker";
 import { uploadFile } from "../lib/upload";
 import { alert } from "../lib/alert";
+import { Button } from "./ui";
+import { palette } from "../constants/palette";
+import { spacing } from "../constants/spacing";
+import { typography } from "../constants/typography";
 
 const SAFE_DEFAULT_TYPES = ["application/pdf", "text/*", "image/*"];
 
@@ -38,8 +42,8 @@ export function FileUploader({ onUploadComplete, uploadUrl, label = "Upload File
       await uploadFile({ uri: file.uri, uploadUrl, mimeType: contentType, file: file.file });
       const storageUrl = uploadUrl.split("?")[0];
       onUploadComplete(storageUrl);
-    } catch (e: any) {
-      alert("Upload Error", e.message);
+    } catch (e: unknown) {
+      alert("Upload Error", e instanceof Error ? e.message : "Upload failed");
     } finally {
       setUploading(false);
     }
@@ -47,24 +51,15 @@ export function FileUploader({ onUploadComplete, uploadUrl, label = "Upload File
 
   return (
     <View style={styles.container}>
-      <TouchableOpacity style={styles.button} onPress={handlePick} disabled={uploading}>
-        {uploading ? (
-          <ActivityIndicator color="#fff" />
-        ) : (
-          <Text style={styles.buttonText}>{label}</Text>
-        )}
-      </TouchableOpacity>
-      {fileName && <Text style={styles.fileName}>{fileName}</Text>}
+      <Button onPress={handlePick} loading={uploading} disabled={uploading}>
+        {label}
+      </Button>
+      {fileName ? <Text style={styles.fileName}>{fileName}</Text> : null}
     </View>
   );
 }
 
 const styles = StyleSheet.create({
-  container: { marginVertical: 8 },
-  button: {
-    backgroundColor: "#4F46E5", borderRadius: 8, padding: 14,
-    alignItems: "center",
-  },
-  buttonText: { color: "#fff", fontSize: 16, fontWeight: "600" },
-  fileName: { marginTop: 8, fontSize: 14, color: "#666", textAlign: "center" },
+  container: { marginVertical: spacing.xs },
+  fileName: { marginTop: spacing.xs, ...typography.bodySmall, color: palette.textMuted, textAlign: "center" },
 });

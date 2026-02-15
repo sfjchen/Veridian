@@ -41,11 +41,14 @@ function resolveDevApiUrl(): string | undefined {
 }
 
 const configuredApiUrl = process.env.EXPO_PUBLIC_API_URL ?? process.env.EXPO_API_URL;
-const resolvedApiUrl = configuredApiUrl
-  ? trimTrailingSlash(configuredApiUrl)
-  : process.env.NODE_ENV !== "production"
-    ? resolveDevApiUrl()
-    : undefined;
+const trimmedConfigured = configuredApiUrl ? trimTrailingSlash(configuredApiUrl) : undefined;
+const devResolved = process.env.NODE_ENV !== "production" ? resolveDevApiUrl() : undefined;
+// Web: use .env URL so browser can reach same-machine backend (e.g. localhost:5001).
+// Native: prefer Expo host (hostUri/debuggerHost) so device/emulator reach the host machine.
+const resolvedApiUrl =
+  Platform.OS === "web"
+    ? (trimmedConfigured ?? devResolved)
+    : (devResolved ?? trimmedConfigured);
 
 if (!resolvedApiUrl) {
   throw new Error("Unable to resolve API URL. Set EXPO_PUBLIC_API_URL.");

@@ -21,7 +21,8 @@ export function useClassrooms() {
       if (mountedRef.current) setClassrooms(data);
     } catch (e) {
       if (mountedRef.current) {
-        setError(e instanceof Error ? e.message : "Failed to fetch classrooms");
+        const msg = e instanceof Error ? e.message : (e != null ? String(e) : "");
+        setError(msg.trim() || "Failed to fetch classrooms");
       }
     } finally {
       if (mountedRef.current) setLoading(false);

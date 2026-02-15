@@ -1,12 +1,13 @@
 import React, { useState } from "react";
-import {
-  View, Text, TextInput, TouchableOpacity, StyleSheet,
-  ActivityIndicator,
-} from "react-native";
+import { StyleSheet, Text, View } from "react-native";
 import * as DocumentPicker from "expo-document-picker";
 import { api } from "../../lib/api";
 import { alert } from "../../lib/alert";
 import { uploadFile } from "../../lib/upload";
+import { Button, Card, Input, ScreenContainer, Section } from "../../components/ui";
+import { palette } from "../../constants/palette";
+import { spacing } from "../../constants/spacing";
+import { typography } from "../../constants/typography";
 
 interface PickedFile {
   name: string;
@@ -66,25 +67,30 @@ export function CorpusUploadScreen({ route, navigation }: { route: any; navigati
       alert("Error", "Please select a file first");
       return;
     }
+    const fileType = inferFileType(file.name, file.mimeType);
+    if (!fileType) {
+      alert("Error", "Unsupported file type. Allowed: pdf, txt, docx, doc, md, tex, rtf");
+      return;
+    }
 
     setUploading(true);
     try {
-      const fileType = inferFileType(file.name, file.mimeType);
-      if (!fileType) {
-        alert("Error", "Unsupported file type. Allowed: pdf, txt, docx, doc, md, tex, rtf");
-        return;
-      }
       const result = await api<{ upload_url: string }>(`/classrooms/${classroomId}/corpus`, {
         method: "POST",
         body: { display_name: displayName.trim(), file_type: fileType },
       });
 
-      await uploadFile({ uri: file.uri, uploadUrl: result.upload_url, mimeType: file.mimeType, file: file.file });
+      await uploadFile({
+        uri: file.uri,
+        uploadUrl: result.upload_url,
+        mimeType: file.mimeType,
+        file: file.file,
+      });
 
       alert("Success", "File uploaded!", [
         { text: "OK", onPress: () => navigation.goBack() },
       ]);
-    } catch (e: any) {
+    } catch (e: unknown) {
       alert("Error", e instanceof Error ? e.message : "Upload failed");
     } finally {
       setUploading(false);
@@ -92,53 +98,31 @@ export function CorpusUploadScreen({ route, navigation }: { route: any; navigati
   };
 
   return (
-    <View style={styles.container}>
-      <Text style={styles.title}>Upload Corpus File</Text>
+    <ScreenContainer maxWidth="form">
+      <View style={styles.content}>
+        <Section title="Upload Corpus File">
+          <Card onPress={pickFile} style={styles.fileCard}>
+            <Text style={styles.filePickerText}>
+              {file ? file.name : "Select File"}
+            </Text>
+          </Card>
+          <Input
+            placeholder="Display name"
+            value={displayName}
+            onChangeText={setDisplayName}
+          />
+        </Section>
 
-      <TouchableOpacity style={styles.filePicker} onPress={pickFile}>
-        <Text style={styles.filePickerText}>
-          {file ? file.name : "Select File"}
-        </Text>
-      </TouchableOpacity>
-
-      <TextInput
-        style={styles.input}
-        placeholder="Display name"
-        value={displayName}
-        onChangeText={setDisplayName}
-      />
-
-      <TouchableOpacity
-        style={[styles.button, uploading && styles.buttonDisabled]}
-        onPress={handleUpload}
-        disabled={uploading}
-      >
-        {uploading ? (
-          <ActivityIndicator color="#fff" />
-        ) : (
-          <Text style={styles.buttonText}>Upload File</Text>
-        )}
-      </TouchableOpacity>
-    </View>
+        <Button onPress={handleUpload} loading={uploading} disabled={uploading} fullWidth>
+          Upload File
+        </Button>
+      </View>
+    </ScreenContainer>
   );
 }
 
 const styles = StyleSheet.create({
-  container: { flex: 1, padding: 24, backgroundColor: "#fff" },
-  title: { fontSize: 22, fontWeight: "bold", marginBottom: 24 },
-  input: {
-    borderWidth: 1, borderColor: "#ddd", borderRadius: 8,
-    padding: 14, marginBottom: 16, fontSize: 16,
-  },
-  filePicker: {
-    borderWidth: 1, borderColor: "#ddd", borderRadius: 8,
-    padding: 14, marginBottom: 16, backgroundColor: "#F9FAFB",
-  },
-  filePickerText: { fontSize: 15, color: "#6B7280" },
-  button: {
-    backgroundColor: "#4F46E5", borderRadius: 8, padding: 16,
-    alignItems: "center",
-  },
-  buttonDisabled: { opacity: 0.7 },
-  buttonText: { color: "#fff", fontSize: 16, fontWeight: "600" },
+  content: { paddingVertical: spacing.lg },
+  fileCard: { marginBottom: spacing.md },
+  filePickerText: { ...typography.body, color: palette.textMuted },
 });

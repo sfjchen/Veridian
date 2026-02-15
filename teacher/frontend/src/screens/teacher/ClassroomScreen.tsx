@@ -1,6 +1,7 @@
 import React, { useState, useCallback } from "react";
 import { View, Text, FlatList, TouchableOpacity, StyleSheet, ActivityIndicator, ScrollView } from "react-native";
 import { useFocusEffect } from "@react-navigation/native";
+import * as Clipboard from "expo-clipboard";
 import * as Linking from "expo-linking";
 import { useCorpus } from "../../hooks/useCorpus";
 import { useAssignments } from "../../hooks/useAssignments";
@@ -14,7 +15,8 @@ import { InsightsContent } from "./InsightsContent";
 type Tab = "assignments" | "corpus" | "students" | "insights" | "settings";
 
 export function TeacherClassroomScreen({ route, navigation }: { route: any; navigation: any }) {
-  const classroom: Classroom = route.params.classroom;
+  const classroom = route.params.classroom;
+  const { showToast } = useToast();
   const [activeTab, setActiveTab] = useState<Tab>("assignments");
   const [configDraft, setConfigDraft] = useState<Partial<AssignmentConfig>>(classroom.config ?? {});
   const [savingConfig, setSavingConfig] = useState(false);
@@ -51,15 +53,22 @@ export function TeacherClassroomScreen({ route, navigation }: { route: any; navi
   };
 
   const handleOpenCorpusFile = (file: CorpusFile) => {
-    if (file.download_url) {
-      Linking.openURL(file.download_url);
-    }
+    if (file.download_url) Linking.openURL(file.download_url);
   };
 
+  const handleCopyClassCode = useCallback(async () => {
+    await Clipboard.setStringAsync(classroom.class_code);
+    showToast("Class code copied");
+  }, [classroom.class_code, showToast]);
+
+  const tabs: Tab[] = ["assignments", "corpus", "students"];
+
   return (
-    <View style={styles.container}>
-      <Text style={styles.title}>{classroom.name}</Text>
-      <Text style={styles.code}>Class Code: {classroom.class_code}</Text>
+    <ScreenContainer maxWidth="dashboard">
+      <View style={styles.header}>
+        <Text style={styles.title} numberOfLines={1}>{classroom.name}</Text>
+        <CopyableBadge text={classroom.class_code} onCopy={() => showToast("Class code copied")} />
+      </View>
 
       <View style={styles.tabs}>
         {(["assignments", "corpus", "students", "insights", "settings"] as Tab[]).map((tab) => (
@@ -67,6 +76,7 @@ export function TeacherClassroomScreen({ route, navigation }: { route: any; navi
             key={tab}
             style={[styles.tab, activeTab === tab && styles.tabActive]}
             onPress={() => setActiveTab(tab)}
+            activeOpacity={0.8}
           >
             <Text style={[styles.tabText, activeTab === tab && styles.tabTextActive]}>
               {tab.charAt(0).toUpperCase() + tab.slice(1)}
@@ -81,35 +91,52 @@ export function TeacherClassroomScreen({ route, navigation }: { route: any; navi
             style={styles.addButton}
             onPress={() => navigation.navigate("CreateAssignment", { classroomId: classroom.id, classroomConfig: classroom.config })}
           >
-            <Text style={styles.addButtonText}>+ New Assignment</Text>
-          </TouchableOpacity>
+            + New Assignment
+          </Button>
           {assignmentsLoading ? (
-            <ActivityIndicator />
+            <View style={styles.skeletonWrap}>
+              <SkeletonCard /><SkeletonCard /><SkeletonCard />
+            </View>
           ) : assignmentsError ? (
-            <Text style={styles.errorText}>{assignmentsError}</Text>
+            <ErrorState message={assignmentsError} onRetry={refreshAssignments} />
           ) : (
             <FlatList
               data={assignments}
               keyExtractor={(item) => item.id}
+              contentContainerStyle={styles.listContent}
+              refreshControl={
+                <RefreshControl refreshing={refreshing} onRefresh={onRefresh} tintColor={palette.primary} />
+              }
               renderItem={({ item }) => (
-                <TouchableOpacity
-                  style={styles.listItem}
+                <Card
                   onPress={() => navigation.navigate("TeacherAssignment", { assignmentId: item.id })}
+                  style={styles.listCard}
                 >
                   <View style={styles.listItemContent}>
-                    <Text style={styles.itemTitle}>{item.title}</Text>
+                    <Text style={styles.itemTitle} numberOfLines={2}>{item.title}</Text>
                     <Text style={styles.itemSub}>
                       {item.due_date
                         ? `Due: ${new Date(item.due_date).toLocaleDateString("en-US", {
-                            year: "numeric", month: "short", day: "numeric", timeZone: "UTC",
+                            year: "numeric",
+                            month: "short",
+                            day: "numeric",
+                            timeZone: "UTC",
                           })}`
                         : "No due date"}
                     </Text>
                   </View>
                   <Text style={styles.chevron}>&gt;</Text>
-                </TouchableOpacity>
+                </Card>
               )}
-              ListEmptyComponent={<Text style={styles.empty}>No assignments yet</Text>}
+              ListEmptyComponent={
+                <EmptyState
+                  title="No assignments yet"
+                  description="Create your first assignment and set a due date."
+                  icon={<View style={styles.emptyIcon}><Text style={styles.emptyIconText}>A</Text></View>}
+                  actionLabel="New Assignment"
+                  onAction={() => navigation.navigate("CreateAssignment", { classroomId: classroom.id })}
+                />
+              }
             />
           )}
         </View>
@@ -117,34 +144,51 @@ export function TeacherClassroomScreen({ route, navigation }: { route: any; navi
 
       {activeTab === "corpus" && (
         <View style={styles.content}>
-          <TouchableOpacity
-            style={styles.addButton}
+          <Button
             onPress={() => navigation.navigate("CorpusUpload", { classroomId: classroom.id })}
+            variant="primary"
+            fullWidth
+            style={styles.addButton}
           >
-            <Text style={styles.addButtonText}>+ Upload File</Text>
-          </TouchableOpacity>
+            + Upload File
+          </Button>
           {corpusLoading ? (
-            <ActivityIndicator />
+            <View style={styles.skeletonWrap}>
+              <SkeletonCard /><SkeletonCard />
+            </View>
           ) : corpusError ? (
-            <Text style={styles.errorText}>{corpusError}</Text>
+            <ErrorState message={corpusError} onRetry={refreshCorpus} />
           ) : (
             <FlatList
               data={files}
               keyExtractor={(item) => item.id}
+              contentContainerStyle={styles.listContent}
+              refreshControl={
+                <RefreshControl refreshing={refreshing} onRefresh={onRefresh} tintColor={palette.primary} />
+              }
               renderItem={({ item }) => (
-                <TouchableOpacity
-                  style={styles.listItem}
+                <Card
                   onPress={() => handleOpenCorpusFile(item)}
-                  disabled={!item.download_url}
+                  style={styles.listCard}
                 >
                   <View style={styles.listItemContent}>
-                    <Text style={styles.itemTitle}>{item.display_name}</Text>
+                    <Text style={styles.itemTitle} numberOfLines={2}>{item.display_name}</Text>
                     <Text style={styles.itemSub}>{item.file_type}</Text>
                   </View>
-                  {item.download_url && <Text style={styles.downloadHint}>Open</Text>}
-                </TouchableOpacity>
+                  {item.download_url ? (
+                    <Text style={styles.downloadHint}>Open</Text>
+                  ) : null}
+                </Card>
               )}
-              ListEmptyComponent={<Text style={styles.empty}>No corpus files yet</Text>}
+              ListEmptyComponent={
+                <EmptyState
+                  title="No corpus files yet"
+                  description="Upload reference materials for this class."
+                  icon={<View style={styles.emptyIcon}><Text style={styles.emptyIconText}>F</Text></View>}
+                  actionLabel="Upload File"
+                  onAction={() => navigation.navigate("CorpusUpload", { classroomId: classroom.id })}
+                />
+              }
             />
           )}
         </View>
@@ -153,13 +197,19 @@ export function TeacherClassroomScreen({ route, navigation }: { route: any; navi
       {activeTab === "students" && (
         <View style={styles.content}>
           {studentsLoading ? (
-            <ActivityIndicator />
+            <View style={styles.skeletonWrap}>
+              <SkeletonCard /><SkeletonCard />
+            </View>
           ) : studentsError ? (
-            <Text style={styles.errorText}>{studentsError}</Text>
+            <ErrorState message={studentsError} onRetry={refreshStudents} />
           ) : (
             <FlatList
               data={students}
               keyExtractor={(item) => item.student_id}
+              contentContainerStyle={styles.listContent}
+              refreshControl={
+                <RefreshControl refreshing={refreshing} onRefresh={onRefresh} tintColor={palette.primary} />
+              }
               renderItem={({ item }) => (
                 <TouchableOpacity
                   style={styles.listItem}
@@ -170,17 +220,29 @@ export function TeacherClassroomScreen({ route, navigation }: { route: any; navi
                   })}
                 >
                   <View style={styles.listItemContent}>
-                    <Text style={styles.itemTitle}>{item.display_name ?? "Unnamed Student"}</Text>
+                    <Text style={styles.itemTitle} numberOfLines={1}>{item.display_name ?? "Unnamed Student"}</Text>
                     <Text style={styles.itemSub}>
-                      Joined {new Date(item.joined_at).toLocaleDateString("en-US", {
-                        year: "numeric", month: "short", day: "numeric", timeZone: "UTC",
+                      Joined{" "}
+                      {new Date(item.joined_at).toLocaleDateString("en-US", {
+                        year: "numeric",
+                        month: "short",
+                        day: "numeric",
+                        timeZone: "UTC",
                       })}
                     </Text>
                   </View>
                   <Text style={styles.chevron}>&gt;</Text>
                 </TouchableOpacity>
               )}
-              ListEmptyComponent={<Text style={styles.empty}>No students have joined yet</Text>}
+              ListEmptyComponent={
+                <EmptyState
+                  title="No students have joined yet"
+                  description="Students join using the class code. Share it with your class."
+                  icon={<View style={styles.emptyIcon}><Text style={styles.emptyIconText}>S</Text></View>}
+                  actionLabel="Copy class code"
+                  onAction={handleCopyClassCode}
+                />
+              }
             />
           )}
         </View>
@@ -219,23 +281,58 @@ export function TeacherClassroomScreen({ route, navigation }: { route: any; navi
 }
 
 const styles = StyleSheet.create({
-  container: { flex: 1, padding: 16, backgroundColor: "#f9fafb" },
-  title: { fontSize: 24, fontWeight: "bold" },
-  code: { fontSize: 14, color: "#6B7280", marginBottom: 16 },
-  tabs: { flexDirection: "row", marginBottom: 16, gap: 8 },
-  tab: { flex: 1, padding: 10, borderRadius: 8, backgroundColor: "#E5E7EB", alignItems: "center" },
-  tabActive: { backgroundColor: "#4F46E5" },
-  tabText: { fontWeight: "600", color: "#374151" },
-  tabTextActive: { color: "#fff" },
-  content: { flex: 1 },
-  addButton: {
-    backgroundColor: "#10B981", borderRadius: 8, padding: 12,
-    alignItems: "center", marginBottom: 12,
+  header: {
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "space-between",
+    gap: spacing.sm,
+    marginBottom: spacing.md,
+    paddingTop: spacing.xs,
+    paddingBottom: spacing.sm,
+    borderBottomWidth: 2,
+    borderBottomColor: palette.primaryMuted,
   },
-  addButtonText: { color: "#fff", fontSize: 16, fontWeight: "600" },
-  listItem: {
-    backgroundColor: "#fff", borderRadius: 8, padding: 14,
-    marginBottom: 8, flexDirection: "row", alignItems: "center",
+  title: { ...typography.h1, color: palette.textPrimary, flex: 1 },
+  tabBar: { flexDirection: "row", marginBottom: spacing.md, gap: spacing.xs },
+  tab: {
+    flex: 1,
+    minHeight: 44,
+    paddingVertical: spacing.sm,
+    borderRadius: radius.input,
+    backgroundColor: palette.tabInactive,
+    alignItems: "center",
+    justifyContent: "center",
+  },
+  tabActive: { backgroundColor: palette.primary },
+  tabText: { ...typography.bodySmall, fontWeight: "600", color: palette.textSecondary },
+  tabTextActive: { ...typography.bodySmall, fontWeight: "600", color: palette.textOnPrimary },
+  content: { flex: 1 },
+  addButton: { marginBottom: spacing.md },
+  skeletonWrap: { paddingBottom: spacing.xl },
+  listContent: { paddingBottom: spacing.xl, flexGrow: 1 },
+  listCard: {
+    flexDirection: "row",
+    alignItems: "center",
+    marginBottom: spacing.sm,
+    minHeight: 56,
+  },
+  listItemContent: { flex: 1, minWidth: 0 },
+  itemTitle: { ...typography.body, fontWeight: "500", color: palette.textPrimary },
+  itemSub: { ...typography.caption, color: palette.textMuted, marginTop: spacing.xxs },
+  chevron: { ...typography.body, color: palette.textMuted, marginLeft: spacing.xs },
+  downloadHint: { ...typography.caption, fontWeight: "600", color: palette.link, marginLeft: spacing.xs },
+  emptyIcon: {
+    width: 56,
+    height: 56,
+    borderRadius: 28,
+    backgroundColor: palette.primaryMuted,
+    alignItems: "center",
+    justifyContent: "center",
+  },
+  emptyIconText: {
+    ...typography.h1,
+    fontSize: 24,
+    color: palette.primary,
   },
   listItemContent: { flex: 1 },
   itemTitle: { fontSize: 16, fontWeight: "500" },

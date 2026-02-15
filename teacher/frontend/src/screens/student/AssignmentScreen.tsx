@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useRef } from "react";
+import React, { useState, useEffect, useCallback, useRef } from "react";
 import {
   View,
   Text,
@@ -37,6 +37,7 @@ export function AssignmentScreen({ route }: { route: any }) {
   const { assignmentId } = route.params;
   const [assignment, setAssignment] = useState<AssignmentDetail | null>(null);
   const [loading, setLoading] = useState(true);
+  const [loadError, setLoadError] = useState<string | null>(null);
   const [assignmentContent, setAssignmentContent] = useState<string | null>(null);
   const [isPdf, setIsPdf] = useState(false);
   const [pdfPreviewUri, setPdfPreviewUri] = useState<string | null>(null);
@@ -51,6 +52,7 @@ export function AssignmentScreen({ route }: { route: any }) {
     refresh: refreshSubmissions,
   } = useSubmissions(assignmentId);
 
+  const mountedRef = useRef(true);
   useEffect(() => {
     let cancelled = false;
     (async () => {
@@ -81,37 +83,59 @@ export function AssignmentScreen({ route }: { route: any }) {
           const bytes = new Uint8Array(await blob.arrayBuffer());
           if (cancelled) return;
 
-          const contentType = resp.headers.get("content-type") ?? "";
-          if (looksLikePdf(contentType, bytes)) {
-            if (!cancelled) setIsPdf(true);
-            try {
-              const previewUri = await createPdfPreviewDataUri(blob);
-              if (!cancelled) setPdfPreviewUri(previewUri);
-            } catch (previewError) {
-              console.error("Failed to generate PDF preview image:", previewError);
-              if (!cancelled) setPdfPreviewUri(null);
-            }
-          } else if (looksLikeImage(contentType, bytes)) {
-            if (!cancelled) {
-              setImagePreviewUrl(data.assignment_file_download_url ?? null);
-              setIsPdf(false);
-            }
-          } else if (looksLikeText(contentType, bytes)) {
-            const text = await blob.text();
-            if (cancelled) return;
-            setAssignmentContent(sanitizeLatexContent(text));
-          } else {
-            if (!cancelled) setBinaryDownloadUrl(data.assignment_file_download_url ?? null);
+  const fetchAssignment = useCallback(async () => {
+    setLoadError(null);
+    setLoading(true);
+    try {
+      const data = await api<AssignmentDetail>(`/assignments/${assignmentId}`);
+      if (!mountedRef.current) return;
+      setAssignment(data);
+      setAssignmentContent(null);
+      setIsPdf(false);
+      setPdfPreviewUri(null);
+      setImagePreviewUrl(null);
+      setBinaryDownloadUrl(null);
+      if (data.assignment_file_download_url) {
+        const resp = await fetch(data.assignment_file_download_url);
+        if (!resp.ok) throw new Error(`Failed to fetch assignment file: ${resp.status}`);
+        const blob = await resp.blob();
+        const bytes = new Uint8Array(await blob.arrayBuffer());
+        if (!mountedRef.current) return;
+
+        const contentType = resp.headers.get("content-type") ?? "";
+        if (looksLikePdf(contentType, bytes)) {
+          if (mountedRef.current) setIsPdf(true);
+          try {
+            const previewUri = await createPdfPreviewDataUri(blob);
+            if (mountedRef.current) setPdfPreviewUri(previewUri);
+          } catch {
+            if (mountedRef.current) setPdfPreviewUri(null);
           }
+        } else if (looksLikeImage(contentType, bytes)) {
+          if (mountedRef.current) {
+            setImagePreviewUrl(data.assignment_file_download_url ?? null);
+            setIsPdf(false);
+          }
+        } else if (looksLikeText(contentType, bytes)) {
+          const text = await blob.text();
+          if (!mountedRef.current) return;
+          setAssignmentContent(sanitizeLatexContent(text));
+        } else {
+          if (mountedRef.current) setBinaryDownloadUrl(data.assignment_file_download_url ?? null);
         }
-      } catch (e: any) {
-        if (!cancelled) alert("Error", e.message);
-      } finally {
-        if (!cancelled) setLoading(false);
       }
-    })();
-    return () => { cancelled = true; };
+    } catch (e: any) {
+      if (mountedRef.current) {
+        setLoadError(e instanceof Error ? e.message : "Failed to load assignment");
+      }
+    } finally {
+      if (mountedRef.current) setLoading(false);
+    }
   }, [assignmentId]);
+
+  useEffect(() => {
+    fetchAssignment();
+  }, [fetchAssignment]);
 
   const handleSubmit = async () => {
     setSubmitting(true);
@@ -130,7 +154,19 @@ export function AssignmentScreen({ route }: { route: any }) {
     }
   };
 
-  if (loading) return <ActivityIndicator size="large" style={{ marginTop: 40 }} />;
+  if (loading && !assignment) {
+    return <ActivityIndicator size="large" style={{ marginTop: 40 }} />;
+  }
+  if (loadError && !assignment) {
+    return (
+      <View style={styles.errorContainer}>
+        <Text style={styles.error}>{loadError}</Text>
+        <TouchableOpacity style={styles.retryButton} onPress={() => fetchAssignment()}>
+          <Text style={styles.retryButtonText}>Retry</Text>
+        </TouchableOpacity>
+      </View>
+    );
+  }
   if (!assignment) return <Text style={styles.error}>Assignment not found</Text>;
   const hasCompletedSubmission = submissions.some((submission) => Boolean(submission.download_url));
   const hasIncompleteSubmission = submissions.some((submission) => !submission.download_url);
@@ -269,7 +305,13 @@ const styles = StyleSheet.create({
     alignItems: "center", marginTop: 16,
   },
   submitButtonText: { color: "#fff", fontSize: 16, fontWeight: "600" },
+  errorContainer: { flex: 1, padding: 24, alignItems: "center", justifyContent: "center" },
   error: { textAlign: "center", color: "#EF4444", marginTop: 40 },
+  retryButton: {
+    marginTop: 16, backgroundColor: "#4F46E5", borderRadius: 8,
+    paddingVertical: 12, paddingHorizontal: 24,
+  },
+  retryButtonText: { color: "#fff", fontSize: 16, fontWeight: "600" },
   errorText: { color: "#EF4444", marginTop: 8 },
   pdfNotice: {
     backgroundColor: "#FEF3C7", borderRadius: 8, padding: 16, marginBottom: 16,

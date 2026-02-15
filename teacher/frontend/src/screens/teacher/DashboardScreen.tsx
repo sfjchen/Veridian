@@ -1,17 +1,60 @@
-import React, { useState } from "react";
-import {
-  View, Text, FlatList, TouchableOpacity, TextInput,
-  StyleSheet, ActivityIndicator,
-} from "react-native";
+import React, { useState, useEffect, useRef } from "react";
+import { Animated, FlatList, Modal, StyleSheet, Text, TouchableOpacity, View } from "react-native";
 import { useClassrooms } from "../../hooks/useClassrooms";
-import { useAuth } from "../../stores/auth";
+import { useToast } from "../../contexts/ToastContext";
 import { alert } from "../../lib/alert";
+import {
+  Button,
+  Card,
+  CopyableBadge,
+  EmptyState,
+  Input,
+  ScreenContainer,
+  SkeletonCard,
+  ErrorState,
+  Section,
+} from "../../components/ui";
+import { elevation, palette, radius } from "../../constants/palette";
+import { motion } from "../../constants/motion";
+import { spacing } from "../../constants/spacing";
+import { typography } from "../../constants/typography";
 
-export function TeacherDashboardScreen({ navigation }: { navigation: any }) {
-  const { classrooms, loading, error, create } = useClassrooms();
-  const { signOut } = useAuth();
+export function TeacherDashboardScreen({ navigation }: { navigation: { navigate: (a: string, b: { classroom: { id: string; name: string; class_code: string } }) => void } }) {
+  const { classrooms, loading, error, create, refresh } = useClassrooms();
+  const { showToast } = useToast();
+  const [modalVisible, setModalVisible] = useState(false);
   const [newName, setNewName] = useState("");
   const [creating, setCreating] = useState(false);
+
+  const openModal = () => {
+    setNewName("");
+    setModalVisible(true);
+  };
+
+  const closeModal = () => setModalVisible(false);
+
+  const modalScale = useRef(new Animated.Value(0.96)).current;
+  const listFade = useRef(new Animated.Value(0)).current;
+  useEffect(() => {
+    if (modalVisible) {
+      modalScale.setValue(0.96);
+      Animated.timing(modalScale, {
+        toValue: 1,
+        duration: motion.normal,
+        useNativeDriver: true,
+      }).start();
+    }
+  }, [modalVisible, modalScale]);
+  useEffect(() => {
+    if (!loading && !error) {
+      listFade.setValue(0);
+      Animated.timing(listFade, {
+        toValue: 1,
+        duration: 250,
+        useNativeDriver: true,
+      }).start();
+    }
+  }, [loading, error, listFade]);
 
   const handleCreate = async () => {
     const trimmed = newName.trim();
@@ -23,81 +66,183 @@ export function TeacherDashboardScreen({ navigation }: { navigation: any }) {
     try {
       await create(trimmed);
       setNewName("");
-    } catch (e: any) {
-      alert("Error", e.message);
+      closeModal();
+      showToast("Classroom created");
+    } catch (e: unknown) {
+      alert("Error", e instanceof Error ? e.message : "Failed to create");
     } finally {
       setCreating(false);
     }
   };
 
   return (
-    <View style={styles.container}>
+    <ScreenContainer maxWidth="dashboard">
       <View style={styles.header}>
-        <Text style={styles.title}>My Classrooms</Text>
-        <TouchableOpacity onPress={signOut}>
-          <Text style={styles.logoutText}>Sign Out</Text>
-        </TouchableOpacity>
+        <Text style={styles.hero}>My Classrooms</Text>
+        <View style={styles.headerActions}>
+          <Button onPress={openModal} variant="primary" size="sm">
+            + New classroom
+          </Button>
+        </View>
       </View>
 
-      <View style={styles.createRow}>
-        <TextInput
-          style={styles.input}
-          placeholder="New classroom name"
-          value={newName}
-          onChangeText={setNewName}
-        />
-        <TouchableOpacity style={styles.createButton} onPress={handleCreate} disabled={creating}>
-          <Text style={styles.createButtonText}>{creating ? "..." : "Create"}</Text>
+      <Modal
+        visible={modalVisible}
+        transparent
+        animationType="fade"
+        onRequestClose={closeModal}
+      >
+        <TouchableOpacity
+          style={styles.modalBackdrop}
+          activeOpacity={1}
+          onPress={closeModal}
+        >
+          <TouchableOpacity activeOpacity={1} onPress={() => {}}>
+            <Animated.View style={[styles.modalCard, elevation.shadowLg, { transform: [{ scale: modalScale }] }]}>
+              <Text style={styles.modalTitle}>New classroom</Text>
+              <Section>
+                <Input
+                  placeholder="Classroom name"
+                  value={newName}
+                  onChangeText={setNewName}
+                  autoFocus
+                />
+                <View style={styles.modalActions}>
+                  <Button variant="secondary" onPress={closeModal} style={styles.modalButton}>
+                    Cancel
+                  </Button>
+                  <Button onPress={handleCreate} disabled={creating} loading={creating} style={styles.modalButton}>
+                    Create
+                  </Button>
+                </View>
+              </Section>
+            </Animated.View>
+          </TouchableOpacity>
         </TouchableOpacity>
-      </View>
+      </Modal>
 
       {loading ? (
-        <ActivityIndicator size="large" style={styles.loader} />
+        <View style={styles.list}>
+          <SkeletonCard />
+          <SkeletonCard />
+          <SkeletonCard />
+        </View>
       ) : error ? (
-        <Text style={styles.errorText}>{error}</Text>
+        <ErrorState message={error} onRetry={refresh} />
       ) : (
-        <FlatList
-          data={classrooms}
-          keyExtractor={(item) => item.id}
-          renderItem={({ item }) => (
-            <TouchableOpacity
-              style={styles.card}
+        <Animated.View style={[styles.listFadeWrap, { opacity: listFade }]}>
+          <FlatList
+            data={classrooms}
+            keyExtractor={(item) => item.id}
+            numColumns={2}
+            columnWrapperStyle={classrooms.length > 0 ? styles.cardRow : undefined}
+            contentContainerStyle={classrooms.length === 0 ? styles.emptyList : styles.list}
+            renderItem={({ item }) => (
+            <Card
               onPress={() => navigation.navigate("Classroom", { classroom: item })}
+              style={styles.card}
             >
-              <Text style={styles.cardTitle}>{item.name}</Text>
-              <Text style={styles.cardCode}>Code: {item.class_code}</Text>
-            </TouchableOpacity>
+              <Text style={styles.cardTitle} numberOfLines={2}>{item.name}</Text>
+              <Text style={styles.cardLabel}>Class code</Text>
+              <CopyableBadge text={item.class_code} onCopy={() => showToast("Class code copied")} />
+            </Card>
           )}
-          ListEmptyComponent={<Text style={styles.empty}>No classrooms yet. Create one above!</Text>}
-        />
+          ListEmptyComponent={
+            <EmptyState
+              title="No classrooms yet"
+              description="Tap “New classroom” to create your first one."
+              descriptionSecondary="Create a classroom to share assignments and see how students think."
+              icon={
+                <View style={styles.emptyIconWrap}>
+                  <Text style={styles.emptyIconV}>V</Text>
+                </View>
+              }
+              actionLabel="New classroom"
+              onAction={openModal}
+            />
+          }
+          />
+        </Animated.View>
       )}
-    </View>
+    </ScreenContainer>
   );
 }
 
 const styles = StyleSheet.create({
-  container: { flex: 1, padding: 16, backgroundColor: "#f9fafb" },
-  header: { flexDirection: "row", justifyContent: "space-between", alignItems: "center", marginBottom: 16 },
-  title: { fontSize: 24, fontWeight: "bold" },
-  logoutText: { color: "#EF4444", fontSize: 14, fontWeight: "600" },
-  createRow: { flexDirection: "row", gap: 12, marginBottom: 16 },
-  input: {
-    flex: 1, borderWidth: 1, borderColor: "#ddd", borderRadius: 8,
-    padding: 12, fontSize: 16, backgroundColor: "#fff",
+  header: {
+    flexDirection: "row",
+    justifyContent: "space-between",
+    alignItems: "center",
+    flexWrap: "wrap",
+    gap: spacing.sm,
+    marginBottom: spacing.lg,
+    paddingTop: spacing.xs,
   },
-  createButton: {
-    backgroundColor: "#4F46E5", borderRadius: 8, paddingHorizontal: 20,
+  hero: {
+    ...typography.display,
+    color: palette.textPrimary,
+  },
+  headerActions: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: spacing.sm,
+  },
+  modalBackdrop: {
+    flex: 1,
+    backgroundColor: palette.overlay,
     justifyContent: "center",
+    alignItems: "center",
+    padding: spacing.lg,
   },
-  createButtonText: { color: "#fff", fontSize: 16, fontWeight: "600" },
-  loader: { marginTop: 40 },
+  modalCard: {
+    backgroundColor: palette.card,
+    borderRadius: radius.modal,
+    padding: spacing.lg,
+    width: "100%",
+    maxWidth: 400,
+  },
+  modalTitle: {
+    ...typography.h1,
+    color: palette.textPrimary,
+    marginBottom: spacing.md,
+  },
+  modalActions: {
+    flexDirection: "row",
+    gap: spacing.sm,
+    marginTop: spacing.sm,
+  },
+  modalButton: { flex: 1 },
+  listFadeWrap: { flex: 1 },
+  list: { paddingBottom: spacing.xl },
+  emptyList: { flexGrow: 1 },
+  cardRow: { gap: spacing.sm, marginBottom: spacing.sm },
   card: {
-    backgroundColor: "#fff", borderRadius: 12, padding: 16,
-    marginBottom: 12, shadowColor: "#000", shadowOpacity: 0.05,
-    shadowRadius: 4, elevation: 2,
+    flex: 1,
+    minHeight: 120,
+    borderTopWidth: 4,
+    borderTopColor: palette.primary,
   },
-  cardTitle: { fontSize: 18, fontWeight: "600", marginBottom: 4 },
-  cardCode: { fontSize: 14, color: "#6B7280" },
-  empty: { textAlign: "center", color: "#9CA3AF", marginTop: 40, fontSize: 16 },
-  errorText: { textAlign: "center", color: "#EF4444", marginTop: 40, fontSize: 16 },
+  cardTitle: {
+    ...typography.h2,
+    color: palette.textPrimary,
+    marginBottom: spacing.sm,
+  },
+  cardLabel: {
+    ...typography.caption,
+    color: palette.textMuted,
+    marginBottom: spacing.xxs,
+  },
+  emptyIconWrap: {
+    width: 64,
+    height: 64,
+    borderRadius: 32,
+    backgroundColor: palette.primaryMuted,
+    justifyContent: "center",
+    alignItems: "center",
+  },
+  emptyIconV: {
+    ...typography.display,
+    fontSize: 28,
+    color: palette.primary,
+  },
 });

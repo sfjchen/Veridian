@@ -1,8 +1,5 @@
 import React, { useState } from "react";
-import {
-  View, Text, TextInput, TouchableOpacity, StyleSheet,
-  ScrollView, ActivityIndicator,
-} from "react-native";
+import { ScrollView, StyleSheet, Text, View } from "react-native";
 import * as DocumentPicker from "expo-document-picker";
 import { ConfigEditor } from "../../components/ConfigEditor";
 import { api } from "../../lib/api";
@@ -81,20 +78,32 @@ export function CreateAssignmentScreen({ route, navigation }: { route: any; navi
 
       const uploads: Promise<void>[] = [];
       if (assignmentFile) {
-        uploads.push(uploadFile({ uri: assignmentFile.uri, uploadUrl: result.assignment_file_upload_url, mimeType: assignmentFile.mimeType, file: assignmentFile.file }));
+        uploads.push(
+          uploadFile({
+            uri: assignmentFile.uri,
+            uploadUrl: result.assignment_file_upload_url,
+            mimeType: assignmentFile.mimeType,
+            file: assignmentFile.file,
+          })
+        );
       }
       if (answerKeyFile) {
-        uploads.push(uploadFile({ uri: answerKeyFile.uri, uploadUrl: result.answer_key_upload_url, mimeType: answerKeyFile.mimeType, file: answerKeyFile.file }));
+        uploads.push(
+          uploadFile({
+            uri: answerKeyFile.uri,
+            uploadUrl: result.answer_key_upload_url,
+            mimeType: answerKeyFile.mimeType,
+            file: answerKeyFile.file,
+          })
+        );
       }
 
-      if (uploads.length > 0) {
-        await Promise.all(uploads);
-      }
+      if (uploads.length > 0) await Promise.all(uploads);
 
       alert("Success", "Assignment created!", [
         { text: "OK", onPress: () => navigation.goBack() },
       ]);
-    } catch (e: any) {
+    } catch (e: unknown) {
       alert("Error", e instanceof Error ? e.message : "Failed to create assignment");
     } finally {
       setCreating(false);

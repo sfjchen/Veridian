@@ -65,6 +65,8 @@ function WebLatexRenderer({ latex, style }: Props) {
 }
 
 function NativeLatexRenderer({ latex, style }: Props) {
+  // Lazy load to avoid pulling WebView on web where iframe is used
+  // eslint-disable-next-line @typescript-eslint/no-require-imports
   const { WebView } = require("react-native-webview");
   const html = KATEX_HTML_TEMPLATE(sanitizeLatex(latex));
 

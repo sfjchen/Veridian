@@ -36,6 +36,26 @@ import { spacing } from "../../constants/spacing";
 
 const MAX_CONTENT_LENGTH = 100_000;
 const DATE_PATTERN = /^\d{4}-\d{2}-\d{2}$/;
+
+function formatDueDateLabel(dueDate: string | null): { label: string; warning?: "soon" | "overdue" } {
+  if (!dueDate) return { label: "No due date" };
+  const d = new Date(dueDate);
+  const now = new Date();
+  now.setHours(0, 0, 0, 0);
+  const due = new Date(d);
+  due.setHours(0, 0, 0, 0);
+  const days = Math.ceil((due.getTime() - now.getTime()) / (24 * 60 * 60 * 1000));
+  const formatted = d.toLocaleDateString("en-US", {
+    year: "numeric",
+    month: "short",
+    day: "numeric",
+    timeZone: "UTC",
+  });
+  if (days < 0) return { label: `Due: ${formatted}`, warning: "overdue" };
+  if (days <= 2) return { label: `Due: ${formatted}`, warning: "soon" };
+  return { label: `Due: ${formatted}` };
+}
+
 function sanitizeContent(raw: string): string {
   if (raw.length > MAX_CONTENT_LENGTH) throw new Error("File too large to preview");
   return raw
@@ -575,7 +595,7 @@ export function TeacherAssignmentScreen({ route, navigation }: { route: any; nav
                 disabled={converting}
               >
                 {converting ? (
-                  <ActivityIndicator color="#fff" />
+                  <ActivityIndicator color={palette.white} />
                 ) : (
                   <Text style={styles.convertButtonText}>Convert PDF to LaTeX</Text>
                 )}
@@ -585,7 +605,10 @@ export function TeacherAssignmentScreen({ route, navigation }: { route: any; nav
 
           <Text style={[styles.sectionTitle, { marginTop: 24 }]}>Student Submissions</Text>
           {submissionsLoading && !refreshing ? (
-            <ActivityIndicator color={palette.primary} />
+            <View style={styles.submissionsSkeleton}>
+              <SkeletonCard />
+              <SkeletonCard />
+            </View>
           ) : submissionsError ? (
             <Text style={styles.errorText}>{submissionsError}</Text>
           ) : submissions.length === 0 ? (

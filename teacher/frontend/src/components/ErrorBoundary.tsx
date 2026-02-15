@@ -49,13 +49,13 @@ const styles = StyleSheet.create({
     padding: 24,
     backgroundColor: palette.surface,
   },
-  title: { ...typography.h1, color: palette.textPrimary, marginBottom: 8, textAlign: "center" },
-  subtitle: { fontSize: 16, color: palette.textMuted, marginBottom: 24, textAlign: "center" },
+  title: { ...typography.h1, color: palette.textPrimary, marginBottom: 8, textAlign: "center" as const },
+  subtitle: { ...typography.body, color: palette.textMuted, marginBottom: 24, textAlign: "center" as const },
   button: {
     backgroundColor: palette.primary,
     borderRadius: radius.button,
     paddingHorizontal: 24,
     paddingVertical: 12,
   },
-  buttonText: { color: palette.white, fontSize: 16, fontWeight: "600" },
+  buttonText: { ...typography.button, color: palette.white },
 });

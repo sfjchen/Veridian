@@ -82,8 +82,8 @@ export function CreateAssignmentScreen({ route, navigation }: { route: any; navi
         body.config = configDraft;
       }
       const result = await api<{
-        assignment_file_upload_url: string;
-        answer_key_upload_url: string;
+        assignment_file_upload_url?: string;
+        answer_key_upload_url?: string;
       }>(`/classrooms/${classroomId}/assignments`, {
         method: "POST",
         body,

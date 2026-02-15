@@ -5,7 +5,7 @@ import {
   FlatList,
   TouchableOpacity,
   StyleSheet,
-  ActivityIndicator,
+  ScrollView,
   RefreshControl,
   Platform,
   ScrollView,
@@ -25,6 +25,8 @@ import { palette, radius } from "../../constants/palette";
 import { typography } from "../../constants/typography";
 import { spacing } from "../../constants/spacing";
 import { alert } from "../../lib/alert";
+import { SkeletonCard } from "../../components/ui/Skeleton";
+import { InsightsContent } from "./InsightsContent";
 
 type Tab = "assignments" | "corpus" | "students" | "insights" | "settings";
 
@@ -49,7 +51,10 @@ function formatDueDateLabel(dueDate: string | null): { label: string; warning?: 
 
 export function TeacherClassroomScreen({ route, navigation }: { route: any; navigation: any }) {
   const classroom: Classroom = route.params.classroom;
+  const { showToast } = useToast();
   const [activeTab, setActiveTab] = useState<Tab>("assignments");
+  const [configDraft, setConfigDraft] = useState<Partial<AssignmentConfig>>(classroom.config ?? {});
+  const [savingConfig, setSavingConfig] = useState(false);
   const [refreshing, setRefreshing] = useState(false);
   const [configDraft, setConfigDraft] = useState<Partial<AssignmentConfig>>(classroom.config ?? {});
   const [savingConfig, setSavingConfig] = useState(false);
@@ -155,7 +160,11 @@ export function TeacherClassroomScreen({ route, navigation }: { route: any; navi
             <Text style={styles.addButtonText}>+ New Assignment</Text>
           </TouchableOpacity>
           {assignmentsLoading && !refreshing ? (
-            <ActivityIndicator color={palette.primary} style={styles.loader} />
+            <View style={styles.skeletonList}>
+              <SkeletonCard />
+              <SkeletonCard />
+              <SkeletonCard />
+            </View>
           ) : assignmentsError ? (
             <Text style={styles.errorText}>{assignmentsError}</Text>
           ) : (
@@ -218,7 +227,11 @@ export function TeacherClassroomScreen({ route, navigation }: { route: any; navi
             <Text style={styles.addButtonText}>+ Upload File</Text>
           </TouchableOpacity>
           {corpusLoading && !refreshing ? (
-            <ActivityIndicator color={palette.primary} style={styles.loader} />
+            <View style={styles.skeletonList}>
+              <SkeletonCard />
+              <SkeletonCard />
+              <SkeletonCard />
+            </View>
           ) : corpusError ? (
             <Text style={styles.errorText}>{corpusError}</Text>
           ) : (
@@ -263,7 +276,11 @@ export function TeacherClassroomScreen({ route, navigation }: { route: any; navi
       {activeTab === "students" && (
         <View style={styles.content}>
           {studentsLoading && !refreshing ? (
-            <ActivityIndicator color={palette.primary} style={styles.loader} />
+            <View style={styles.skeletonList}>
+              <SkeletonCard />
+              <SkeletonCard />
+              <SkeletonCard />
+            </View>
           ) : studentsError ? (
             <Text style={styles.errorText}>{studentsError}</Text>
           ) : (
@@ -272,7 +289,14 @@ export function TeacherClassroomScreen({ route, navigation }: { route: any; navi
               keyExtractor={(item) => item.student_id}
               refreshControl={refreshControl}
               renderItem={({ item }) => (
-                <View style={styles.listItem}>
+                <TouchableOpacity
+                  style={styles.listItem}
+                  onPress={() => navigation.navigate("StudentMistakeDetail", {
+                    classroomId: classroom.id,
+                    studentId: item.student_id,
+                    displayName: item.display_name ?? "Student",
+                  })}
+                >
                   <View style={styles.listItemContent}>
                     <Text style={styles.itemTitle}>{item.display_name ?? "Unnamed Student"}</Text>
                     <Text style={styles.itemSub}>
@@ -285,7 +309,7 @@ export function TeacherClassroomScreen({ route, navigation }: { route: any; navi
                       })}
                     </Text>
                   </View>
-                </View>
+                </TouchableOpacity>
               )}
               ListEmptyComponent={
                 <View style={styles.emptyWrap}>

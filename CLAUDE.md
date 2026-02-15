@@ -25,7 +25,7 @@ Address both reviewers' feedback before merging. **Always tag @codex and @claude
 | Path | Purpose |
 |------|---------|
 | `teacher/backend/` | Teacher Flask app (assignments, classrooms, corpus, convert) |
-| `teacher/frontend/` | Teacher React app (screens, hooks, components). Veridian design system: `src/constants/` (palette, typography, spacing), `src/components/ui/` (Button, Card, Input, Badge, EmptyState, Skeleton, ScreenContainer, Section, Row, ErrorState). Primary: #16A34A. |
+| `teacher/frontend/` | Teacher React app (screens, hooks, components). Veridian design system: `src/constants/` (palette, typography, spacing), `src/components/ui/` (Button, Card, Input, Badge, EmptyState, Skeleton, ScreenContainer, Section, Row, ErrorState). Primary: #16A34A. App root is wrapped in `ErrorBoundary` (fallback: message + Retry). |
 | `student/backend/` | Student Flask (mistake analysis, OCR, chat) |
 | `student/backend/get_coords.py` | Main student API server |
 | `student/backend/mistake_analysis/` | LLM mistake detection (Claude) |

@@ -66,33 +66,40 @@ export function AssignmentScreen({ route }: { route: any }) {
       setPdfPreviewUri(null);
       setImagePreviewUrl(null);
       setBinaryDownloadUrl(null);
-      if (data.assignment_file_download_url) {
-        const resp = await fetch(data.assignment_file_download_url);
-        if (!resp.ok) throw new Error(`Failed to fetch assignment file: ${resp.status}`);
-        const blob = await resp.blob();
-        const bytes = new Uint8Array(await blob.arrayBuffer());
-        if (!mountedRef.current) return;
+      if (data.prompt_latex) {
+        setAssignmentContent(sanitizeLatexContent(data.prompt_latex));
+      } else if (data.assignment_file_download_url) {
+        try {
+          const resp = await fetch(data.assignment_file_download_url);
+          if (resp.ok) {
+            const blob = await resp.blob();
+            const bytes = new Uint8Array(await blob.arrayBuffer());
+            if (!mountedRef.current) return;
 
-        const contentType = resp.headers.get("content-type") ?? "";
-        if (looksLikePdf(contentType, bytes)) {
-          if (mountedRef.current) setIsPdf(true);
-          try {
-            const previewUri = await createPdfPreviewDataUri(blob);
-            if (mountedRef.current) setPdfPreviewUri(previewUri);
-          } catch {
-            if (mountedRef.current) setPdfPreviewUri(null);
+            const contentType = resp.headers.get("content-type") ?? "";
+            if (looksLikePdf(contentType, bytes)) {
+              if (mountedRef.current) setIsPdf(true);
+              try {
+                const previewUri = await createPdfPreviewDataUri(blob);
+                if (mountedRef.current) setPdfPreviewUri(previewUri);
+              } catch {
+                if (mountedRef.current) setPdfPreviewUri(null);
+              }
+            } else if (looksLikeImage(contentType, bytes)) {
+              if (mountedRef.current) {
+                setImagePreviewUrl(data.assignment_file_download_url ?? null);
+                setIsPdf(false);
+              }
+            } else if (looksLikeText(contentType, bytes)) {
+              const text = await blob.text();
+              if (!mountedRef.current) return;
+              setAssignmentContent(sanitizeLatexContent(text));
+            } else {
+              if (mountedRef.current) setBinaryDownloadUrl(data.assignment_file_download_url ?? null);
+            }
           }
-        } else if (looksLikeImage(contentType, bytes)) {
-          if (mountedRef.current) {
-            setImagePreviewUrl(data.assignment_file_download_url ?? null);
-            setIsPdf(false);
-          }
-        } else if (looksLikeText(contentType, bytes)) {
-          const text = await blob.text();
-          if (!mountedRef.current) return;
-          setAssignmentContent(sanitizeLatexContent(text));
-        } else {
-          if (mountedRef.current) setBinaryDownloadUrl(data.assignment_file_download_url ?? null);
+        } catch {
+          console.warn("Could not load assignment file");
         }
       }
     } catch (e: any) {

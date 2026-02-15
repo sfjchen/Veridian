@@ -117,39 +117,46 @@ export function TeacherAssignmentScreen({ route, navigation }: { route: any; nav
       setImagePreviewUrl(null);
       setBinaryDownloadUrl(null);
 
-      if (data.assignment_file_download_url) {
-        const resp = await fetch(data.assignment_file_download_url);
-        if (!mountedRef.current) return;
-        if (resp.ok) {
-          const blob = await resp.blob();
-          const bytes = new Uint8Array(await blob.arrayBuffer());
+      if (data.prompt_latex) {
+        setAssignmentContent(sanitizeContent(data.prompt_latex));
+      } else if (data.assignment_file_download_url) {
+        try {
+          const resp = await fetch(data.assignment_file_download_url);
           if (!mountedRef.current) return;
-
-          const contentType = resp.headers.get("content-type") ?? "";
-          if (looksLikePdf(contentType, bytes)) {
-            setIsPdf(true);
-            setAssignmentContent(null);
-            try {
-              const previewUri = await createPdfPreviewDataUri(blob);
-              if (mountedRef.current) setPdfPreviewUri(previewUri);
-            } catch {
-              if (mountedRef.current) {
-                setPdfPreviewUri(null);
-                alert("Warning", "Could not generate PDF preview image");
-              }
-            }
-          } else if (looksLikeImage(contentType, bytes)) {
-            setIsPdf(false);
-            setImagePreviewUrl(data.assignment_file_download_url ?? null);
-          } else if (looksLikeText(contentType, bytes)) {
-            const text = await blob.text();
+          if (resp.ok) {
+            const blob = await resp.blob();
+            const bytes = new Uint8Array(await blob.arrayBuffer());
             if (!mountedRef.current) return;
-            setIsPdf(false);
-            setAssignmentContent(sanitizeContent(text));
-          } else {
-            setIsPdf(false);
-            setBinaryDownloadUrl(data.assignment_file_download_url ?? null);
+
+            const contentType = resp.headers.get("content-type") ?? "";
+            if (looksLikePdf(contentType, bytes)) {
+              setIsPdf(true);
+              setAssignmentContent(null);
+              try {
+                const previewUri = await createPdfPreviewDataUri(blob);
+                if (mountedRef.current) setPdfPreviewUri(previewUri);
+              } catch {
+                if (mountedRef.current) {
+                  setPdfPreviewUri(null);
+                  alert("Warning", "Could not generate PDF preview image");
+                }
+              }
+            } else if (looksLikeImage(contentType, bytes)) {
+              setIsPdf(false);
+              setImagePreviewUrl(data.assignment_file_download_url ?? null);
+            } else if (looksLikeText(contentType, bytes)) {
+              const text = await blob.text();
+              if (!mountedRef.current) return;
+              setIsPdf(false);
+              setAssignmentContent(sanitizeContent(text));
+            } else {
+              setIsPdf(false);
+              setBinaryDownloadUrl(data.assignment_file_download_url ?? null);
+            }
           }
+        } catch {
+          // File fetch failed (CORS, network, expired URL) — assignment metadata still usable
+          console.warn("Could not load assignment file");
         }
       }
     } catch (e: any) {
@@ -166,6 +173,7 @@ export function TeacherAssignmentScreen({ route, navigation }: { route: any; nav
     setConverting(true);
     try {
       const pdfResp = await fetch(assignment.assignment_file_download_url);
+      if (!mountedRef.current) return;
       if (!pdfResp.ok) throw new Error("Failed to download PDF");
       const blob = await pdfResp.blob();
 
@@ -174,13 +182,14 @@ export function TeacherAssignmentScreen({ route, navigation }: { route: any; nav
       const formData = new FormData();
       formData.append("file", blob as any, "assignment.pdf");
 
-      const convertResp = await fetch(`${API_URL}/convert/pdf-to-latex`, {
+      const convertResp = await fetch(`${API_URL}/convert/pdf-to-latex?assignment_id=${assignmentId}`, {
         method: "POST",
         headers: session?.access_token
           ? { Authorization: `Bearer ${session.access_token}` }
           : {},
         body: formData,
       });
+      if (!mountedRef.current) return;
 
       if (!convertResp.ok) {
         const err = await convertResp.json().catch(() => ({ error: `HTTP ${convertResp.status}` }));
@@ -188,6 +197,7 @@ export function TeacherAssignmentScreen({ route, navigation }: { route: any; nav
       }
 
       const { latex } = await convertResp.json();
+      if (!mountedRef.current) return;
       setAssignmentContent(sanitizeContent(latex));
       setIsPdf(false);
       setPdfPreviewUri(null);

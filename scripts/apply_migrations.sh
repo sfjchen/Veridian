@@ -31,16 +31,19 @@ run_sql "$REPO_ROOT/supabase/migrations/20260214000009_problem_results_chat_mess
 echo "=== 4. Migration 010 (config columns on classrooms + assignments) ==="
 run_sql "$REPO_ROOT/supabase/migrations/20260214000010_add_config_columns.sql"
 
-echo "=== 5. Student: veridian_artifacts ==="
+echo "=== 5. Migration 20260215000002 (nullable corpus storage_path) ==="
+run_sql "$REPO_ROOT/supabase/migrations/20260215000002_make_corpus_storage_path_nullable.sql"
+
+echo "=== 6. Student: veridian_artifacts ==="
 run_sql "$REPO_ROOT/student/supabase/migrations/202602140001_veridian_artifacts.sql"
 
-echo "=== 6. Student: veridian_sample_worksheets ==="
+echo "=== 7. Student: veridian_sample_worksheets ==="
 run_sql "$REPO_ROOT/student/supabase/migrations/202602140003_veridian_sample_worksheets.sql"
 
-echo "=== 7. Student: fix function search_path ==="
+echo "=== 8. Student: fix function search_path ==="
 run_sql "$REPO_ROOT/student/supabase/migrations/20260214153135_fix_function_search_path.sql"
 
-echo "=== 8. Student: chat_messages index (if not in 009) ==="
+echo "=== 9. Student: chat_messages index (if not in 009) ==="
 run_sql "$REPO_ROOT/student/supabase/migrations/20260214153124_add_chat_messages_assignment_id_index.sql"
 
 echo "Done. All migrations applied."

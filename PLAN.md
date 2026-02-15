@@ -20,6 +20,7 @@ Full platform monorepo: teacher side (classrooms, assignments, corpus, submissio
 - PR #22: Classroom and assignment CRUD
 - PR #23: Corpus management
 - PR #24: Documentation consistency fixes
+- PR #79 follow-up hardening: authenticated conversion WebSocket, restricted CORS origins, real-time conversion progress wired in teacher frontend
 - Supabase schema: profiles, classrooms, memberships, corpus_files, assignments, submissions
 - RLS policies, JWT auth
 - Teacher dashboard: create/list classrooms, assignments, corpus

@@ -4,9 +4,10 @@ LaTeX parsing utilities for intelligent problem detection and extraction.
 
 import json
 import re
-from typing import TypedDict
+from typing import Any, TypedDict
 import anthropic
 from flask import current_app
+from app.constants import CLAUDE_MAX_TOKENS, CLAUDE_MODEL_SONNET_4_5
 from ..prompts.problem_detection import get_problem_detection_prompt
 
 
@@ -20,7 +21,7 @@ class ProblemDetectionError(Exception):
     pass
 
 
-def extract_problems_from_latex(latex: str) -> list[Problem]:
+def extract_problems_from_latex(latex: str) -> list[dict[str, Any]]:
     """
     Use Claude Sonnet 4.5 to intelligently detect problems in LaTeX source.
     No explicit \\Problem{} blocks required - AI infers problem boundaries.
@@ -42,8 +43,8 @@ def extract_problems_from_latex(latex: str) -> list[Problem]:
 
     try:
         message = client.messages.create(
-            model="claude-sonnet-4-5-20250929",
-            max_tokens=8192,
+            model=CLAUDE_MODEL_SONNET_4_5,
+            max_tokens=CLAUDE_MAX_TOKENS,
             messages=[{
                 "role": "user",
                 "content": prompt,
@@ -63,7 +64,10 @@ def extract_problems_from_latex(latex: str) -> list[Problem]:
         try:
             problems = json.loads(response_text)
         except json.JSONDecodeError as e:
-            raise ProblemDetectionError(f"Failed to parse JSON response: {e}") from e
+            snippet = response_text[:500]
+            raise ProblemDetectionError(
+                f"Failed to parse JSON response: {e}. Response snippet: {snippet!r}"
+            ) from e
 
         # Check for error response
         if isinstance(problems, dict) and "error" in problems:
@@ -78,7 +82,7 @@ def extract_problems_from_latex(latex: str) -> list[Problem]:
         raise ProblemDetectionError(f"Anthropic API error: {e}") from e
 
 
-def validate_problem_structure(problems: list[dict]) -> list[Problem]:
+def validate_problem_structure(problems: list[dict[str, Any]]) -> list[Problem]:
     """
     Validate problem structure against existing constraints.
 

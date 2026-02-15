@@ -4,14 +4,15 @@ from flask_socketio import SocketIO
 from .config import Config
 
 # Global SocketIO instance
-socketio = SocketIO(cors_allowed_origins="*")
+socketio = SocketIO()
 
 
 def create_app() -> Flask:
-    app = Flask(__name__)
-    CORS(app, origins="*")
-    socketio.init_app(app)
     config = Config.from_env()
+
+    app = Flask(__name__)
+    CORS(app, origins=config.cors_allowed_origins)
+    socketio.init_app(app, cors_allowed_origins=config.cors_allowed_origins)
     app.config.from_mapping(
         SECRET_KEY=config.flask_secret_key,
         SUPABASE_URL=config.supabase_url,
@@ -19,6 +20,7 @@ def create_app() -> Flask:
         SUPABASE_ANON_KEY=config.supabase_anon_key,
         ANTHROPIC_API_KEY=config.anthropic_api_key,
         SUPABASE_JWT_SECRET=config.supabase_jwt_secret,
+        CORS_ALLOWED_ORIGINS=config.cors_allowed_origins,
         MAX_CONTENT_LENGTH=16 * 1024 * 1024,  # 16MB
     )
     from .routes.classrooms import classrooms_bp

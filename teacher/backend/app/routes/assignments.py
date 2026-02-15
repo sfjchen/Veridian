@@ -21,6 +21,7 @@ from app.services.conversion_orchestrator import (
     create_orchestrator,
 )
 from app.services.progress_tracker import ProgressTracker
+from app.routes.conversion_websocket import complete_conversion_job, register_conversion_job
 
 log = logging.getLogger(__name__)
 
@@ -31,6 +32,7 @@ SUBMISSIONS_BUCKET = "submissions"
 MAX_TITLE_LENGTH = 500
 MAX_PROBLEMS = 100
 MAX_STATEMENT_LENGTH = 5000
+PDF_SIGNATURE = b"%PDF-"
 
 
 def _validate_problem_item(index: int, item: Any) -> dict[str, Any]:
@@ -45,6 +47,19 @@ def _validate_problem_item(index: int, item: Any) -> dict[str, Any]:
     if not tex.strip():
         raise ValueError(f"problems[{index}].statement_tex must not be empty")
     return {"num": num, "statement_tex": tex}
+
+
+def _parse_job_id(raw_value: str | None) -> str | None:
+    if raw_value is None:
+        return None
+    value = raw_value.strip()
+    if not value:
+        return None
+    try:
+        uuid.UUID(value)
+        return value
+    except ValueError:
+        raise ValueError("job_id must be a valid UUID")
 
 
 def _validate_problems(raw: Any) -> list[dict[str, Any]]:
@@ -238,6 +253,8 @@ def create_assignment_from_file(classroom_id: str) -> Tuple[Response, int]:
 
     if not file_bytes:
         return jsonify({"error": "Empty file"}), 400
+    if file_type == "pdf" and not file_bytes.startswith(PDF_SIGNATURE):
+        return jsonify({"error": "File content is not a valid PDF"}), 400
 
     # Validate title
     title = request.form.get("title", "").strip()
@@ -279,7 +296,10 @@ def create_assignment_from_file(classroom_id: str) -> Tuple[Response, int]:
     due_date = request.form.get("due_date")
 
     # Generate assignment ID and storage paths
-    assignment_id = str(uuid.uuid4())
+    try:
+        assignment_id = _parse_job_id(request.form.get("job_id")) or str(uuid.uuid4())
+    except ValueError as e:
+        return jsonify({"error": str(e)}), 400
     prompt_path = f"{classroom_id}/{assignment_id}/prompt.{file_type}"
 
     # Create progress tracker for WebSocket updates
@@ -287,6 +307,7 @@ def create_assignment_from_file(classroom_id: str) -> Tuple[Response, int]:
 
     # Process file with conversion orchestrator
     orchestrator = create_orchestrator()
+    register_conversion_job(assignment_id, g.user_id)
     try:
         result = orchestrator.process_assignment(
             assignment_id=assignment_id,
@@ -295,11 +316,14 @@ def create_assignment_from_file(classroom_id: str) -> Tuple[Response, int]:
             progress_tracker=progress_tracker,
         )
     except ConversionError as e:
+        progress_tracker.error(str(e))
         log.exception("Conversion failed for assignment %s", assignment_id)
         return jsonify({
             "error": "Failed to convert file and detect problems",
             "detail": str(e),
         }), 422
+    finally:
+        complete_conversion_job(assignment_id)
 
     # Upload original file as backup
     try:

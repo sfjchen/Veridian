@@ -4,7 +4,6 @@ with intelligent problem detection.
 """
 
 import base64
-import io
 from concurrent.futures import ThreadPoolExecutor, as_completed
 from dataclasses import dataclass
 from typing import Optional
@@ -12,6 +11,12 @@ import fitz  # PyMuPDF
 import anthropic
 from flask import current_app
 
+from app.constants import (
+    CLAUDE_MAX_TOKENS,
+    CLAUDE_MODEL_SONNET_4_5,
+    CONVERSION_MAX_WORKERS,
+    CONVERSION_PAGES_PER_CHUNK,
+)
 from ..utils.latex_parser import (
     Problem,
     ProblemDetectionError,
@@ -22,7 +27,6 @@ from .progress_tracker import ProgressTracker
 
 
 MAX_PDF_SIZE = 16 * 1024 * 1024  # 16MB (matches Flask config)
-PAGES_PER_CHUNK = 6
 PDF_SIGNATURE = b"%PDF-"
 
 
@@ -102,6 +106,7 @@ class ConversionOrchestrator:
         self,
         corpus_file_id: str,
         file_bytes: bytes,
+        progress_tracker: Optional[ProgressTracker] = None,
     ) -> ConversionResult:
         """
         Process corpus PDF file with automatic LaTeX conversion.
@@ -120,7 +125,9 @@ class ConversionOrchestrator:
         if not file_bytes.startswith(PDF_SIGNATURE):
             raise ConversionError("File must be a PDF")
 
-        latex_content = self._convert_pdf_to_latex(file_bytes)
+        latex_content = self._convert_pdf_to_latex(file_bytes, progress_tracker)
+        if progress_tracker:
+            progress_tracker.complete([], len(latex_content))
 
         return ConversionResult(
             latex_content=latex_content,
@@ -179,7 +186,7 @@ class ConversionOrchestrator:
 
     def _split_pdf_pages(self, pdf_bytes: bytes) -> list[list[bytes]]:
         """
-        Split PDF into chunks of PAGES_PER_CHUNK pages (as PNG images).
+        Split PDF into chunks of CONVERSION_PAGES_PER_CHUNK pages (as PNG images).
 
         Args:
             pdf_bytes: Raw PDF file bytes
@@ -207,8 +214,8 @@ class ConversionOrchestrator:
 
                 current_chunk.append(png_bytes)
 
-                # Start new chunk after PAGES_PER_CHUNK pages
-                if len(current_chunk) == PAGES_PER_CHUNK:
+                # Start new chunk after CONVERSION_PAGES_PER_CHUNK pages.
+                if len(current_chunk) == CONVERSION_PAGES_PER_CHUNK:
                     chunks.append(current_chunk)
                     current_chunk = []
 
@@ -243,7 +250,7 @@ class ConversionOrchestrator:
         results = [None] * num_chunks  # Preserve order
         completed_chunks = 0
 
-        with ThreadPoolExecutor(max_workers=min(4, num_chunks)) as executor:
+        with ThreadPoolExecutor(max_workers=min(CONVERSION_MAX_WORKERS, num_chunks)) as executor:
             # Submit all chunk conversion tasks
             future_to_index = {
                 executor.submit(
@@ -266,7 +273,7 @@ class ConversionOrchestrator:
                     # Emit progress after each chunk completes
                     if progress_tracker:
                         progress_tracker.converting_page(completed_chunks, num_chunks)
-                except Exception as e:
+                except ConversionError as e:
                     raise ConversionError(f"Failed to convert chunk {chunk_index + 1}: {e}") from e
 
         # Verify all chunks succeeded
@@ -321,8 +328,8 @@ class ConversionOrchestrator:
 
         try:
             message = self.client.messages.create(
-                model="claude-sonnet-4-5-20250929",
-                max_tokens=8192,
+                model=CLAUDE_MODEL_SONNET_4_5,
+                max_tokens=CLAUDE_MAX_TOKENS,
                 messages=[{
                     "role": "user",
                     "content": content,

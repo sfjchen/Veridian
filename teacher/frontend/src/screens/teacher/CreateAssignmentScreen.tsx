@@ -12,7 +12,13 @@ import { typography } from "../../constants/typography";
 import { useToast } from "../../contexts/ToastContext";
 import { api } from "../../lib/api";
 import { alert } from "../../lib/alert";
+import {
+  ConversionProgressEvent,
+  ConversionSocketHandle,
+  openConversionSocket,
+} from "../../lib/conversionProgress";
 import { uploadFile } from "../../lib/upload";
+import { generateUuidV4 } from "../../lib/uuid";
 import { AssignmentConfig, Problem } from "../../types";
 
 const DATE_PATTERN = /^\d{4}-\d{2}-\d{2}$/;
@@ -22,6 +28,41 @@ interface PickedFile {
   uri: string;
   mimeType: string;
   file?: File;
+}
+
+interface ConversionStatus {
+  stage: string;
+  progress: number;
+  message: string;
+  currentPage?: number;
+  totalPages?: number;
+  connected: boolean;
+}
+
+const INITIAL_CONVERSION_STATUS: ConversionStatus = {
+  stage: "Preparing conversion...",
+  progress: 0,
+  message: "Starting conversion pipeline...",
+  connected: false,
+};
+
+function formatConversionStage(stage: string): string {
+  if (stage === "splitting_pages") {
+    return "Splitting PDF pages...";
+  }
+  if (stage === "converting_page") {
+    return "Converting pages to LaTeX...";
+  }
+  if (stage === "detecting_problems") {
+    return "Detecting problems...";
+  }
+  if (stage === "complete") {
+    return "Conversion complete";
+  }
+  if (stage === "error") {
+    return "Conversion failed";
+  }
+  return "Converting file...";
 }
 
 export function CreateAssignmentScreen({ route, navigation }: { route: any; navigation: any }) {
@@ -41,6 +82,8 @@ export function CreateAssignmentScreen({ route, navigation }: { route: any; navi
 
   // Auto-conversion state
   const [converting, setConverting] = useState(false);
+  const [conversionStatus, setConversionStatus] = useState<ConversionStatus>(INITIAL_CONVERSION_STATUS);
+  const [conversionFileName, setConversionFileName] = useState<string>("");
   const [detectedProblems, setDetectedProblems] = useState<DetectedProblem[] | null>(null);
   const [convertedAssignmentId, setConvertedAssignmentId] = useState<string | null>(null);
   const [publishing, setPublishing] = useState(false);
@@ -83,12 +126,47 @@ export function CreateAssignmentScreen({ route, navigation }: { route: any; navi
       return;
     }
 
+    const jobId = generateUuidV4();
+    let socketHandle: ConversionSocketHandle | null = null;
+
     setConverting(true);
+    setConversionFileName(picked.name);
+    setConversionStatus(INITIAL_CONVERSION_STATUS);
     try {
+      try {
+        socketHandle = await openConversionSocket({
+          jobId,
+          onConnected: (connected) => {
+            setConversionStatus((prev) => ({ ...prev, connected }));
+          },
+          onProgress: (event: ConversionProgressEvent) => {
+            setConversionStatus({
+              stage: formatConversionStage(event.stage),
+              progress: event.progress,
+              message: event.message ?? "",
+              currentPage: event.current_page,
+              totalPages: event.total_pages,
+              connected: true,
+            });
+          },
+        });
+      } catch {
+        setConversionStatus({
+          ...INITIAL_CONVERSION_STATUS,
+          stage: "Converting file...",
+          message: "Live progress unavailable, conversion is still running.",
+        });
+      }
+
       // Create FormData
       const formData = new FormData();
       formData.append("file", picked.file as any);
       formData.append("title", assignmentTitle.trim());
+      formData.append("job_id", jobId);
+      const token = await api.getToken();
+      if (!token) {
+        throw new Error("Authentication required");
+      }
 
       // Call auto-conversion endpoint
       const response = await fetch(
@@ -96,7 +174,7 @@ export function CreateAssignmentScreen({ route, navigation }: { route: any; navi
         {
           method: "POST",
           headers: {
-            Authorization: `Bearer ${await api.getToken()}`,
+            Authorization: `Bearer ${token}`,
           },
           body: formData,
         }
@@ -117,7 +195,12 @@ export function CreateAssignmentScreen({ route, navigation }: { route: any; navi
       setDetectedProblems(null);
       setConvertedAssignmentId(null);
     } finally {
+      if (socketHandle) {
+        socketHandle.close();
+      }
       setConverting(false);
+      setConversionFileName("");
+      setConversionStatus(INITIAL_CONVERSION_STATUS);
     }
   };
 
@@ -183,7 +266,7 @@ export function CreateAssignmentScreen({ route, navigation }: { route: any; navi
       });
 
       const uploads: Promise<void>[] = [];
-      if (assignmentFile) {
+      if (assignmentFile && result.assignment_file_upload_url) {
         uploads.push(
           uploadFile({
             uri: assignmentFile.uri,
@@ -193,7 +276,7 @@ export function CreateAssignmentScreen({ route, navigation }: { route: any; navi
           })
         );
       }
-      if (answerKeyFile) {
+      if (answerKeyFile && result.answer_key_upload_url) {
         uploads.push(
           uploadFile({
             uri: answerKeyFile.uri,
@@ -236,8 +319,13 @@ export function CreateAssignmentScreen({ route, navigation }: { route: any; navi
     <ScreenContainer maxWidth="form">
       <ConversionProgressModal
         visible={converting}
-        fileName="Converting PDF to LaTeX..."
-        stage="Detecting problems..."
+        fileName={conversionFileName}
+        stage={conversionStatus.stage}
+        progress={conversionStatus.progress}
+        message={conversionStatus.message}
+        currentPage={conversionStatus.currentPage}
+        totalPages={conversionStatus.totalPages}
+        connected={conversionStatus.connected}
       />
 
       <View style={styles.content}>

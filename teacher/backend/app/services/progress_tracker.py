@@ -3,8 +3,11 @@ Progress tracking for long-running conversion operations.
 Emits WebSocket events to connected clients.
 """
 
+import logging
 from typing import Optional
 from flask_socketio import emit
+
+log = logging.getLogger(__name__)
 
 
 class ProgressTracker:
@@ -47,8 +50,10 @@ class ProgressTracker:
         if message:
             event_data["message"] = message
 
-        # Emit to room (all clients subscribed to this job_id)
-        emit("conversion_progress", event_data, room=self.room, namespace="/conversion")
+        try:
+            emit("conversion_progress", event_data, room=self.room, namespace="/conversion")
+        except Exception:
+            log.exception("Failed to emit conversion progress for job %s", self.job_id)
 
     def splitting_pages(self, total_pages: int) -> None:
         """Emit splitting_pages stage."""
@@ -61,7 +66,7 @@ class ProgressTracker:
 
     def converting_page(self, current: int, total: int) -> None:
         """Emit converting_page stage."""
-        progress = int((current / total) * 80)  # 0-80% for conversion
+        progress = int((current / total) * 90)  # 0-90% for conversion
         self.emit_progress(
             stage="converting_page",
             progress=progress,
@@ -72,10 +77,11 @@ class ProgressTracker:
 
     def detecting_problems(self, num_detected: Optional[int] = None) -> None:
         """Emit detecting_problems stage."""
+        progress = 95 if num_detected is None else 98
         message = "Detecting problems..." if num_detected is None else f"Detected {num_detected} problems"
         self.emit_progress(
             stage="detecting_problems",
-            progress=85,
+            progress=progress,
             message=message,
         )
 

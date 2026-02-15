@@ -8,21 +8,23 @@ interface ApiOptions {
   body?: Record<string, unknown>;
 }
 
-export async function api<T = unknown>(
+async function getToken(): Promise<string | null> {
+  const { data } = await supabase.auth.getSession();
+  return data?.session?.access_token ?? null;
+}
+
+async function apiRequest<T = unknown>(
   path: string,
   options: ApiOptions = {}
 ): Promise<T> {
   const { method = "GET", body } = options;
-
-  const { data } = await supabase.auth.getSession();
-  const session = data?.session ?? null;
+  const token = await getToken();
 
   const headers: Record<string, string> = {
     "Content-Type": "application/json",
   };
-
-  if (session?.access_token) {
-    headers["Authorization"] = `Bearer ${session.access_token}`;
+  if (token) {
+    headers.Authorization = `Bearer ${token}`;
   }
 
   let response: Response;
@@ -44,9 +46,11 @@ export async function api<T = unknown>(
     let errorMessage = `HTTP ${response.status}`;
     try {
       const errorBody = await response.json();
-      if (errorBody?.error) errorMessage = errorBody.error;
+      if (errorBody?.error) {
+        errorMessage = errorBody.error;
+      }
     } catch {
-      // Non-JSON response body, fall back to HTTP status
+      // Non-JSON response body, fall back to HTTP status.
     }
     throw new Error(errorMessage);
   }
@@ -61,3 +65,13 @@ export async function api<T = unknown>(
     throw new Error("Invalid response from server");
   }
 }
+
+type ApiClient = (<T = unknown>(path: string, options?: ApiOptions) => Promise<T>) & {
+  baseUrl: string;
+  getToken: () => Promise<string | null>;
+};
+
+export const api: ApiClient = Object.assign(apiRequest, {
+  baseUrl: API_URL,
+  getToken,
+});

@@ -20,6 +20,8 @@ from app.services.conversion_orchestrator import (
     ConversionError,
     create_orchestrator,
 )
+from app.services.progress_tracker import ProgressTracker
+from app.routes.conversion_websocket import complete_conversion_job, register_conversion_job
 
 log = logging.getLogger(__name__)
 
@@ -28,6 +30,18 @@ corpus_bp = Blueprint("corpus", __name__)
 CORPUS_BUCKET = "corpus"
 ALLOWED_FILE_TYPES = frozenset({"pdf", "txt", "docx", "doc", "md", "tex", "rtf", "csv", "json", "ipynb"})
 MAX_DISPLAY_NAME_LENGTH = 300  # DB column limit; matches frontend validation
+PDF_SIGNATURE = b"%PDF-"
+
+
+def _parse_job_id(raw_value: str | None) -> str | None:
+    if raw_value is None:
+        return None
+    value = raw_value.strip()
+    if not value:
+        return None
+    if not validate_uuid(value):
+        raise ValueError("job_id must be a valid UUID")
+    return value
 
 
 def _normalize_folder_path(raw_value: Any) -> str:
@@ -281,6 +295,8 @@ def upload_pdf_corpus(classroom_id: str) -> tuple[Response, int]:
 
     if not file_bytes:
         return jsonify({"error": "Empty file"}), 400
+    if not file_bytes.startswith(PDF_SIGNATURE):
+        return jsonify({"error": "File content is not a valid PDF"}), 400
 
     # Validate display_name
     display_name = request.form.get("display_name", "").strip()
@@ -301,22 +317,31 @@ def upload_pdf_corpus(classroom_id: str) -> tuple[Response, int]:
         return jsonify({"error": "Classroom not found"}), 404
 
     # Generate file ID and storage path
-    file_id = str(uuid.uuid4())
+    try:
+        file_id = _parse_job_id(request.form.get("job_id")) or str(uuid.uuid4())
+    except ValueError as e:
+        return jsonify({"error": str(e)}), 400
     storage_path = _build_storage_path(classroom_id, file_id, "pdf", folder_path)
+    progress_tracker = ProgressTracker(file_id)
 
     # Convert PDF to LaTeX
     orchestrator = create_orchestrator()
+    register_conversion_job(file_id, g.user_id)
     try:
         result = orchestrator.process_corpus(
             corpus_file_id=file_id,
             file_bytes=file_bytes,
+            progress_tracker=progress_tracker,
         )
     except ConversionError as e:
+        progress_tracker.error(str(e))
         log.exception("PDF conversion failed for corpus file %s", file_id)
         return jsonify({
             "error": "Failed to convert PDF to LaTeX",
             "detail": str(e),
         }), 422
+    finally:
+        complete_conversion_job(file_id)
 
     # Upload original PDF
     try:
@@ -352,7 +377,9 @@ def upload_pdf_corpus(classroom_id: str) -> tuple[Response, int]:
             log.exception("Failed to clean up uploaded file after insert failure")
         return jsonify({"error": "Failed to create corpus file"}), 500
 
-    return jsonify(_serialize_file(record.data[0])), 201
+    response = _serialize_file(record.data[0])
+    response["job_id"] = file_id
+    return jsonify(response), 201
 
 
 @corpus_bp.route("/classrooms/<classroom_id>/corpus", methods=["GET"])

@@ -1,5 +1,6 @@
 import React from "react";
 import {
+  View,
   Text,
   FlatList,
   TouchableOpacity,
@@ -11,10 +12,7 @@ import { useAuth } from "../../stores/auth";
 import { ClassCodeInput } from "../../components/ClassCodeInput";
 import { ScreenContainer } from "../../components/ui";
 import { Classroom } from "../../types";
-import { ScreenContainer } from "../../components/ui/ScreenContainer";
-import { palette } from "../../constants/palette";
-import { elevation } from "../../constants/palette";
-import { radius } from "../../constants/palette";
+import { palette, radius, elevation } from "../../constants/palette";
 import { spacing } from "../../constants/spacing";
 import { typography } from "../../constants/typography";
 
@@ -79,6 +77,9 @@ const styles = StyleSheet.create({
     marginBottom: spacing.sm,
   },
   cardTitle: { ...typography.h2 },
+  emptyWrap: { paddingVertical: spacing.xxl, paddingHorizontal: spacing.lg, alignItems: "center" as const },
+  emptyTitle: { ...typography.h2, color: palette.textSecondary, marginBottom: spacing.sm },
+  emptySubtitle: { ...typography.body, color: palette.textMuted, textAlign: "center" as const },
   empty: { ...typography.body, textAlign: "center" as const, color: palette.textDisabled, marginTop: spacing.xxl },
   errorText: { ...typography.body, textAlign: "center" as const, color: palette.error, marginTop: spacing.xxl },
 });

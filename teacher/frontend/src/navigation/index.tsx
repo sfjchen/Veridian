@@ -12,6 +12,7 @@ import { CreateAssignmentScreen } from "../screens/teacher/CreateAssignmentScree
 import { TeacherAssignmentScreen } from "../screens/teacher/AssignmentScreen";
 import { StudentExperienceScreen } from "../screens/teacher/StudentExperienceScreen";
 import { StudentMistakeDetailScreen } from "../screens/teacher/StudentMistakeDetailScreen";
+import { StudentWorkReviewScreen } from "../screens/teacher/StudentWorkReviewScreen";
 import { StudentDashboardScreen } from "../screens/student/DashboardScreen";
 import { StudentClassroomScreen } from "../screens/student/ClassroomScreen";
 import { AssignmentScreen } from "../screens/student/AssignmentScreen";
@@ -68,6 +69,7 @@ function TeacherNavigator() {
       <TeacherStack.Screen name="TeacherAssignment" component={TeacherAssignmentScreen} options={{ title: "Assignment" }} />
       <TeacherStack.Screen name="StudentExperience" component={StudentExperienceScreen} options={{ title: "Student Experience", headerShown: false }} />
       <TeacherStack.Screen name="StudentMistakeDetail" component={StudentMistakeDetailScreen} options={{ title: "Student Mistakes" }} />
+      <TeacherStack.Screen name="StudentWorkReview" component={StudentWorkReviewScreen} options={{ title: "Student Work" }} />
     </TeacherStack.Navigator>
   );
 }

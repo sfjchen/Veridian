@@ -561,160 +561,51 @@ export function TeacherAssignmentScreen({ route, navigation }: { route: any; nav
                           })}
                         </Text>
                       </View>
-                      {submission.download_url ? (
-                        <Button size="sm" onPress={() => handleOpenFile(submission.download_url!)}>
-                          Open
+                      <View style={styles.submissionActions}>
+                        <Button
+                          size="sm"
+                          variant="secondary"
+                          onPress={() => navigation.navigate("StudentWorkReview", {
+                            assignmentId,
+                            studentId: submission.student_id,
+                            studentDisplayName: submission.student_display_name ?? `Student ${submission.student_id.slice(0, 8)}`,
+                          })}
+                        >
+                          View Work
                         </Button>
-                      ) : (
-                        <Text style={styles.noFile}>Unavailable</Text>
-                      )}
+                        {submission.download_url ? (
+                          <Button size="sm" onPress={() => handleOpenFile(submission.download_url!)}>
+                            Open
+                          </Button>
+                        ) : (
+                          <Text style={styles.noFile}>Unavailable</Text>
+                        )}
+                      </View>
                     </Card>
                   ))
                 )}
               </Section>
 
-          {/* Re-upload Section */}
-          {!reuploadUrls ? (
-            <TouchableOpacity
-              style={styles.reuploadButton}
-              onPress={handleReupload}
-              disabled={reuploading}
-            >
-              <Text style={styles.reuploadButtonText}>
-                {reuploading ? "Preparing..." : "Re-upload Files"}
-              </Text>
-            </TouchableOpacity>
-          ) : (
-            <View style={styles.reuploadSection}>
-              {reuploadUrls.assignment_file_upload_url && (
-                <>
-                  <Text style={styles.sectionTitle}>Replace Assignment File</Text>
-                  <FileUploader
-                    uploadUrl={reuploadUrls.assignment_file_upload_url}
-                    label="Select New Assignment File"
-                    onUploadComplete={() => {
-                      alert("Success", "Assignment file replaced");
-                      setReuploadUrls(null);
-                      setLoading(true);
-                      fetchAssignment();
-                    }}
-                  />
-                </>
-              )}
-              {reuploadUrls.answer_key_upload_url && (
-                <>
-                  <Text style={styles.sectionTitle}>Replace Answer Key</Text>
-                  <FileUploader
-                    uploadUrl={reuploadUrls.answer_key_upload_url}
-                    label="Select New Answer Key"
-                    onUploadComplete={() => {
-                      alert("Success", "Answer key replaced");
-                      setReuploadUrls(null);
-                      setLoading(true);
-                      fetchAssignment();
-                    }}
-                  />
-                </>
-              )}
-              <TouchableOpacity
-                style={[styles.actionButton, styles.cancelButton, { marginTop: 8 }]}
-                onPress={() => setReuploadUrls(null)}
-              >
-                <Text style={styles.cancelButtonText}>Cancel Re-upload</Text>
-              </TouchableOpacity>
-            </View>
-          )}
-
-          {/* PDF Conversion */}
-          {isPdf && (
-            <View style={styles.convertSection}>
-              <Text style={styles.sectionTitle}>PDF Detected</Text>
-              {pdfPreviewUri && (
-                <Image source={{ uri: pdfPreviewUri }} style={styles.pdfPreview} resizeMode="contain" />
-              )}
-              <Text style={styles.convertHint}>
-                Convert the uploaded PDF to LaTeX for in-app math rendering.
-              </Text>
-              <TouchableOpacity
-                style={styles.convertButton}
-                onPress={handleConvertPdf}
-                disabled={converting}
-              >
-                {converting ? (
-                  <ActivityIndicator color={palette.white} />
-                ) : (
-                  <Text style={styles.convertButtonText}>Convert PDF to LaTeX</Text>
-                )}
-              </TouchableOpacity>
-            </View>
-          )}
-
-          <Text style={[styles.sectionTitle, { marginTop: 24 }]}>Student Submissions</Text>
-          {submissionsLoading && !refreshing ? (
-            <View style={styles.submissionsSkeleton}>
-              <SkeletonCard />
-              <SkeletonCard />
-            </View>
-          ) : submissionsError ? (
-            <ErrorState message={submissionsError} onRetry={refreshSubmissions} />
-          ) : submissions.length === 0 ? (
-            <EmptyState
-              title="No submissions yet"
-              description="Students’ work will appear here after they submit."
-            />
-          ) : (
-            submissions.map((submission: Submission) => {
-              const displayName = submission.student_display_name ?? `Student ${submission.student_id.slice(0, 8)}`;
-              return (
-                <View key={submission.id} style={styles.submissionCard}>
-                  <View style={styles.listItemContent}>
-                    <Text style={styles.itemTitle}>{displayName}</Text>
-                    <Text style={styles.itemSub}>
-                      Submitted {new Date(submission.submitted_at).toLocaleString("en-US", {
-                        year: "numeric",
-                        month: "short",
-                        day: "numeric",
-                        hour: "numeric",
-                        minute: "2-digit",
-                        timeZone: "UTC",
-                      })}
-                    </Text>
-                  </View>
-                  <View style={styles.submissionActions}>
-                    {assignment.classroom_id && (
-                      <TouchableOpacity
-                        style={styles.analysisLink}
-                        onPress={() => navigation.navigate("StudentMistakeDetail", {
-                          classroomId: assignment.classroom_id,
-                          studentId: submission.student_id,
-                          displayName,
-                        })}
-                        accessibilityRole="button"
-                        accessibilityLabel={`View analysis for ${displayName}`}
-                      >
-                        <Text style={styles.analysisLinkText}>View analysis</Text>
-                      </TouchableOpacity>
-                    )}
-                    {submission.download_url ? (
-                      <TouchableOpacity
-                        style={styles.downloadButton}
-                        onPress={() => handleOpenFile(submission.download_url!)}
-                        accessibilityRole="button"
-                        accessibilityLabel={`Open submission by ${displayName}`}
-                      >
-                        <Text style={styles.downloadButtonText}>Open</Text>
-                      </TouchableOpacity>
-                    ) : (
-                      <Text style={styles.noFile}>Unavailable</Text>
-                    )}
-                  </View>
+              {assignmentContent && (
+                <View style={styles.contentPreview}>
+                  <Text style={styles.sectionTitle}>Assignment Preview (LaTeX)</Text>
+                  <LatexRenderer latex={assignmentContent} />
                 </View>
-              );
-            })
+              )}
+              {imagePreviewUrl && (
+                <View style={styles.contentPreview}>
+                  <Text style={styles.sectionTitle}>Assignment Preview (Image)</Text>
+                  <Image source={{ uri: imagePreviewUrl }} style={styles.assignmentImage} resizeMode="contain" />
+                </View>
+              )}
+              {binaryDownloadUrl && (
+                <Card style={styles.binaryNotice}>
+                  <Text style={styles.binaryNoticeText}>This file type cannot be previewed in-app.</Text>
+                  <Button size="sm" onPress={() => handleOpenFile(binaryDownloadUrl)}>Download File</Button>
+                </Card>
+              )}
+            </View>
           )}
-
-        </View>
-      )}
         </View>
       </ScrollView>
     </ScreenContainer>

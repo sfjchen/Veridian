@@ -146,3 +146,27 @@ export interface AssignmentTrend {
   total_mistakes: number;
   severity_distribution: SeverityDistribution;
 }
+
+export type ProblemResultMistake = {
+  id: string;
+  content: string;
+  explanation: string;
+  tag: string;
+  severity: string;
+};
+
+export type ProblemResult = {
+  id: string;
+  student_id: string;
+  assignment_id: string;
+  problem_num: number;
+  student_tex: string;
+  annotated_tex: string;
+  continuation_tex?: string;
+  mistake_count: number;
+  mistakes: ProblemResultMistake[];
+  status: "pending" | "analyzing" | "complete" | "error";
+  error_message?: string;
+  created_at: string;
+  updated_at: string;
+};

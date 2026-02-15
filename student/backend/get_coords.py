@@ -88,10 +88,14 @@ if not CLAUDE_MODEL:
 log = logging.getLogger(__name__)
 
 
-def _cors_origins() -> list[str] | str:
+def _cors_origins() -> list[str] | list | str:
+    import re
     raw = os.getenv("CORS_ALLOWED_ORIGINS", "").strip()
     if raw:
-        return [o.strip() for o in raw.split(",") if o.strip()]
+        origins = [o.strip() for o in raw.split(",") if o.strip()]
+        origins.extend(["https://veridianteach.info", "https://www.veridianteach.info"])
+        origins.append(re.compile(r"https://.*\.vercel\.app$"))
+        return origins
     return "*"
 
 

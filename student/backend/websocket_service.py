@@ -13,11 +13,15 @@ log = logging.getLogger(__name__)
 socketio: SocketIO | None = None
 
 
-def _cors_origins() -> list[str] | str:
+def _cors_origins() -> list[str] | list | str:
+    import re
     raw = os.getenv("WS_CORS_ORIGINS", "")
     if not raw.strip():
         return "*"
-    return [o.strip() for o in raw.split(",") if o.strip()]
+    origins = [o.strip() for o in raw.split(",") if o.strip()]
+    origins.extend(["https://veridianteach.info", "https://www.veridianteach.info"])
+    origins.append(re.compile(r"https://.*\.vercel\.app$"))
+    return origins
 
 
 def init_socketio(app: Flask) -> SocketIO:

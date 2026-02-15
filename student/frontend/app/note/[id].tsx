@@ -7,7 +7,9 @@ import ViewShot from 'react-native-view-shot';
 
 import { InkCanvas, type Stroke } from '@/components/InkCanvas';
 import { SuggestionGhost } from '@/components/SuggestionGhost';
-import { palette } from '@/constants/palette';
+import { palette } from "@/constants/palette";
+import { spacing } from "@/constants/spacing";
+import { typography } from "@/constants/typography";
 import { useAuth } from '@/hooks/useAuth';
 import { useNotes, strokeKeyForNote } from '@/hooks/useNotes';
 import { useStrokeAutocomplete, type AutocompleteState } from '@/hooks/useStrokeAutocomplete';
@@ -205,26 +207,31 @@ export default function NoteScreen() {
 const styles = StyleSheet.create({
   screen: { flex: 1, backgroundColor: palette.surface },
   header: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    paddingHorizontal: 12,
+    flexDirection: "row",
+    alignItems: "center",
+    paddingHorizontal: spacing.sm,
     paddingVertical: 10,
     backgroundColor: palette.card,
     borderBottomWidth: 1,
     borderBottomColor: palette.border,
   },
   headerBackBtn: {
-    padding: 8,
-    marginRight: 8,
+    padding: spacing.xs,
+    marginRight: spacing.xs,
     minWidth: 44,
     minHeight: 44,
-    justifyContent: 'center',
-    alignItems: 'center',
+    justifyContent: "center",
+    alignItems: "center",
   },
-  title: { flex: 1, fontSize: 17, fontWeight: '600', color: palette.textPrimary },
-  canvasWrap: { flex: 1, padding: 12, position: 'relative' },
+  title: {
+    flex: 1,
+    ...typography.body,
+    fontWeight: "600",
+    color: palette.textPrimary,
+  },
+  canvasWrap: { flex: 1, padding: spacing.sm, position: "relative" },
   canvas: { flex: 1 },
-  centered: { flex: 1, justifyContent: 'center', alignItems: 'center', gap: 12 },
-  errorText: { fontSize: 16, color: palette.textSecondary, textAlign: 'center' },
-  backLink: { fontSize: 15, fontWeight: '600', color: palette.primary },
+  centered: { flex: 1, justifyContent: "center", alignItems: "center", gap: spacing.sm },
+  errorText: { ...typography.body, color: palette.textSecondary, textAlign: "center" },
+  backLink: { ...typography.buttonSmall, color: palette.primary },
 });

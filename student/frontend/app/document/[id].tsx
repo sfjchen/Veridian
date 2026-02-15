@@ -189,7 +189,7 @@ export default function DocumentScreen() {
   const headerTitle = assignmentOnly && assignment ? assignment.title : doc?.name ?? '';
   const backLabel = assignmentOnly
     ? (classroomName ? `Back to ${classroomName}` : 'Back')
-    : 'Back to Library';
+    : 'Back';
 
   const config = useMemo(
     () => resolvedConfig ?? DEFAULT_RESOLVED_CONFIG,

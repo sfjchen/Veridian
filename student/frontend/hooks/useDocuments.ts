@@ -1,5 +1,4 @@
 import AsyncStorage from '@react-native-async-storage/async-storage';
-import * as DocumentPicker from 'expo-document-picker';
 import * as FileSystem from 'expo-file-system/legacy';
 import { useCallback, useEffect, useState } from 'react';
 import { Platform } from 'react-native';
@@ -7,7 +6,6 @@ import { Platform } from 'react-native';
 import { scopedKey } from '@/lib/scoped-storage';
 
 const LEGACY_KEY = 'veridian_documents';
-const PDFS_DIR = 'pdfs';
 
 /** ID and URI prefix for the built-in sample algebra document (no real file). */
 export const DEFAULT_DOCUMENT_ID = 'default-algebra';
@@ -27,15 +25,6 @@ export const DEFAULT_DOCUMENT: DocumentMeta = {
 
 export function isDefaultDocument(doc: DocumentMeta): boolean {
   return doc.id === DEFAULT_DOCUMENT_ID || doc.uri.startsWith('default://');
-}
-
-async function ensurePdfsDir(): Promise<string> {
-  const dir = `${FileSystem.documentDirectory}${PDFS_DIR}/`;
-  const info = await FileSystem.getInfoAsync(dir);
-  if (!info.exists) {
-    await FileSystem.makeDirectoryAsync(dir, { intermediates: true });
-  }
-  return dir;
 }
 
 async function pruneStaleDocuments(docs: DocumentMeta[]): Promise<DocumentMeta[]> {
@@ -60,7 +49,6 @@ export function useDocuments(userId: string | null) {
   const [loading, setLoading] = useState(true);
   const [loadError, setLoadError] = useState<string | null>(null);
   const [saveError, setSaveError] = useState<string | null>(null);
-  const [addError, setAddError] = useState<string | null>(null);
   const [removeError, setRemoveError] = useState<string | null>(null);
 
   const storageKey = userId ? scopedKey(userId, LEGACY_KEY) : null;
@@ -121,31 +109,6 @@ export function useDocuments(userId: string | null) {
     }
   }, [storageKey]);
 
-  const addDocument = useCallback(async (): Promise<DocumentMeta | null> => {
-    setAddError(null);
-    try {
-      const result = await DocumentPicker.getDocumentAsync({
-        type: 'application/pdf',
-        copyToCacheDirectory: true,
-      });
-
-      if (result.canceled) return null;
-
-      const { uri, name } = result.assets[0];
-      const id = `doc_${Date.now()}_${Math.random().toString(36).slice(2, 9)}`;
-      const dir = await ensurePdfsDir();
-      const destUri = `${dir}${id}.pdf`;
-      await FileSystem.copyAsync({ from: uri, to: destUri });
-
-      const meta: DocumentMeta = { id, name: name ?? 'Untitled PDF', uri: destUri };
-      await save([...documents, meta]);
-      return meta;
-    } catch (e) {
-      const msg = e instanceof Error ? e.message : 'Failed to add document';
-      setAddError(msg);
-      return null;
-    }
-  }, [documents, save]);
 
   const removeDocument = useCallback(
     async (id: string) => {
@@ -172,13 +135,10 @@ export function useDocuments(userId: string | null) {
     loading,
     loadError,
     saveError,
-    addError,
     removeError,
     clearLoadError: () => setLoadError(null),
     clearSaveError: () => setSaveError(null),
-    clearAddError: () => setAddError(null),
     clearRemoveError: () => setRemoveError(null),
-    addDocument,
     removeDocument,
     getDocument,
     refresh: load,

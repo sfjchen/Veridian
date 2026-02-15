@@ -10,10 +10,12 @@ Backends use Flask-Socket.IO and cannot run on Vercel serverless. Deploy to Rail
 
 ## Vercel Projects
 
-| Project | Root Directory | Production URL |
-|---------|----------------|----------------|
-| veridian-teacher | teacher/frontend | https://veridian-teacher-*.vercel.app |
-| veridian-student | student/frontend | https://veridian-student-*.vercel.app |
+| Project | Root Directory | Production URL (short) |
+|---------|----------------|------------------------|
+| veridian-teacher | teacher/frontend | https://veridian-teacher.vercel.app |
+| veridian-student | student/frontend | https://veridian-student.vercel.app |
+
+Custom domains teacher.veridian.fyi and student.veridian.fyi are added; configure CNAME at your registrar to point to Vercel (see Project → Settings → Domains for exact records).
 
 ### Deploy Frontends
 
@@ -37,15 +39,13 @@ cd student/frontend && vercel deploy --prod
 
 ### Custom Domain (veridian.fyi)
 
-1. Vercel Dashboard → Project → Settings → Domains
-2. Add teacher.veridian.fyi, student.veridian.fyi
-3. DNS: CNAME teacher.veridian.fyi → cname.vercel-dns.com (or Vercel-assigned)
+teacher.veridian.fyi and student.veridian.fyi are already added. At your DNS registrar, add CNAME records (Vercel Dashboard → Project → Domains shows the exact target).
 
 ## Supabase Auth
 
 1. Supabase Dashboard → Authentication → URL Configuration
-2. Site URL: https://teacher.veridian.fyi
-3. Redirect URLs: https://teacher.veridian.fyi/**, https://student.veridian.fyi/**, https://veridian.fyi/**
+2. Site URL: https://veridian-teacher.vercel.app (or https://teacher.veridian.fyi when DNS is set)
+3. Redirect URLs: https://veridian-teacher.vercel.app/**, https://veridian-student.vercel.app/**, https://teacher.veridian.fyi/**, https://student.veridian.fyi/**, https://veridian.fyi/**
 
 ## Backend Deployment (Railway/Render)
 
@@ -54,14 +54,14 @@ cd student/frontend && vercel deploy --prod
 - Root: teacher/backend
 - Start: `python run.py` (or `flask run --host=0.0.0.0 --port=5001`)
 - Env: SUPABASE_URL, SUPABASE_SERVICE_ROLE_KEY, SUPABASE_ANON_KEY, SUPABASE_JWT_SECRET, ANTHROPIC_API_KEY, FLASK_SECRET_KEY
-- CORS_ALLOWED_ORIGINS: https://teacher.veridian.fyi,https://student.veridian.fyi
+- CORS_ALLOWED_ORIGINS: https://veridian-teacher.vercel.app,https://veridian-student.vercel.app,https://teacher.veridian.fyi,https://student.veridian.fyi
 
 ### Student Backend
 
 - Root: student/backend
 - Start: `python get_coords.py`
 - Env: All from student/backend/.env.example
-- CORS_ALLOWED_ORIGINS: https://student.veridian.fyi,https://veridian.fyi
-- WS_CORS_ORIGINS: https://student.veridian.fyi,https://veridian.fyi
+- CORS_ALLOWED_ORIGINS: https://veridian-student.vercel.app,https://student.veridian.fyi,https://veridian.fyi
+- WS_CORS_ORIGINS: https://veridian-student.vercel.app,https://student.veridian.fyi,https://veridian.fyi
 
 After backends are live, set EXPO_PUBLIC_API_URL and EXPO_PUBLIC_BACKEND_URL in Vercel.

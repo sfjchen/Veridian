@@ -71,7 +71,9 @@ export function useDocuments() {
       }
       if (Platform.OS !== 'web') {
         const validated = await pruneStaleDocuments(list);
-        if (validated.length !== list.length) {
+        const changed = validated.length !== list.length
+          || validated.some((v, i) => v.id !== list[i]?.id);
+        if (changed) {
           await AsyncStorage.setItem(DOCUMENTS_KEY, JSON.stringify(validated));
           list = validated;
         }

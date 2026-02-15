@@ -31,6 +31,7 @@ import { useAutoAnalysis } from '@/hooks/useAutoAnalysis';
 import { useAccessToken } from '@/hooks/useAccessToken';
 import { useAuth } from '@/hooks/useAuth';
 import { useDocuments, isDefaultDocument } from '@/hooks/useDocuments';
+import { useWebSocket, type ResultPayload } from '@/hooks/useWebSocket';
 import { scopedKey } from '@/lib/scoped-storage';
 import { submitAnalysis, submitAssignment, type AnalysisResult, type Mistake } from '@/lib/api';
 import type { CaptureResult } from '@/lib/capture-types';
@@ -219,6 +220,26 @@ export default function DocumentScreen() {
   const saveTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const viewShotRef = useRef<ViewShot | null>(null);
   const [canvasDims, setCanvasDims] = useState<{ w: number; h: number } | null>(null);
+
+  const handleWebSocketResult = useCallback((data: ResultPayload) => {
+    if (data.problem_num != null && data.assignment_id === assignmentId) {
+      setResultsByProblem((prev) => ({
+        ...prev,
+        [data.problem_num]: {
+          student_tex: '',
+          annotated_tex: '',
+          continuation_tex: '',
+          mistake_count: data.mistake_count,
+          mistakes: data.mistakes,
+          problem_num: data.problem_num,
+          assignment_id: data.assignment_id,
+        },
+      }));
+    }
+  }, [assignmentId]);
+
+  const WS_URL = (process.env.EXPO_PUBLIC_BACKEND_URL ?? '').replace(/\/$/, '');
+  useWebSocket(WS_URL, token ?? null, handleWebSocketResult);
 
   const STROKES_KEY = (id && userId) ? scopedKey(userId, `veridian_strokes:${id}`) : null;
   const pageIndex = currentPage - 1;

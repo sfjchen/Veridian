@@ -6,18 +6,9 @@ import ViewShot from 'react-native-view-shot';
 import type { Tool } from '@/components/ToolBar';
 import { captureStrokesAsDataUri } from '@/lib/capture-web';
 
-const CURSOR_SIZE = 32;
-
-const getWebCursorStyle = (tool: Tool): object | undefined => {
-  if (Platform.OS !== 'web') return undefined;
-  const asset = tool === 'pen'
-    ? require('@/assets/cursor/pen-cursor.png')
-    : require('@/assets/cursor/erasor-cursor.png');
-  // On web, require() returns the URI string directly (or an object with .uri)
-  const uri = typeof asset === 'string' ? asset : asset?.uri ?? asset?.default;
-  if (!uri) return undefined;
-  return { cursor: `url(${uri}) 0 ${CURSOR_SIZE - 1}, auto` };
-};
+const DOT_CURSOR = 'url("data:image/svg+xml,%3Csvg xmlns=%27http://www.w3.org/2000/svg%27 width=%278%27 height=%278%27%3E%3Ccircle cx=%274%27 cy=%274%27 r=%273%27 fill=%27%23333%27/%3E%3C/svg%3E") 4 4, crosshair';
+const getWebCursorStyle = (): object | undefined =>
+  Platform.OS === 'web' ? { cursor: DOT_CURSOR } : undefined;
 
 type Point = {
   x: number;
@@ -246,7 +237,7 @@ export const DrawingCanvas = forwardRef<DrawingCanvasRef, DrawingCanvasProps>(fu
     else if (activeStrokeIdRef.current) activeStrokeIdRef.current = null;
   };
 
-  const webCursor = useMemo(() => getWebCursorStyle(tool), [tool]);
+  const webCursor = useMemo(() => getWebCursorStyle(), []);
 
   return (
     <ViewShot

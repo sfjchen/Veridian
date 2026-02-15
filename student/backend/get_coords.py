@@ -42,6 +42,7 @@ from auth_middleware import (
 )
 from classroom_service import join_classroom_by_code, list_assignments_for_classroom, list_classrooms_for_student
 from chat import generate_chat_response
+from context_loader import resolve_assignment_context
 from chat_service import SAMPLE_ALGEBRA_ASSIGNMENT_ID, get_chat_history
 from dotenv import load_dotenv
 from flask import Flask, g, jsonify, request
@@ -1288,7 +1289,7 @@ Topics: basic linear equations, distributive property, combining like terms, sys
 """.strip()
 
 
-def _resolve_context(lookup: ContextLookup) -> tuple[str, str, str]:
+def _resolve_context(lookup: ContextLookup) -> tuple[str, str, str, List[str]]:
     assignment_id = lookup["assignment_id"]
     problem_num = lookup["problem_num"]
     form_ref = lookup["form_ref"]
@@ -1296,20 +1297,35 @@ def _resolve_context(lookup: ContextLookup) -> tuple[str, str, str]:
 
     if assignment_id and problem_num is not None:
         try:
-            problem = get_problem(assignment_id, problem_num)
-            statement = problem.get("statement_tex", "")
-            ctx = f"Problem {problem_num}: {statement}" if statement else form_ctx
-            assignment = get_assignment(assignment_id)
-            ref = form_ref
-            if assignment and assignment.get("answer_key_storage_path"):
-                ref = ref or ""
-            config = get_resolved_config(assignment_id)
-            return (ref or form_ref, ctx or form_ctx, config.get("hint_level", "guided"))
+            return _resolve_assignment_context(assignment_id, problem_num, form_ref, form_ctx)
         except ValueError as exc:
             log.warning("Context resolution failed for assignment=%s problem=%s: %s", assignment_id, problem_num, exc)
     if lookup["is_sample"]:
-        return (form_ref or _DEFAULT_REFERENCE_TEX, form_ctx or _DEFAULT_CONTEXT_TEX, "detailed")
-    return (form_ref, form_ctx, "detailed")
+        return (form_ref or _DEFAULT_REFERENCE_TEX, form_ctx or _DEFAULT_CONTEXT_TEX, "detailed", [])
+    return (form_ref, form_ctx, "detailed", [])
+
+
+def _resolve_assignment_context(
+    assignment_id: str, problem_num: int, form_ref: str, form_ctx: str,
+) -> tuple[str, str, str, List[str]]:
+    problem = get_problem(assignment_id, problem_num)
+    statement = problem.get("statement_tex", "")
+    assignment = get_assignment(assignment_id)
+    config = get_resolved_config(assignment_id)
+    hint_level = config.get("hint_level", "guided")
+
+    ref_tex, corpus_text, warnings = resolve_assignment_context(assignment, hint_level)
+    reference = ref_tex or form_ref
+    context_parts = []
+    if statement:
+        context_parts.append(f"Problem {problem_num}: {statement}")
+    if corpus_text:
+        context_parts.append(corpus_text)
+    context = "\n\n".join(context_parts) or form_ctx
+
+    if warnings:
+        log.info("Context warnings for assignment=%s: %s", assignment_id, warnings)
+    return (reference, context, hint_level, warnings)
 
 
 def _profile_enabled() -> bool:
@@ -1457,7 +1473,7 @@ def analyze_solution() -> Any:
     except ValueError as exc:
         return jsonify({"error": str(exc)}), 400
 
-    reference_tex, context_tex, hint_level = _resolve_context(lookup)
+    reference_tex, context_tex, hint_level, context_warnings = _resolve_context(lookup)
     assignment_id = lookup["assignment_id"]
     problem_num = lookup["problem_num"]
 
@@ -1503,6 +1519,8 @@ def analyze_solution() -> Any:
     if assignment_id:
         payload["assignment_id"] = assignment_id
         payload["hint_level"] = hint_level
+    if context_warnings:
+        payload["context_warnings"] = context_warnings
 
     if result_key and problem_num is not None:
         _persist_analysis_result(result_key, payload)

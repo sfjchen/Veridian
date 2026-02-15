@@ -1,9 +1,19 @@
+import logging
 from typing import Any, Dict, List, TypedDict
 
 from postgrest.exceptions import APIError
-from assignment_service import get_problem
+
+from assignment_service import (
+    can_student_access_assignment,
+    get_assignment,
+    get_problem,
+    get_resolved_config,
+)
+from context_loader import CHAT_TOKEN_BUDGET, load_corpus_context, truncate_to_budget
 from result_service import get_result
 from supabase_service import get_supabase_service_client, unwrap_supabase_data
+
+log = logging.getLogger(__name__)
 
 CHAT_TABLE = "chat_messages"
 DEFAULT_HISTORY_LIMIT = 50
@@ -82,7 +92,44 @@ def build_chat_context(student_id: str, assignment_id: str, problem_num: int) ->
         "mistakes": [],
     }
     context = _load_problem_statement(assignment_id, problem_num, context)
-    return _load_result_data(student_id, assignment_id, problem_num, context)
+    context = _load_result_data(student_id, assignment_id, problem_num, context)
+    return _load_reference_materials(assignment_id, student_id, context)
+
+
+def _fetch_corpus_text(assignment: Dict[str, Any]) -> str:
+    context_file_ids = assignment.get("context_file_ids") or []
+    classroom_id = assignment.get("classroom_id", "")
+    try:
+        result = load_corpus_context(context_file_ids, classroom_id)
+        for w in result.warnings:
+            log.warning("corpus load warning: %s", w)
+        return truncate_to_budget(result.text, CHAT_TOKEN_BUDGET)
+    except Exception as exc:
+        log.exception("Failed to load corpus context: %s", exc)
+        return ""
+
+
+def _load_reference_materials(
+    assignment_id: str, student_id: str, context: Dict[str, Any]
+) -> Dict[str, Any]:
+    if assignment_id == SAMPLE_ALGEBRA_ASSIGNMENT_ID:
+        return context
+    assignment = get_assignment(assignment_id)
+    if not assignment:
+        return context
+    if not can_student_access_assignment(assignment_id, student_id, assignment=assignment):
+        log.warning("Unauthorized corpus access attempt: student=%s, assignment=%s", student_id, assignment_id)
+        return context
+    try:
+        config = get_resolved_config(assignment_id, assignment)
+    except ValueError:
+        return context
+    if config.get("hint_level") != "detailed":
+        return context
+    text = _fetch_corpus_text(assignment)
+    if text:
+        context["reference_materials"] = text
+    return context
 
 
 def _get_problem_statement(assignment_id: str, problem_num: int) -> str:

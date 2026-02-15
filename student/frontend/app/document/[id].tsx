@@ -298,7 +298,8 @@ export default function DocumentScreen() {
     if (saveTimeoutRef.current) clearTimeout(saveTimeoutRef.current);
     saveTimeoutRef.current = setTimeout(() => {
       const done = () => { saveTimeoutRef.current = null; };
-      AsyncStorage.setItem(STROKES_KEY, JSON.stringify(strokesByPage)).catch(() => {
+      AsyncStorage.setItem(STROKES_KEY, JSON.stringify(strokesByPage)).catch((error: unknown) => {
+        console.error('Failed to save strokes', error);
         setStrokeSaveError(true);
       }).finally(done);
     }, 500);

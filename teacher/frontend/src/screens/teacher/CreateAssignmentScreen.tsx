@@ -1,6 +1,6 @@
 import React, { useState } from "react";
 import {
-  View, Text, TextInput, TouchableOpacity, StyleSheet,
+  Text, TextInput, TouchableOpacity, StyleSheet,
   ScrollView, ActivityIndicator,
 } from "react-native";
 import * as DocumentPicker from "expo-document-picker";

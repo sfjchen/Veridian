@@ -1,5 +1,5 @@
 import React, { useState } from "react";
-import { View, Text, TextInput, TouchableOpacity, StyleSheet, ScrollView } from "react-native";
+import { Text, TextInput, TouchableOpacity, StyleSheet, ScrollView } from "react-native";
 import { NativeStackNavigationProp } from "@react-navigation/native-stack";
 import { useAuth } from "../../stores/auth";
 import { alert } from "../../lib/alert";
@@ -70,7 +70,7 @@ export function LoginScreen({ navigation }: LoginScreenProps) {
         <Text style={styles.link}>Forgot password?</Text>
       </TouchableOpacity>
       <TouchableOpacity onPress={() => navigation.navigate("Signup")}>
-        <Text style={styles.link}>Don't have an account? Sign Up</Text>
+        <Text style={styles.link}>Don&apos;t have an account? Sign Up</Text>
       </TouchableOpacity>
     </ScrollView>
   );

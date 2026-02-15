@@ -3,6 +3,7 @@ import { ActivityIndicator, Alert, Platform, Pressable, SafeAreaView, StyleSheet
 
 import { DrawingCanvas, type DrawingCanvasRef } from '@/components/DrawingCanvas';
 import { submitAnalysis, type Mistake } from '@/lib/api';
+import { BACKEND_URL } from '@/lib/backendBaseUrl';
 import { BoxOverlay } from '@/components/MistakeOverlay';
 import { ProblemHeader } from '@/components/ProblemHeader';
 import { ToolBar, type Tool } from '@/components/ToolBar';
@@ -44,7 +45,7 @@ export default function WorkspaceScreen() {
     return () => window.removeEventListener('keydown', onKeyDown);
   }, []);
 
-  const apiUrl = process.env.EXPO_PUBLIC_BACKEND_URL ?? '';
+  const apiUrl = BACKEND_URL;
 
   const captureCanvas = async (): Promise<string | null> => {
     const uri = await canvasRef.current?.captureWorkArea();
@@ -85,9 +86,7 @@ export default function WorkspaceScreen() {
       const isNetwork =
         /fetch|network|failed to fetch/i.test(errMsg) || errMsg.includes('Load failed');
       const msg = isNetwork
-        ? Platform.OS === 'android'
-          ? 'Use EXPO_PUBLIC_BACKEND_URL=http://10.0.2.2:8000 for emulator'
-          : 'Check backend at http://localhost:8000 is running (python get_coords.py). Restart Expo after changing .env.'
+        ? "Can't reach server. Start the student backend (python get_coords.py)."
         : errMsg;
       Alert.alert('Submit failed', msg);
       setSubmitStatus('Submit failed');

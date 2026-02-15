@@ -27,6 +27,7 @@ import { useAssignment } from '@/hooks/useAssignment';
 import { useAutoAnalysis } from '@/hooks/useAutoAnalysis';
 import { useDocuments, isDefaultDocument } from '@/hooks/useDocuments';
 import type { AnalysisResult, Mistake } from '@/lib/api';
+import { BACKEND_URL } from '@/lib/backendBaseUrl';
 import { buildAnalysisFormData } from '@/lib/image-upload';
 import { captureStrokesAsDataUri } from '@/lib/capture-web';
 import { PDF_VIEWER_HTML } from '@/lib/pdf-viewer-html';
@@ -345,7 +346,7 @@ export default function DocumentScreen() {
     // Legacy: full-page analysis for non-assignment documents.
     const uri = await captureScreenshot();
     if (!uri) return;
-    const apiUrl = process.env.EXPO_PUBLIC_BACKEND_URL ?? '';
+    const apiUrl = BACKEND_URL;
     if (!apiUrl) {
       showAlert('Submit failed', 'Set EXPO_PUBLIC_BACKEND_URL in .env and restart Expo.');
       return;
@@ -369,9 +370,7 @@ export default function DocumentScreen() {
       if (isNetworkError(err)) {
         showAlert(
           'Submit failed',
-          Platform.OS === 'android'
-            ? 'Cannot reach server. On Android emulator use EXPO_PUBLIC_BACKEND_URL=http://10.0.2.2:8000 in .env'
-            : 'Check that the Flask server is running (python get_coords.py) and .env has EXPO_PUBLIC_BACKEND_URL. Restart Expo after changing .env.',
+          "Can't reach server. Start the student backend (python get_coords.py).",
         );
       } else {
         showAlert('Submit failed', 'Check that the Flask server is running.');

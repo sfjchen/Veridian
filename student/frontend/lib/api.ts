@@ -1,4 +1,6 @@
-const BASE_URL = (process.env.EXPO_PUBLIC_BACKEND_URL ?? '').replace(/\/$/, '');
+import { BACKEND_URL } from "./backendBaseUrl";
+
+const BASE_URL = BACKEND_URL;
 
 function getAuthHeaders(): Record<string, string> {
   const token = process.env.EXPO_PUBLIC_SUPABASE_ACCESS_TOKEN?.trim();

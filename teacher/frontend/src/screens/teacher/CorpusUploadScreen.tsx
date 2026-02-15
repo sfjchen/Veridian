@@ -66,14 +66,14 @@ export function CorpusUploadScreen({ route, navigation }: { route: any; navigati
       alert("Error", "Please select a file first");
       return;
     }
+    const fileType = inferFileType(file.name, file.mimeType);
+    if (!fileType) {
+      alert("Error", "Unsupported file type. Allowed: pdf, txt, docx, doc, md, tex, rtf");
+      return;
+    }
 
     setUploading(true);
     try {
-      const fileType = inferFileType(file.name, file.mimeType);
-      if (!fileType) {
-        alert("Error", "Unsupported file type. Allowed: pdf, txt, docx, doc, md, tex, rtf");
-        return;
-      }
       const result = await api<{ upload_url: string }>(`/classrooms/${classroomId}/corpus`, {
         method: "POST",
         body: { display_name: displayName.trim(), file_type: fileType },

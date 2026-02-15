@@ -34,6 +34,7 @@ export function TeacherAssignmentScreen({ route, navigation }: { route: any; nav
   const mountedRef = useRef(true);
   const [assignment, setAssignment] = useState<AssignmentDetail | null>(null);
   const [loading, setLoading] = useState(true);
+  const [loadError, setLoadError] = useState<string | null>(null);
   const [assignmentContent, setAssignmentContent] = useState<string | null>(null);
   const [isPdf, setIsPdf] = useState(false);
   const [pdfPreviewUri, setPdfPreviewUri] = useState<string | null>(null);
@@ -65,6 +66,8 @@ export function TeacherAssignmentScreen({ route, navigation }: { route: any; nav
   } = useSubmissions(assignmentId);
 
   const fetchAssignment = useCallback(async () => {
+    setLoadError(null);
+    setLoading(true);
     try {
       const data = await api<AssignmentDetail>(`/assignments/${assignmentId}`);
       if (!mountedRef.current) return;
@@ -111,7 +114,9 @@ export function TeacherAssignmentScreen({ route, navigation }: { route: any; nav
         }
       }
     } catch (e: any) {
-      if (mountedRef.current) alert("Error", e.message);
+      if (mountedRef.current) {
+        setLoadError(e instanceof Error ? e.message : "Failed to load assignment");
+      }
     } finally {
       if (mountedRef.current) setLoading(false);
     }
@@ -208,7 +213,19 @@ export function TeacherAssignmentScreen({ route, navigation }: { route: any; nav
     Linking.openURL(url);
   };
 
-  if (loading) return <ActivityIndicator size="large" style={{ marginTop: 40 }} />;
+  if (loading && !assignment) {
+    return <ActivityIndicator size="large" style={{ marginTop: 40 }} />;
+  }
+  if (loadError && !assignment) {
+    return (
+      <View style={styles.errorContainer}>
+        <Text style={styles.error}>{loadError}</Text>
+        <TouchableOpacity style={styles.retryButton} onPress={() => fetchAssignment()}>
+          <Text style={styles.retryButtonText}>Retry</Text>
+        </TouchableOpacity>
+      </View>
+    );
+  }
   if (!assignment) return <Text style={styles.error}>Assignment not found</Text>;
 
   return (
@@ -510,7 +527,13 @@ const styles = StyleSheet.create({
   title: { fontSize: 24, fontWeight: "bold", flex: 1 },
   due: { fontSize: 14, color: "#6B7280", marginTop: 4, marginBottom: 16 },
   sectionTitle: { fontSize: 16, fontWeight: "600", marginBottom: 8 },
+  errorContainer: { flex: 1, padding: 24, alignItems: "center", justifyContent: "center" },
   error: { textAlign: "center", color: "#EF4444", marginTop: 40 },
+  retryButton: {
+    marginTop: 16, backgroundColor: "#4F46E5", borderRadius: 8,
+    paddingVertical: 12, paddingHorizontal: 24,
+  },
+  retryButtonText: { color: "#fff", fontSize: 16, fontWeight: "600" },
   errorText: { textAlign: "center", color: "#EF4444", marginTop: 8 },
 
   modeToggle: { flexDirection: "row", marginBottom: 16, gap: 8 },

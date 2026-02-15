@@ -19,8 +19,9 @@ import { palette, radius, typography } from "../../constants/palette";
 import { alert } from "../../lib/alert";
 import { SkeletonCard } from "../../components/ui/Skeleton";
 import { ErrorState } from "../../components/ui/ErrorState";
+import { InsightsContent } from "./InsightsContent";
 
-type Tab = "assignments" | "corpus" | "students";
+type Tab = "assignments" | "corpus" | "students" | "insights";
 
 function formatDueDateLabel(dueDate: string | null): { label: string; warning?: "soon" | "overdue" } {
   if (!dueDate) return { label: "No due date" };
@@ -105,7 +106,7 @@ export function TeacherClassroomScreen({ route, navigation }: { route: any; navi
       </View>
 
       <View style={styles.tabs}>
-        {(["assignments", "corpus", "students"] as Tab[]).map((tab) => (
+        {(["assignments", "corpus", "students", "insights"] as Tab[]).map((tab) => (
           <TouchableOpacity
             key={tab}
             style={[styles.tab, activeTab === tab && styles.tabActive]}
@@ -284,6 +285,12 @@ export function TeacherClassroomScreen({ route, navigation }: { route: any; navi
               }
             />
           )}
+        </View>
+      )}
+
+      {activeTab === "insights" && (
+        <View style={styles.content}>
+          <InsightsContent classroomId={classroom.id} navigation={navigation} />
         </View>
       )}
     </View>

@@ -55,6 +55,7 @@ export const radius = {
   input: 8,
   modal: 16,
   thumb: 8,
+  organic: 20,
 } as const;
 
 export const elevation = {

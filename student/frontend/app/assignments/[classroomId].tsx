@@ -1,6 +1,7 @@
 import { MaterialCommunityIcons } from "@expo/vector-icons";
 import { useLocalSearchParams, useRouter } from "expo-router";
 import {
+  FlatList,
   Pressable,
   StyleSheet,
   Text,
@@ -13,7 +14,8 @@ import {
   ScreenContainer,
   SkeletonCard,
 } from "@/components/ui";
-import { palette, radius } from "@/constants/palette";
+import { TreeIcon, LeafAccent } from "@/components/forest";
+import { palette, radius, elevation } from "@/constants/palette";
 import { spacing } from "@/constants/spacing";
 import { typography } from "@/constants/typography";
 import { useAssignments } from "@/hooks/useAssignments";
@@ -35,38 +37,48 @@ function formatDueDate(dueDate: string | null): string {
   }
 }
 
-function AssignmentRow({
+function AssignmentCard({
   assignment,
+  index,
   onPress,
 }: {
   assignment: AssignmentListItem;
+  index: number;
   onPress: () => void;
 }) {
   const dueStr = formatDueDate(assignment.due_date);
+  const even = index % 2 === 0;
   return (
     <Pressable
       style={({ pressed }) => [
-        styles.row,
-        pressed && { backgroundColor: palette.rowPressed, opacity: 0.9 },
+        styles.card,
+        elevation.shadowMd,
+        pressed && { opacity: 0.9 },
       ]}
       onPress={onPress}
       accessibilityRole="button"
       accessibilityLabel={`Open assignment ${assignment.title}`}
     >
-      <View style={styles.rowIcon}>
-        <MaterialCommunityIcons name="file-document-outline" size={28} color={palette.textMuted} />
+      <View style={styles.cardGradient}>
+        <View style={[styles.cardGradientHalf, { backgroundColor: even ? palette.forestCanopy : palette.forestLeaf }]} />
+        <View style={[styles.cardGradientHalf, { backgroundColor: even ? palette.forestLeaf : palette.forestCanopy }]} />
       </View>
-      <View style={styles.rowContent}>
-        <Text style={styles.rowTitle} numberOfLines={2}>
-          {assignment.title}
-        </Text>
-        {dueStr ? (
-          <Text style={styles.rowDue} numberOfLines={1}>
-            Due {dueStr}
+      <View style={styles.cardBody}>
+        <View style={styles.cardLeafCorner}>
+          <LeafAccent size={12} color={even ? palette.forestLeaf : palette.forestCanopy} />
+        </View>
+        <MaterialCommunityIcons name="file-document-outline" size={28} color={even ? palette.forestCanopy : palette.forestLeaf} />
+        <View style={styles.cardTextCol}>
+          <Text style={styles.cardTitle} numberOfLines={2}>
+            {assignment.title}
           </Text>
-        ) : null}
+          {dueStr ? (
+            <Text style={styles.cardDue} numberOfLines={1}>
+              Due {dueStr}
+            </Text>
+          ) : null}
+        </View>
       </View>
-      <MaterialCommunityIcons name="chevron-right" size={24} color={palette.textDisabled} />
     </Pressable>
   );
 }
@@ -154,28 +166,32 @@ export default function AssignmentsScreen() {
 
       {assignments.length === 0 ? (
         <EmptyState
+          icon={<TreeIcon size={48} color={palette.primary} />}
           title="No assignments yet"
           description="Assignments from your teacher will appear here."
         />
       ) : (
-        <View style={styles.listContent}>
-          {assignments.map((a) => (
-            <AssignmentRow
-              key={a.id}
-              assignment={a}
+        <FlatList
+          data={assignments}
+          keyExtractor={(item) => item.id}
+          renderItem={({ item, index }) => (
+            <AssignmentCard
+              assignment={item}
+              index={index}
               onPress={() =>
                 router.push({
                   pathname: "/document/[id]",
                   params: {
-                    id: a.id,
-                    assignmentId: a.id,
+                    id: item.id,
+                    assignmentId: item.id,
                     classroomName: classroomName ?? undefined,
                   },
                 })
               }
             />
-          ))}
-        </View>
+          )}
+          contentContainerStyle={styles.listContent}
+        />
       )}
     </ScreenContainer>
   );
@@ -212,25 +228,49 @@ const styles = StyleSheet.create({
     color: palette.textPrimary,
   },
   headerSpacer: { width: 88 },
-  listContent: { padding: 16, paddingBottom: 32 },
-  row: {
+  listContent: {
+    padding: spacing.md,
+    paddingBottom: spacing.xl,
+    gap: spacing.sm,
+  },
+  card: {
+    height: 100,
+    backgroundColor: palette.card,
+    borderRadius: radius.organic,
+    overflow: "hidden",
+  },
+  cardGradient: {
+    flexDirection: "row",
+    height: 4,
+    borderTopLeftRadius: radius.organic,
+    borderTopRightRadius: radius.organic,
+    overflow: "hidden",
+  },
+  cardGradientHalf: { flex: 1 },
+  cardBody: {
+    flex: 1,
     flexDirection: "row",
     alignItems: "center",
-    backgroundColor: palette.card,
-    padding: 14,
-    borderRadius: radius.card,
-    marginBottom: 10,
-    borderWidth: 1,
-    borderColor: palette.border,
+    padding: spacing.md,
+    paddingTop: spacing.sm,
+    gap: spacing.md,
+    position: "relative",
   },
-  rowIcon: { marginRight: 12 },
-  rowContent: { flex: 1, minWidth: 0 },
-  rowTitle: {
+  cardLeafCorner: {
+    position: "absolute",
+    top: spacing.xs,
+    right: spacing.xs,
+    opacity: 0.5,
+  },
+  cardTextCol: {
+    flex: 1,
+  },
+  cardTitle: {
     ...typography.body,
-    fontWeight: "500",
-    color: palette.textSecondary,
+    fontWeight: "600",
+    color: palette.textPrimary,
   },
-  rowDue: {
+  cardDue: {
     ...typography.caption,
     color: palette.textMuted,
     marginTop: 2,

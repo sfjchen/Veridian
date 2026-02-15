@@ -3,6 +3,7 @@ import {
   View, Text, TextInput, TouchableOpacity, StyleSheet,
 } from "react-native";
 import { Problem } from "../types";
+import { InlineLatexRenderer } from "./InlineLatexRenderer";
 
 interface Props {
   problems: Problem[];
@@ -29,18 +30,23 @@ export function ProblemEditor({ problems, onChange }: Props) {
   return (
     <View>
       {problems.map((problem, index) => (
-        <View key={problem.num} style={styles.row}>
-          <Text style={styles.numLabel}>#{problem.num}</Text>
-          <TextInput
-            style={styles.texInput}
-            placeholder="LaTeX statement (e.g. 2x + 5 = 13)"
-            value={problem.statement_tex}
-            onChangeText={(tex) => updateTex(index, tex)}
-            multiline
-          />
-          <TouchableOpacity style={styles.removeBtn} onPress={() => removeProblem(index)}>
-            <Text style={styles.removeBtnText}>X</Text>
-          </TouchableOpacity>
+        <View key={problem.num} style={styles.block}>
+          <View style={styles.row}>
+            <Text style={styles.numLabel}>#{problem.num}</Text>
+            <TextInput
+              style={styles.texInput}
+              placeholder="LaTeX statement (e.g. 2x + 5 = 13)"
+              value={problem.statement_tex}
+              onChangeText={(tex) => updateTex(index, tex)}
+              multiline
+            />
+            <TouchableOpacity style={styles.removeBtn} onPress={() => removeProblem(index)}>
+              <Text style={styles.removeBtnText}>X</Text>
+            </TouchableOpacity>
+          </View>
+          {problem.statement_tex.trim() !== "" && (
+            <InlineLatexRenderer latex={`$${problem.statement_tex}$`} />
+          )}
         </View>
       ))}
       <TouchableOpacity style={styles.addBtn} onPress={addProblem}>
@@ -51,10 +57,12 @@ export function ProblemEditor({ problems, onChange }: Props) {
 }
 
 const styles = StyleSheet.create({
+  block: {
+    marginBottom: 10,
+  },
   row: {
     flexDirection: "row",
     alignItems: "flex-start",
-    marginBottom: 10,
     gap: 8,
   },
   numLabel: {

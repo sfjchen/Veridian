@@ -94,11 +94,20 @@ export interface MistakeHeatmapResponse {
   tag_totals: Record<string, number>;
 }
 
+export interface SeverityDistribution {
+  conceptual: number;
+  procedural: number;
+  mechanical: number;
+  notational: number;
+}
+
 export interface StudentMistakeProfile {
   student_id: string;
   display_name: string;
   total_mistakes: number;
   problems_attempted: number;
+  mistake_rate: number;
+  severity_distribution: SeverityDistribution;
   top_tags: { tag: string; count: number; severity: string }[];
   temporal: {
     assignment_id: string;
@@ -107,4 +116,27 @@ export interface StudentMistakeProfile {
     mistake_count: number;
     tags: Record<string, number>;
   }[];
+}
+
+export interface ClassroomOverview {
+  classroom_id: string;
+  student_count: number;
+  active_students: number;
+  total_problems: number;
+  total_mistakes: number;
+  avg_mistakes_per_student: number;
+  avg_mistakes_per_problem: number;
+  most_common_tag: string | null;
+  most_common_tag_count: number;
+  severity_distribution: SeverityDistribution;
+}
+
+export interface AssignmentTrend {
+  assignment_id: string;
+  assignment_title: string;
+  date: string;
+  student_count: number;
+  problem_count: number;
+  total_mistakes: number;
+  severity_distribution: SeverityDistribution;
 }

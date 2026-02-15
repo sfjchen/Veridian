@@ -3,7 +3,7 @@
 FAQ aggregation from chat messages and mistake heatmap from problem results.
 """
 
-import sys
+import logging
 from typing import Any, Tuple
 
 from flask import Blueprint, Response, g, jsonify
@@ -11,6 +11,8 @@ from flask import Blueprint, Response, g, jsonify
 from app.middleware.auth import require_role
 from app.services.analytics import (
     aggregate_faq,
+    build_classroom_overview,
+    build_classroom_trends,
     build_mistake_heatmap,
     build_student_profile,
     fetch_classroom_chat_messages,
@@ -20,6 +22,7 @@ from app.services.analytics import (
 from app.services.live_monitoring import validate_uuid
 from app.services.supabase_client import get_supabase_admin_client
 
+log = logging.getLogger(__name__)
 analytics_bp = Blueprint("analytics", __name__)
 
 
@@ -51,6 +54,39 @@ def _student_names_for_classroom(client: Any, classroom_id: str) -> dict[str, st
     return {r["id"]: r.get("display_name", "") for r in (profiles.data or [])}
 
 
+@analytics_bp.route("/analytics/classrooms/<classroom_id>/overview", methods=["GET"])
+@require_role("teacher")
+def get_classroom_overview(classroom_id: str) -> Tuple[Response, int]:
+    client = get_supabase_admin_client()
+    check = _require_classroom_owner(client, classroom_id)
+    if isinstance(check, tuple):
+        return check
+    try:
+        results = fetch_classroom_results(client, classroom_id)
+        student_count = get_student_count(client, classroom_id)
+        overview = build_classroom_overview(results, student_count)
+    except Exception as exc:
+        log.exception("Failed to compute overview for %s", classroom_id)
+        return _err("Failed to compute overview data", 500)
+    return jsonify({"classroom_id": classroom_id, **overview}), 200
+
+
+@analytics_bp.route("/analytics/classrooms/<classroom_id>/trends", methods=["GET"])
+@require_role("teacher")
+def get_classroom_trends(classroom_id: str) -> Tuple[Response, int]:
+    client = get_supabase_admin_client()
+    check = _require_classroom_owner(client, classroom_id)
+    if isinstance(check, tuple):
+        return check
+    try:
+        results = fetch_classroom_results(client, classroom_id)
+        trends = build_classroom_trends(client, results)
+    except Exception as exc:
+        log.exception("Failed to compute trends for %s", classroom_id)
+        return _err("Failed to compute trend data", 500)
+    return jsonify({"classroom_id": classroom_id, "assignments": trends}), 200
+
+
 @analytics_bp.route("/analytics/classrooms/<classroom_id>/faq", methods=["GET"])
 @require_role("teacher")
 def get_classroom_faq(classroom_id: str) -> Tuple[Response, int]:
@@ -63,7 +99,7 @@ def get_classroom_faq(classroom_id: str) -> Tuple[Response, int]:
         student_count = get_student_count(client, classroom_id)
         faq = aggregate_faq(messages, student_count)
     except Exception as exc:
-        print(f"Failed to compute FAQ: {exc}", file=sys.stderr)
+        log.exception("Failed to compute FAQ for %s", classroom_id)
         return _err("Failed to compute FAQ data", 500)
     return jsonify({"classroom_id": classroom_id, "student_count": student_count, "topics": faq}), 200
 
@@ -76,7 +112,7 @@ def get_teacher_faq() -> Tuple[Response, int]:
         classrooms = client.table("classrooms").select("id").eq("teacher_id", g.user_id).execute()
         cids = [r["id"] for r in (classrooms.data or [])]
     except Exception as exc:
-        print(f"Failed to fetch classrooms: {exc}", file=sys.stderr)
+        log.exception("Failed to fetch classrooms for teacher FAQ")
         return _err("Failed to fetch classrooms", 500)
     if not cids:
         return jsonify({"topics": [], "total_students": 0}), 200
@@ -88,7 +124,7 @@ def get_teacher_faq() -> Tuple[Response, int]:
             total_students += get_student_count(client, cid)
         faq = aggregate_faq(all_messages, total_students)
     except Exception as exc:
-        print(f"Failed to compute teacher FAQ: {exc}", file=sys.stderr)
+        log.exception("Failed to compute teacher FAQ")
         return _err("Failed to compute FAQ data", 500)
     return jsonify({"topics": faq, "total_students": total_students}), 200
 
@@ -105,7 +141,7 @@ def get_classroom_mistakes(classroom_id: str) -> Tuple[Response, int]:
         names = _student_names_for_classroom(client, classroom_id)
         heatmap = build_mistake_heatmap(results, names)
     except Exception as exc:
-        print(f"Failed to compute mistake heatmap: {exc}", file=sys.stderr)
+        log.exception("Failed to compute mistake heatmap for %s", classroom_id)
         return _err("Failed to compute mistake data", 500)
     return jsonify(heatmap), 200
 
@@ -122,6 +158,6 @@ def get_student_mistakes(classroom_id: str, student_id: str) -> Tuple[Response, 
     try:
         profile = build_student_profile(client, student_id, classroom_id)
     except Exception as exc:
-        print(f"Failed to compute student profile: {exc}", file=sys.stderr)
+        log.exception("Failed to compute student profile for %s/%s", classroom_id, student_id)
         return _err("Failed to compute student mistake profile", 500)
     return jsonify(profile), 200

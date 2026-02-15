@@ -5,8 +5,11 @@ No LLM calls — keyword matching for topic extraction, pure aggregation
 for mistake heatmaps.
 """
 
+import logging
 from collections import Counter, defaultdict
 from typing import Any
+
+log = logging.getLogger(__name__)
 
 ALL_TAGS = [
     "wrong-theorem", "misunderstood-definition", "domain-error",
@@ -262,11 +265,70 @@ def build_student_profile(client: Any, student_id: str, classroom_id: str) -> di
         {"tag": t, "count": c, "severity": TAG_TO_SEVERITY.get(t, "")}
         for t, c in tag_counts.most_common(10)
     ]
+    total = sum(tag_counts.values())
+    attempted = len(student_results)
     return {
         "student_id": student_id,
         "display_name": _fetch_display_name(client, student_id),
-        "total_mistakes": sum(tag_counts.values()),
-        "problems_attempted": len(student_results),
+        "total_mistakes": total,
+        "problems_attempted": attempted,
+        "mistake_rate": round(total / attempted, 2) if attempted else 0.0,
+        "severity_distribution": _severity_distribution(tag_counts),
         "top_tags": top_tags,
         "temporal": _build_temporal(client, by_assignment),
     }
+
+
+def _severity_distribution(tag_counts: Counter[str]) -> dict[str, int]:
+    dist: dict[str, int] = {"conceptual": 0, "procedural": 0, "mechanical": 0, "notational": 0}
+    for tag, count in tag_counts.items():
+        sev = TAG_TO_SEVERITY.get(tag, "")
+        if sev in dist:
+            dist[sev] += count
+    return dist
+
+
+def build_classroom_overview(results: list[dict[str, Any]], student_count: int) -> dict[str, Any]:
+    """Build summary stats for a classroom."""
+    unique_students = {r.get("student_id") for r in results if r.get("student_id")}
+    tag_counts = _count_tags_in_results(results)
+    total = sum(tag_counts.values())
+    top_tag = tag_counts.most_common(1)[0] if tag_counts else None
+    return {
+        "student_count": student_count,
+        "active_students": len(unique_students),
+        "total_problems": len(results),
+        "total_mistakes": total,
+        "avg_mistakes_per_student": round(total / len(unique_students), 1) if unique_students else 0.0,
+        "avg_mistakes_per_problem": round(total / len(results), 2) if results else 0.0,
+        "most_common_tag": top_tag[0] if top_tag else None,
+        "most_common_tag_count": top_tag[1] if top_tag else 0,
+        "severity_distribution": _severity_distribution(tag_counts),
+    }
+
+
+def build_classroom_trends(client: Any, results: list[dict[str, Any]]) -> list[dict[str, Any]]:
+    """Build per-assignment mistake trends for the whole classroom."""
+    by_assignment: dict[str, list[dict[str, Any]]] = defaultdict(list)
+    for row in results:
+        aid = row.get("assignment_id", "")
+        by_assignment[aid].append(row)
+    if not by_assignment:
+        return []
+    assignment_info = _fetch_assignment_info(client, list(by_assignment.keys()))
+    trends = []
+    for aid, rows in by_assignment.items():
+        info = assignment_info.get(aid, {})
+        tag_counts = _count_tags_in_results(rows)
+        students = {r.get("student_id") for r in rows if r.get("student_id")}
+        trends.append({
+            "assignment_id": aid,
+            "assignment_title": info.get("title", ""),
+            "date": info.get("created_at", ""),
+            "student_count": len(students),
+            "problem_count": len(rows),
+            "total_mistakes": sum(tag_counts.values()),
+            "severity_distribution": _severity_distribution(tag_counts),
+        })
+    trends.sort(key=lambda x: x["date"])
+    return trends

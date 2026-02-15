@@ -1,5 +1,5 @@
 /**
- * Spacing and typography for student app. Veridian-aligned.
+ * Spacing and typography tokens used across student screens.
  */
 
 export const spacing = {

@@ -17,10 +17,10 @@ export const palette = {
   textSecondary: '#374151',
   textMuted: '#6b7280',
   textDisabled: '#9ca3af',
+  textOnPrimary: '#ffffff',
   rowPressed: '#f9fafb',
   inkStroke: '#111827',
   white: '#ffffff',
-  textOnPrimary: '#ffffff',
   error: '#dc2626',
   errorBg: '#fef2f2',
   errorText: '#dc2626',
@@ -31,9 +31,9 @@ export const palette = {
 export const radius = {
   button: 10,
   card: 12,
-  thumb: 8,
   input: 8,
   modal: 16,
+  thumb: 8,
 } as const;
 
 export const elevation = {

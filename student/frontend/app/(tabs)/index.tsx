@@ -13,8 +13,6 @@ import {
   View,
 } from 'react-native';
 
-import { EmptyState } from '@/components/ui/EmptyState';
-import { ErrorState } from '@/components/ui/ErrorState';
 import { palette, radius } from '@/constants/palette';
 import { spacing, typography } from '@/constants/theme';
 import { useAccessToken } from '@/hooks/useAccessToken';
@@ -198,10 +196,16 @@ export default function ClassroomsScreen() {
           </View>
         </View>
         <View style={styles.centered}>
-          <ErrorState
-            message="Something went wrong loading your classes. Check your connection and try again."
-            onRetry={refresh}
-          />
+          <MaterialCommunityIcons name="alert-circle-outline" size={48} color={palette.textMuted} />
+          <Text style={styles.errorText}>Something went wrong loading your classes.</Text>
+          <Text style={styles.emptySubtitle}>Check your connection and try again.</Text>
+          <Pressable
+            style={({ pressed }) => [styles.retryButton, pressed && { opacity: 0.7 }]}
+            onPress={refresh}
+            accessibilityRole="button"
+            accessibilityLabel="Retry loading classes">
+            <Text style={styles.retryButtonText}>Retry</Text>
+          </Pressable>
         </View>
       </SafeAreaView>
     );
@@ -241,13 +245,18 @@ export default function ClassroomsScreen() {
       )}
 
       {classrooms.length === 0 ? (
-        <EmptyState
-          title="You do not have any classes"
-          description="Join a class with a code from your teacher."
-          icon={<MaterialCommunityIcons name="school-outline" size={64} color={palette.borderStrong} />}
-          actionLabel="Join a class"
-          onAction={() => setJoinModalVisible(true)}
-        />
+        <View style={styles.empty}>
+          <MaterialCommunityIcons name="school-outline" size={64} color={palette.borderStrong} />
+          <Text style={styles.emptyTitle}>You do not have any classes</Text>
+          <Text style={styles.emptySubtitle}>Join a class with a code from your teacher.</Text>
+          <Pressable
+            style={({ pressed }) => [styles.joinCtaButton, pressed && { opacity: 0.8 }]}
+            onPress={() => setJoinModalVisible(true)}
+            accessibilityRole="button">
+            <MaterialCommunityIcons name="plus" size={20} color={palette.white} />
+            <Text style={styles.joinCtaText}>Join a Class</Text>
+          </Pressable>
+        </View>
       ) : (
         <FlatList
           data={classrooms}

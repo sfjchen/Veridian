@@ -9,8 +9,6 @@ import {
   View,
 } from 'react-native';
 
-import { EmptyState } from '@/components/ui/EmptyState';
-import { ErrorState } from '@/components/ui/ErrorState';
 import { palette, radius } from '@/constants/palette';
 import { spacing, typography } from '@/constants/theme';
 import { useAssignments } from '@/hooks/useAssignments';
@@ -121,7 +119,15 @@ export default function AssignmentsScreen() {
           <View style={styles.headerSpacer} />
         </View>
         <View style={styles.centered}>
-          <ErrorState message={error} onRetry={refresh} />
+          <MaterialCommunityIcons name="alert-circle-outline" size={48} color={palette.textMuted} />
+          <Text style={styles.errorText}>{error}</Text>
+          <Pressable
+            style={({ pressed }) => [styles.retryButton, pressed && { opacity: 0.7 }]}
+            onPress={refresh}
+            accessibilityRole="button"
+            accessibilityLabel="Retry loading assignments">
+            <Text style={styles.retryButtonText}>Retry</Text>
+          </Pressable>
         </View>
       </SafeAreaView>
     );
@@ -136,11 +142,11 @@ export default function AssignmentsScreen() {
       </View>
 
       {assignments.length === 0 ? (
-        <EmptyState
-          title="No assignments yet"
-          description="Assignments from your teacher will appear here."
-          icon={<MaterialCommunityIcons name="file-document-outline" size={64} color={palette.borderStrong} />}
-        />
+        <View style={styles.centered}>
+          <MaterialCommunityIcons name="file-document-outline" size={64} color={palette.borderStrong} />
+          <Text style={styles.emptyTitle}>No assignments yet</Text>
+          <Text style={styles.emptySubtitle}>Assignments from your teacher will appear here.</Text>
+        </View>
       ) : (
         <View style={styles.listContent}>
           {assignments.map((a) => (

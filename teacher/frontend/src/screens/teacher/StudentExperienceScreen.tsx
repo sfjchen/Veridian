@@ -32,7 +32,6 @@ import {
   DEFAULT_RESOLVED_CONFIG,
   normalizeResolvedConfig,
   type AnalysisTrigger,
-  type DotThreshold,
 } from '../../student-view/lib/teacherConfig';
 
 type BadgeState = { label: string; tone: StatusTone };
@@ -91,7 +90,7 @@ export function StudentExperienceScreen({ route, navigation }: { route: any; nav
   const analysisTrigger = config.analysis_trigger as AnalysisTrigger;
   const checkButtonVisible = config.check_button_visible && analysisTrigger !== 'passive';
   const chatEnabled = config.chat_enabled;
-  const revealMode = assignment?.reveal_mode ?? 'single-tap';
+  const revealMode = assignment?.reveal_mode ?? ('single-tap' as const);
   const totalPages = problems.length;
   const pageIndex = currentPage - 1;
   const currentStrokes = useMemo(() => strokesByPage[pageIndex] ?? [], [strokesByPage, pageIndex]);
@@ -129,6 +128,8 @@ export function StudentExperienceScreen({ route, navigation }: { route: any; nav
   const captureScreenshot = useCallback(async (): Promise<CaptureResult> => {
     if (Platform.OS === 'web') {
       if (!canvasDims) return { error: 'unavailable' };
+      const hasStrokes = currentStrokes.some(s => s.points.length > 0);
+      if (!hasStrokes) return { error: 'unavailable' };
       try {
         const uri = captureStrokesAsDataUri(currentStrokes, canvasDims.w, canvasDims.h);
         return { uri };
@@ -367,7 +368,7 @@ function PageStrip({ currentPage, totalPages, onChangePage }: {
 function CanvasArea({ pageIndex, viewShotRef, strokes, onStrokesChange, onCanvasLayout, mistakes, revealMode, config, chatEnabled, onAskAboutMistake }: {
   pageIndex: number; viewShotRef: React.RefObject<any>; strokes: Stroke[];
   onStrokesChange: (s: Stroke[]) => void; onCanvasLayout: (w: number, h: number) => void;
-  mistakes: Mistake[]; revealMode: string; config: any; chatEnabled: boolean; onAskAboutMistake: (m: Mistake) => void;
+  mistakes: Mistake[]; revealMode: 'single-tap' | 'progressive'; config: any; chatEnabled: boolean; onAskAboutMistake: (m: Mistake) => void;
 }) {
   return (
     <View style={styles.contentWrap}>

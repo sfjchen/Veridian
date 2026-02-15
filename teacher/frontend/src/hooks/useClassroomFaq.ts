@@ -4,6 +4,7 @@ import { FaqTopic } from "../types";
 
 export function useClassroomFaq(classroomId: string) {
   const [faq, setFaq] = useState<FaqTopic[]>([]);
+  const [totalMessages, setTotalMessages] = useState(0);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const mountedRef = useRef(true);
@@ -17,6 +18,7 @@ export function useClassroomFaq(classroomId: string) {
     if (!classroomId) {
       if (mountedRef.current) {
         setFaq([]);
+        setTotalMessages(0);
         setLoading(false);
         setError(null);
       }
@@ -25,9 +27,10 @@ export function useClassroomFaq(classroomId: string) {
     setLoading(true);
     setError(null);
     try {
-      const data = await api<{ topics: FaqTopic[] }>(`/analytics/classrooms/${classroomId}/faq`);
+      const data = await api<{ topics: FaqTopic[]; total_messages?: number }>(`/analytics/classrooms/${classroomId}/faq`);
       if (mountedRef.current) {
         setFaq(data?.topics ?? []);
+        setTotalMessages(data?.total_messages ?? 0);
         setLoading(false);
       }
     } catch (e) {
@@ -42,5 +45,5 @@ export function useClassroomFaq(classroomId: string) {
     refresh();
   }, [refresh]);
 
-  return { faq, loading, error, refresh };
+  return { faq, totalMessages, loading, error, refresh };
 }

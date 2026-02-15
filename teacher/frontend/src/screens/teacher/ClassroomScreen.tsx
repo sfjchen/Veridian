@@ -161,7 +161,14 @@ export function TeacherClassroomScreen({ route, navigation }: { route: any; navi
               data={students}
               keyExtractor={(item) => item.student_id}
               renderItem={({ item }) => (
-                <View style={styles.listItem}>
+                <TouchableOpacity
+                  style={styles.listItem}
+                  onPress={() => navigation.navigate("StudentMistakeDetail", {
+                    classroomId: classroom.id,
+                    studentId: item.student_id,
+                    displayName: item.display_name ?? "Student",
+                  })}
+                >
                   <View style={styles.listItemContent}>
                     <Text style={styles.itemTitle}>{item.display_name ?? "Unnamed Student"}</Text>
                     <Text style={styles.itemSub}>
@@ -170,7 +177,8 @@ export function TeacherClassroomScreen({ route, navigation }: { route: any; navi
                       })}
                     </Text>
                   </View>
-                </View>
+                  <Text style={styles.chevron}>&gt;</Text>
+                </TouchableOpacity>
               )}
               ListEmptyComponent={<Text style={styles.empty}>No students have joined yet</Text>}
             />

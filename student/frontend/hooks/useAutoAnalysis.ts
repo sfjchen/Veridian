@@ -106,14 +106,20 @@ export function useAutoAnalysis({
   useEffect(() => {
     cancel();
     dirtyRef.current = false;
+    setError(null);
   }, [assignmentId, problemNum, cancel]);
 
   useEffect(() => cancel, [cancel]);
+
+  const clearError = useCallback(() => {
+    setError(null);
+  }, []);
 
   return {
     isAnalyzing,
     lastResult,
     error,
+    clearError,
     markDirty,
     triggerNow: runAnalysis,
     cancel,

@@ -102,6 +102,13 @@ The `thinking` parameter format in `client.py` and `chat.py` causes `Messages.cr
 
 **Files**: `student/backend/mistake_analysis/client.py` (line 112), `student/backend/chat.py` (lines 81-84)
 
+**Status**: Completed on 2026-02-14 via stacked PRs #27 (PR1A), #28 (PR1B), #29 (PR1C).
+
+**Completion rationale**:
+- Enforced Anthropic contract in backend with shared guardrails (`anthropic>=0.79.0` and runtime signature checks for `messages.create(..., thinking=...)`) to fail fast with explicit remediation instead of opaque runtime errors.
+- Canonicalized `thinking` payload construction across chat and mistake-analysis paths so both call sites send validated, consistent payloads (enabled/budgeted chat thinking and adaptive analysis thinking).
+- Added targeted backend regression tests for SDK/version guard behavior, payload shape validation, and error-surface behavior to prevent reintroducing `unexpected keyword argument 'thinking'` failures.
+
 ### PR 2: Student Home Screen — Classrooms > Assignments
 
 **P0 — Done**

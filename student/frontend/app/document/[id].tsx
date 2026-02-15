@@ -41,6 +41,7 @@ const SAMPLE_PROBLEMS = [
   { num: 4, statement_tex: 'x/2 + 3 = 8' },
   { num: 5, statement_tex: 'x + y = 10,\\; 2x - y = 2' },
 ];
+const DEFAULT_ANALYSIS_DEBOUNCE_MS = 15_000;
 
 function isNetworkError(err: Error): boolean {
   if (err.name === 'TypeError' || err.name === 'NetworkError') return true;
@@ -143,7 +144,6 @@ export default function DocumentScreen() {
     saveError: docsSaveError,
     clearLoadError: clearDocsLoadError,
     clearSaveError: clearDocsSaveError,
-    refresh: refreshDocuments,
   } = useDocuments();
   const doc = id ? getDocument(id) : undefined;
 
@@ -339,7 +339,7 @@ export default function DocumentScreen() {
   // --- Auto-analysis ---
   const debounceMs = assignment?.analysis_debounce_seconds
     ? assignment.analysis_debounce_seconds * 1000
-    : 15_000;
+    : DEFAULT_ANALYSIS_DEBOUNCE_MS;
 
   const onStaleResult = useCallback((result: AnalysisResult) => {
     if (result.problem_num == null) return;
@@ -350,6 +350,7 @@ export default function DocumentScreen() {
     isAnalyzing,
     lastResult,
     error: analysisError,
+    clearError: clearAnalysisError,
     triggerNow,
     markDirty,
   } = useAutoAnalysis({
@@ -362,6 +363,11 @@ export default function DocumentScreen() {
     onError: (msg) => showAlert('Analysis failed', msg),
     onStaleResult,
   });
+
+  useEffect(() => {
+    setCanvasDims(null);
+    clearAnalysisError();
+  }, [pageIndex, clearAnalysisError]);
 
   // Store results per problem when analysis completes.
   useEffect(() => {
@@ -444,7 +450,7 @@ export default function DocumentScreen() {
 
   const backAction = (
     <Pressable
-      style={({ pressed }) => [styles.backButtonTextWrap, pressed && { opacity: 0.7 }]}
+      style={({ pressed }) => [pressed && { opacity: 0.7 }]}
       onPress={() => router.back()}>
       <Text style={styles.backButtonText}>{backLabel}</Text>
     </Pressable>
@@ -857,7 +863,6 @@ const styles = StyleSheet.create({
     color: palette.textSecondary,
     textAlign: 'center',
   },
-  backButtonTextWrap: {},
   retryButton: {
     paddingVertical: 10,
     paddingHorizontal: 16,

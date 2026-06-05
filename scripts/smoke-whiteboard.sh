@@ -29,7 +29,7 @@ if [ "$BACKEND_ONLY" = "1" ]; then
   if [ "$health_code" = "200" ] && grep -q '"status"' /tmp/veridian-health.json 2>/dev/null; then
     pass "backend /health 200"
   else
-    fail "backend /health $health_code (set Render secrets: ANTHROPIC_API_KEY, SUPABASE_*)"
+    fail "backend /health $health_code — update Render Start Command to gthread (see render.yaml) and set OPENROUTER_API_KEY + SUPABASE_*"
   fi
   say "=== Done ==="
   exit "$FAIL"
@@ -78,7 +78,7 @@ if [ "$SKIP_BACKEND" = "0" ] && [ -n "$BACKEND_URL" ]; then
   if [ "$health_code" = "200" ] && grep -q '"status"' /tmp/veridian-health.json 2>/dev/null; then
     pass "backend /health 200"
   else
-    fail "backend /health $health_code (set Render secrets: ANTHROPIC_API_KEY, SUPABASE_*)"
+    fail "backend /health $health_code — update Render Start Command to gthread (see render.yaml) and set OPENROUTER_API_KEY + SUPABASE_*"
   fi
 fi
 

@@ -1287,12 +1287,18 @@ def image_to_latex() -> Any:
 @lru_cache(maxsize=1)
 def _get_openai_client() -> Any:
     from openai import OpenAI
+    from openrouter_client import is_openrouter_ocr_backend, get_openrouter_client
+
+    if is_openrouter_ocr_backend():
+        return get_openrouter_client()
     return OpenAI(api_key=OPENAI_API_KEY)
 
 
 def _gpt_autocomplete(image_b64: str, problem_context: str) -> tuple[str, int]:
     t0 = time.perf_counter()
     oai = _get_openai_client()
+    from openrouter_client import is_openrouter_ocr_backend, ocr_openrouter_model, normalize_openrouter_model
+
     data_uri = f"data:image/png;base64,{image_b64}"
     prompt = (
         f"You are a math tutor watching a student solve a problem in real-time.\n\n"
@@ -1303,9 +1309,10 @@ def _gpt_autocomplete(image_b64: str, problem_context: str) -> tuple[str, int]:
         "appears complete or you cannot determine what comes next.\n"
         "No explanation, markdown, or code fences."
     )
+    model = normalize_openrouter_model(ocr_openrouter_model()) if is_openrouter_ocr_backend() else "gpt-4o-mini"
     resp = oai.chat.completions.create(
-        model="gpt-4o-mini",
-        max_tokens=256,
+        model=model,
+        max_completion_tokens=256,
         messages=[{
             "role": "user",
             "content": [

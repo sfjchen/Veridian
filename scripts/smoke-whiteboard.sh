@@ -62,7 +62,7 @@ else
   else
     fail "bundle missing tpqasmpieyteutvdntda Supabase ref"
   fi
-  baked_backend=$(grep -oE 'https://[a-z0-9-]+\.onrender\.com' "$bundle_file" | head -1 || true)
+  baked_backend=$(grep -oE 'https://[a-z0-9-]+\.onrender\.com' "$bundle_file" 2>/dev/null | head -1 || true)
   rm -f "$bundle_file"
   if [ -n "$baked_backend" ]; then
     pass "baked backend: $baked_backend"

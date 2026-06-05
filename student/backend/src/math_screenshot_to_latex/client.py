@@ -1,4 +1,4 @@
-"""Math screenshot → LaTeX via OpenAI vision."""
+"""Math screenshot → LaTeX via OpenAI or OpenRouter vision."""
 
 import base64
 import re
@@ -24,22 +24,41 @@ def _strip_fences(raw: str) -> str:
     return m.group(1).strip() if m else s
 
 
+def _vision_messages(mime_type: str, image_bytes: bytes, detail: str) -> list[dict]:
+    url = f"data:{mime_type};base64,{base64.b64encode(image_bytes).decode()}"
+    return [{
+        "role": "user",
+        "content": [
+            {"type": "text", "text": PROMPT},
+            {"type": "image_url", "image_url": {"url": url, "detail": detail}},
+        ],
+    }]
+
+
 def _image_bytes_to_latex_impl(
     image_bytes: bytes,
     mime_type: str,
     model: str = MODEL,
     detail: str = IMAGE_DETAIL,
 ) -> str:
-    url = f"data:{mime_type};base64,{base64.b64encode(image_bytes).decode()}"
+    from openrouter_client import is_openrouter_ocr_backend, get_openrouter_client, ocr_openrouter_model
+
+    messages = _vision_messages(mime_type, image_bytes, detail)
+    if is_openrouter_ocr_backend():
+        or_model = ocr_openrouter_model() if model == MODEL else model
+        if "/" not in or_model:
+            from openrouter_client import normalize_openrouter_model
+            or_model = normalize_openrouter_model(or_model)
+        resp = get_openrouter_client().chat.completions.create(
+            model=or_model,
+            max_completion_tokens=1024,
+            messages=messages,
+        )
+        return _strip_fences(resp.choices[0].message.content or "")
+
     kwargs = {
         "model": model,
-        "messages": [{
-            "role": "user",
-            "content": [
-                {"type": "text", "text": PROMPT},
-                {"type": "image_url", "image_url": {"url": url, "detail": detail}},
-            ],
-        }],
+        "messages": messages,
     }
     kwargs["max_completion_tokens" if model.startswith("gpt-5") else "max_tokens"] = 1024
     resp = _get_openai_client().chat.completions.create(**kwargs)
@@ -54,9 +73,7 @@ def screenshot_to_latex(
     model: str = MODEL,
     detail: str = IMAGE_DETAIL,
 ) -> str:
-    """Convert math screenshot to LaTeX. Requires OPENAI_API_KEY in env.
-    Call with image_path (legacy) or with image_bytes + mime_type (no temp file).
-    """
+    """Convert math screenshot to LaTeX. Uses OpenRouter when MATH_OCR_BACKEND=openrouter."""
     if image_bytes is not None and mime_type is not None:
         return _image_bytes_to_latex_impl(image_bytes, mime_type, model=model, detail=detail)
     if image_path is None:

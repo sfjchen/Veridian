@@ -10,7 +10,7 @@ services:
     plan: starter
     rootDir: student/backend
     buildCommand: pip install -r requirements.txt
-    startCommand: gunicorn --worker-class eventlet -w 1 --timeout 120 -b 0.0.0.0:$PORT get_coords:app
+    startCommand: gunicorn --worker-class gthread --threads 8 --timeout 120 -w 1 -b 0.0.0.0:$PORT get_coords:app
     healthCheckPath: /health
     envVars:
       - key: PYTHON_VERSION
@@ -27,8 +27,16 @@ services:
         value: anthropic/claude-sonnet-4
       - key: MISTAKE_ANALYSIS_THINKING
         value: "0"
-      - key: ANTHROPIC_API_KEY
-        sync: false
+      - key: CHAT_BACKEND
+        value: openrouter
+      - key: CHAT_OPENROUTER_MODEL
+        value: anthropic/claude-sonnet-4
+      - key: MATH_OCR_BACKEND
+        value: openrouter
+      - key: MATH_OCR_OPENROUTER_MODEL
+        value: google/gemini-2.0-flash-001
+      - key: LLM_BACKEND
+        value: openrouter
       - key: OPENAI_API_KEY
         sync: false
       - key: CLAUDE_MODEL

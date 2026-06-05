@@ -85,8 +85,20 @@ def _build_messages(history: List[Dict[str, Any]], context: Dict[str, Any], mess
 
 
 def _call_claude(messages: List[Dict[str, str]], extra_context: str = "") -> str:
-    client = _get_anthropic_client()
     system = f"{SYSTEM_PROMPT}\n\n{extra_context}" if extra_context else SYSTEM_PROMPT
+    from openrouter_client import is_openrouter_chat_backend, chat_openrouter_model, openrouter_chat_completion
+
+    if is_openrouter_chat_backend():
+        or_messages: List[Dict[str, str]] = [{"role": "system", "content": system}]
+        or_messages.extend(messages)
+        return openrouter_chat_completion(
+            model=chat_openrouter_model(),
+            messages=or_messages,
+            max_tokens=CHAT_MAX_TOKENS,
+            temperature=0.7,
+        )
+
+    client = _get_anthropic_client()
     response = client.messages.create(
         model=CHAT_MODEL,
         max_tokens=CHAT_MAX_TOKENS,

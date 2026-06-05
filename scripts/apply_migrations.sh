@@ -43,16 +43,22 @@ run_sql "$REPO_ROOT/supabase/migrations/20260215000002_make_corpus_storage_path_
 echo "=== 8. Migration 20260215000003 (conversion columns) ==="
 run_sql "$REPO_ROOT/supabase/migrations/20260215000003_add_conversion_columns.sql"
 
-echo "=== 9. Student: veridian_artifacts ==="
+echo "=== 9. Migration 20260215000004 (nullable submissions storage_path) ==="
+run_sql "$REPO_ROOT/supabase/migrations/20260215000004_make_submissions_storage_path_nullable.sql"
+
+echo "=== 10. Migration 20260216000001 (solutions column) ==="
+run_sql "$REPO_ROOT/supabase/migrations/20260216000001_add_solutions_column.sql"
+
+echo "=== 11. Student: veridian_artifacts ==="
 run_sql "$REPO_ROOT/student/supabase/migrations/202602140001_veridian_artifacts.sql"
 
-echo "=== 10. Student: veridian_sample_worksheets ==="
+echo "=== 12. Student: veridian_sample_worksheets ==="
 run_sql "$REPO_ROOT/student/supabase/migrations/202602140003_veridian_sample_worksheets.sql"
 
-echo "=== 11. Student: fix function search_path ==="
+echo "=== 13. Student: fix function search_path ==="
 run_sql "$REPO_ROOT/student/supabase/migrations/20260214153135_fix_function_search_path.sql"
 
-echo "=== 12. Student: chat_messages index (if not in 009) ==="
+echo "=== 14. Student: chat_messages index (if not in 009) ==="
 run_sql "$REPO_ROOT/student/supabase/migrations/20260214153124_add_chat_messages_assignment_id_index.sql"
 
 echo "Done. All migrations applied."

@@ -1,0 +1,20 @@
+# Linked to Jchen04's Org → Veridian (tpqasmpieyteutvdntda)
+# Run from repo root: supabase link --project-ref tpqasmpieyteutvdntda
+
+project_id = "tpqasmpieyteutvdntda"
+
+[api]
+enabled = true
+port = 54321
+schemas = ["public", "storage"]
+extra_search_path = ["public", "extensions"]
+max_rows = 1000
+
+[db]
+port = 54322
+shadow_port = 54320
+major_version = 17
+
+[studio]
+enabled = true
+port = 54323

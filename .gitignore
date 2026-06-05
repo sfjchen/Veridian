@@ -44,6 +44,9 @@ web-build/
 .DS_Store
 Thumbs.db
 
+# Supabase CLI temp
+supabase/.temp/
+
 # Student platform local output
 student/backend/mistakes.json
 student/backend/.result_persist_dlq.jsonl*

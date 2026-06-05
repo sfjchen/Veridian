@@ -2,6 +2,18 @@
 
 Full EdTech platform: teacher side (classrooms, assignments, corpus, submissions) and student side (canvas, AI mistake analysis, Socratic chat). Shared Supabase.
 
+## Whiteboard slice — deployment only (Jchen04 fork)
+
+For AI whiteboard work without local dev, see **`plans/whiteboard-deployment.md`**.
+
+| Component | Deploy target | Command / config |
+|-----------|---------------|------------------|
+| Student canvas (Expo web) | Vercel `veridian-student` | `./scripts/deploy-student-frontend.sh` |
+| Student Flask backend | Render (`render.yaml`) | Blueprint → connect `sfjchen/Veridian` |
+| Database | Supabase `tpqasmpieyteutvdntda` | Migrations applied — see `supabase/SUPABASE_JCHEN04.md` |
+
+Live frontend: https://veridian-student.vercel.app — requires Render backend URL in Vercel env.
+
 ## Student Runtime Config (PR #4)
 
 - Student assignment behavior is now controlled by teacher `resolved_config` values returned by student backend `GET /assignments/:id`.
@@ -57,10 +69,12 @@ See `scripts/README.md` for all script options.
 Run in this order (fresh DB):
 
 1. Teacher: `supabase/all_migrations.sql`
-2. Teacher: `supabase/migrations/20260214000008_*.sql`, `20260214000009_*.sql`, `20260215000001_*.sql`
-3. Student: `student/supabase/migrations/202602140001_*.sql`, `202602140003_*.sql`, `20260214153135_*.sql`, `20260214153124_*.sql`
+2. Teacher: `supabase/migrations/20260214000008` through `20260216000001` (see `scripts/apply_migrations.sh`)
+3. Student: `student/supabase/migrations/202602140001`, `202602140003`, `20260214153135`, `20260214153124`
 
-**Script:** `./scripts/apply_migrations.sh` — set `SUPABASE_DB_URL`, requires `psql`. If teacher tables exist, run steps 2-3 only.
+**Script:** `./scripts/apply_migrations.sh` — set `SUPABASE_DB_URL`, requires `psql`. If teacher tables exist, run steps 2–14 only.
+
+**Jchen04 fork project:** see [`supabase/SUPABASE_JCHEN04.md`](supabase/SUPABASE_JCHEN04.md) for `tpqasmpieyteutvdntda` setup (MCP-tested).
 
 ## Full Flows (Repeat Testing)
 

@@ -26,3 +26,13 @@ Run from **repo root** (e.g. `./scripts/run-teacher-backend.sh`).
 2. **Student:** `./scripts/setup-student.sh` then fill in `student/backend/.env` and `student/frontend/.env` (see student/backend/README.md).
 
 Then run the app with `run-teacher.sh` or `run-student.sh`, or run backend and frontend in two terminals.
+
+## Deployment (no local dev)
+
+| Script | Purpose |
+|--------|--------|
+| `deploy-student-frontend.sh` | Build Expo web + `vercel deploy --prod` |
+| `apply-migrations-mcp.sh` | Print migration status / MCP vs psql options |
+| `apply_migrations.sh` | Apply all SQL via `psql` (fresh DB only) |
+
+Render backend: root `render.yaml` → connect repo in Render Blueprint. See `plans/whiteboard-deployment.md`.

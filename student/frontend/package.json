@@ -16,6 +16,8 @@
     "android": "expo start --android",
     "ios": "expo start --ios",
     "web": "expo start --web",
+    "build:web": "expo export -p web",
+    "deploy": "expo export -p web && vercel deploy --prod",
     "lint": "expo lint"
   },
   "dependencies": {

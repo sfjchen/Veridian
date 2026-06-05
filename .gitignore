@@ -44,6 +44,9 @@ web-build/
 .DS_Store
 Thumbs.db
 
+# Vercel CLI link (repo root — dashboard rootDirectory = student/frontend)
+.vercel/
+
 # Supabase CLI temp
 supabase/.temp/
 

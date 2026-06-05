@@ -46,7 +46,7 @@ gunicorn --worker-class eventlet -w 1 --timeout 120 -b 0.0.0.0:$PORT get_coords:
 
 ### 3. Vercel — student frontend
 
-Project: **veridian-student** → https://veridian-student.vercel.app
+Project: **veridian-student** → https://veridian-student.vercel.app (production alias **https://www.veridian.fyi**)
 
 Env vars (Project Settings → Environment Variables):
 

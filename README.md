@@ -12,7 +12,7 @@ For AI whiteboard work without local dev, see **`plans/whiteboard-deployment.md`
 | Student Flask backend | Render (`render.yaml`) | Blueprint → connect `sfjchen/Veridian` |
 | Database | Supabase `tpqasmpieyteutvdntda` | Migrations applied — see `supabase/SUPABASE_JCHEN04.md` |
 
-Live frontend: https://veridian-student.vercel.app — requires Render backend URL in Vercel env.
+Live frontend: https://veridian-student.vercel.app (alias https://www.veridian.fyi) — requires Render backend URL in Vercel env.
 
 ## Student Runtime Config (PR #4)
 

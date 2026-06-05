@@ -1,4 +1,8 @@
-# Whiteboard Deployment (no local dev)
+# Whiteboard Deployment (legacy EdTech path)
+
+> **Canonical demo (use this):** [https://sfjc.dev/veridian](https://sfjc.dev/veridian) — Next.js local-first whiteboard (`sfjchen/veridian-whiteboard`), no login, no Supabase. Built in the Jon-fun nested repo `Jon-fun/Veridian/`.
+>
+> **This doc** covers the older **Expo + Flask + Supabase** slice (`www.veridian.fyi`, `veridian-student` on Vercel). That stack is kept for EdTech/classroom work only; public traffic should redirect to **sfjc.dev/veridian**.
 
 Deployment-only workflow for the **student whiteboard slice**: Expo web on Vercel + Flask on Render + Supabase `tpqasmpieyteutvdntda`.
 

@@ -64,9 +64,12 @@ jobs:
           EXPO_PUBLIC_SUPABASE_URL: ${{ vars.EXPO_PUBLIC_SUPABASE_URL || 'https://tpqasmpieyteutvdntda.supabase.co' }}
           EXPO_PUBLIC_SUPABASE_ANON_KEY: ${{ secrets.EXPO_PUBLIC_SUPABASE_ANON_KEY }}
 
-      - name: Smoke check frontend bundle
-        run: ./scripts/smoke-whiteboard.sh --url https://veridian-student.vercel.app --skip-backend
+      - name: Smoke check canonical whiteboard (sfjc.dev)
+        run: ./scripts/smoke-whiteboard.sh --url https://sfjc.dev/veridian --skip-backend
 
-      - name: Smoke check backend health
+      - name: Smoke check legacy redirect (veridian.fyi → sfjc.dev)
         continue-on-error: true
-        run: ./scripts/smoke-whiteboard.sh --url https://veridian-student.vercel.app --backend-only
+        run: |
+          loc=$(curl -sS -o /dev/null -w '%{redirect_url}' https://www.veridian.fyi/ || true)
+          echo "redirect=$loc"
+          echo "$loc" | grep -q 'sfjc.dev/veridian'

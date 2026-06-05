@@ -131,7 +131,9 @@ After migrations: assignments load without config errors; corpus upload works.
 
 ## Production Deployment
 
-**Whiteboard deploy (current):** Vercel `veridian-student` → https://veridian-student.vercel.app (alias https://www.veridian.fyi); Render → https://veridian-student-backend-kz5l.onrender.com; Supabase `tpqasmpieyteutvdntda`. See **`plans/whiteboard-deployment.md`**. Full teacher/student stack: `plans/production-deployment.md`.
+**Whiteboard demo (canonical):** [https://sfjc.dev/veridian](https://sfjc.dev/veridian) — Next.js app in [`sfjchen/veridian-whiteboard`](https://github.com/sfjchen/veridian-whiteboard) (nested under Jon-fun). No login.
+
+**Legacy EdTech deploy (this repo):** `www.veridian.fyi` → redirects to sfjc.dev/veridian; Expo + Render `veridian-student-backend-kz5l` + Supabase `tpqasmpieyteutvdntda` for classroom features. See **`plans/whiteboard-deployment.md`**. Full stack: `plans/production-deployment.md`.
 
 ## Development
 

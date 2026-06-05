@@ -9,10 +9,10 @@ Deployment-only workflow for the **student whiteboard slice**: Expo web on Verce
 | Supabase migrations + sample worksheets | **Done** | `veridian_sample_worksheets` has `high-school-algebra-01` |
 | GitHub Actions deploy workflow | **Done** | Local Expo build + env injection + prebuilt Vercel deploy |
 | GitHub secrets `VERCEL_*` | **Done** | On `sfjchen/Veridian` |
-| GitHub var `EXPO_PUBLIC_BACKEND_URL` | **You set** | `https://veridian-student-backend.onrender.com` |
-| GitHub secret `EXPO_PUBLIC_SUPABASE_ANON_KEY` | **You set** | Jchen04 anon key |
-| Render backend `/health` | **Blocked** | `veridian-student-backend.onrender.com` → **502** until Render secrets set |
-| Vercel prod bundle env | **Done** | GHA `--build-env` bakes `tpqasmpieyteutvdntda` + `veridian-student-backend` |
+| GitHub var `EXPO_PUBLIC_BACKEND_URL` | **Done** | `https://veridian-student-backend-kz5l.onrender.com` |
+| GitHub secret `EXPO_PUBLIC_SUPABASE_ANON_KEY` | **Done** | Jchen04 anon key |
+| Render backend `/health` | **Done** | Blueprint service `veridian-student-backend-kz5l` → `{"status":"ok"}` |
+| Vercel prod bundle env | **Redeploy** | Re-run GHA after backend URL change to bake `kz5l` URL |
 | Supabase auth redirects | **You verify** | Add `https://www.veridian.fyi/**` if using custom domain |
 
 **Smoke:** `./scripts/smoke-whiteboard.sh`
@@ -55,7 +55,7 @@ Deployment-only workflow for the **student whiteboard slice**: Expo web on Verce
    - `SUPABASE_SERVICE_ROLE_KEY`
    - `SUPABASE_JWT_SECRET` (optional for student — JWKS fallback)
    - `OPENAI_API_KEY` (optional; OCR paths)
-5. After deploy: `curl https://veridian-student-backend.onrender.com/health` → `{"status":"ok"}`
+5. After deploy: `curl https://veridian-student-backend-kz5l.onrender.com/health` → `{"status":"ok"}` (Blueprint may append a suffix to the service name)
 
 CORS in `render.yaml` allows `veridian-student.vercel.app` + `www.veridian.fyi` (+ `*.vercel.app` regex in code).
 
@@ -70,7 +70,7 @@ Repository configuration on `sfjchen/Veridian`:
 | Kind | Name | Value |
 |------|------|-------|
 | Variable | `EXPO_PUBLIC_SUPABASE_URL` | `https://tpqasmpieyteutvdntda.supabase.co` |
-| Variable | `EXPO_PUBLIC_BACKEND_URL` | `https://veridian-student-backend.onrender.com` |
+| Variable | `EXPO_PUBLIC_BACKEND_URL` | `https://veridian-student-backend-kz5l.onrender.com` |
 | Secret | `EXPO_PUBLIC_SUPABASE_ANON_KEY` | Dashboard → API → anon |
 | Secret | `VERCEL_TOKEN` | Vercel account token |
 | Secret | `VERCEL_ORG_ID` | `.vercel/project.json` → `orgId` |
@@ -114,7 +114,8 @@ Deploy:
 | Backend 502 | Set `ANTHROPIC_API_KEY` + Supabase keys on Render; check logs |
 | CORS error on www.veridian.fyi | Update Render `CORS_ALLOWED_ORIGINS` (in `render.yaml`) |
 | Auth redirect loop | Add `www.veridian.fyi/**` to Supabase auth URLs |
-| `/health` 404 on fi00 | Stale URL — use `veridian-student-backend.onrender.com` |
+| `/health` 404 on fi00 | Stale URL — use `veridian-student-backend-kz5l.onrender.com` |
+| `veridian-student-backend.onrender.com` 502 | Different/stale Blueprint instance — use the `*-kz5l` URL from your Render dashboard |
 
 ## Stale URLs (do not use)
 

@@ -1,6 +1,7 @@
 # Render Blueprint — whiteboard slice (student Flask backend only).
 # Connect repo at https://dashboard.render.com/blueprints → New Blueprint Instance.
 # Set secret env vars in the Render dashboard after first deploy.
+# Live URL may include a suffix (e.g. veridian-student-backend-kz5l.onrender.com).
 
 services:
   - type: web

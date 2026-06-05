@@ -23,7 +23,7 @@ while [ $# -gt 0 ]; do
 done
 
 if [ "$BACKEND_ONLY" = "1" ]; then
-  BACKEND_URL="${BACKEND_URL:-https://veridian-student-backend.onrender.com}"
+  BACKEND_URL="${BACKEND_URL:-https://veridian-student-backend-kz5l.onrender.com}"
   say "=== Backend only: $BACKEND_URL ==="
   health_code=$(curl -sS -o /tmp/veridian-health.json -w '%{http_code}' "$BACKEND_URL/health" 2>/dev/null || echo "000")
   if [ "$health_code" = "200" ] && grep -q '"status"' /tmp/veridian-health.json 2>/dev/null; then

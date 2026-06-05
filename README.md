@@ -131,7 +131,7 @@ After migrations: assignments load without config errors; corpus upload works.
 
 ## Production Deployment
 
-**Whiteboard deploy (current):** Vercel `veridian-student` → https://veridian-student.vercel.app (alias https://www.veridian.fyi); Render `veridian-student-backend` → https://veridian-student-backend.onrender.com; Supabase `tpqasmpieyteutvdntda`. See **`plans/whiteboard-deployment.md`**. Full teacher/student stack: `plans/production-deployment.md`.
+**Whiteboard deploy (current):** Vercel `veridian-student` → https://veridian-student.vercel.app (alias https://www.veridian.fyi); Render → https://veridian-student-backend-kz5l.onrender.com; Supabase `tpqasmpieyteutvdntda`. See **`plans/whiteboard-deployment.md`**. Full teacher/student stack: `plans/production-deployment.md`.
 
 ## Development
 

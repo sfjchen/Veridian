@@ -62,7 +62,17 @@ Deploy:
 ./scripts/deploy-student-frontend.sh
 ```
 
-Or push to `main` (GitHub → Vercel integration).
+Or push to `main` — **GitHub Actions** workflow `Deploy Student Frontend` (`.github/workflows/deploy-student-frontend.yml`) runs `vercel deploy --prod` on Vercel’s builders.
+
+**GitHub repo secrets** (`sfjchen/Veridian` → Settings → Secrets and variables → Actions):
+
+| Secret | Source |
+|--------|--------|
+| `VERCEL_TOKEN` | Vercel → Account Settings → Tokens |
+| `VERCEL_ORG_ID` | `.vercel/project.json` → `orgId` |
+| `VERCEL_PROJECT_ID` | `.vercel/project.json` → `projectId` |
+
+Workflow uses `actions/checkout@v6` and `actions/setup-node@v6` (Node.js 24 action runtime). App build on Vercel remains Node 22 via project settings.
 
 ## Iteration loop
 

@@ -12,7 +12,7 @@ Deployment-only workflow for the **student whiteboard slice**: Expo web on Verce
 | GitHub var `EXPO_PUBLIC_BACKEND_URL` | **Done** | `https://veridian-student-backend-kz5l.onrender.com` |
 | GitHub secret `EXPO_PUBLIC_SUPABASE_ANON_KEY` | **Done** | Jchen04 anon key |
 | Render backend `/health` | **Done** | Blueprint service `veridian-student-backend-kz5l` → `{"status":"ok"}` |
-| Vercel prod bundle env | **Redeploy** | Re-run GHA after backend URL change to bake `kz5l` URL |
+| Vercel prod bundle env | **Done** | Includes `EXPO_PUBLIC_DEMO_MODE=1` (no login; opens Sample Algebra) |
 | Supabase auth redirects | **You verify** | Add `https://www.veridian.fyi/**` if using custom domain |
 
 **Smoke:** `./scripts/smoke-whiteboard.sh`
@@ -72,6 +72,7 @@ Repository configuration on `sfjchen/Veridian`:
 | Variable | `EXPO_PUBLIC_SUPABASE_URL` | `https://tpqasmpieyteutvdntda.supabase.co` |
 | Variable | `EXPO_PUBLIC_BACKEND_URL` | `https://veridian-student-backend-kz5l.onrender.com` |
 | Secret | `EXPO_PUBLIC_SUPABASE_ANON_KEY` | Dashboard → API → anon |
+| Build env | `EXPO_PUBLIC_DEMO_MODE` | `1` — skips sign-in; lands on sample whiteboard |
 | Secret | `VERCEL_TOKEN` | Vercel account token |
 | Secret | `VERCEL_ORG_ID` | `.vercel/project.json` → `orgId` |
 | Secret | `VERCEL_PROJECT_ID` | `.vercel/project.json` → `projectId` |

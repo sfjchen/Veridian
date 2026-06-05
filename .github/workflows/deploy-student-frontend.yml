@@ -52,6 +52,7 @@ jobs:
       - name: Deploy to Vercel (remote build with CI env)
         run: |
           npx vercel@54.9.1 deploy --prod --yes --token "$VERCEL_TOKEN" \
+            --build-env "EXPO_PUBLIC_DEMO_MODE=1" \
             --build-env "EXPO_PUBLIC_BACKEND_URL=$EXPO_PUBLIC_BACKEND_URL" \
             --build-env "EXPO_PUBLIC_SUPABASE_URL=$EXPO_PUBLIC_SUPABASE_URL" \
             --build-env "EXPO_PUBLIC_SUPABASE_ANON_KEY=$EXPO_PUBLIC_SUPABASE_ANON_KEY"

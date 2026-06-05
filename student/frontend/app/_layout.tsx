@@ -12,6 +12,7 @@ import { ForestBackground } from '@/components/forest';
 import { palette } from '@/constants/palette';
 import { useAuth } from '@/hooks/useAuth';
 import { BackendHint } from '@/components/BackendHint';
+import { demoDocumentPath, isDemoMode } from '@/lib/demo-mode';
 
 export const unstable_settings = {
   anchor: '(tabs)',
@@ -32,6 +33,19 @@ function useProtectedRoute(userId: string | null, loading: boolean) {
 
   useEffect(() => {
     if (loading) return;
+
+    if (isDemoMode()) {
+      const onAuthScreen = segments[0] === 'sign-in' || segments[0] === 'sign-up';
+      const onWhiteboard =
+        segments[0] === 'document' || segments[0] === 'note';
+      if (onAuthScreen || segments[0] === '(tabs)') {
+        router.replace(demoDocumentPath());
+      } else if (!onWhiteboard && segments.length === 0) {
+        router.replace(demoDocumentPath());
+      }
+      return;
+    }
+
     const onAuthScreen = segments[0] === 'sign-in' || segments[0] === 'sign-up';
     if (!userId && !onAuthScreen) {
       router.replace('/sign-in');

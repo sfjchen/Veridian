@@ -33,6 +33,7 @@ import { useAuth } from '@/hooks/useAuth';
 import { useDocuments, isDefaultDocument } from '@/hooks/useDocuments';
 import { useWebSocket, type ResultPayload } from '@/hooks/useWebSocket';
 import { scopedKey } from '@/lib/scoped-storage';
+import { isDemoMode } from '@/lib/demo-mode';
 import { submitAnalysis, submitAssignment, type AnalysisResult, type Mistake } from '@/lib/api';
 import type { CaptureResult } from '@/lib/capture-types';
 import { captureStrokesAsDataUri } from '@/lib/capture-web';
@@ -255,7 +256,8 @@ export default function DocumentScreen() {
   const WS_URL = (process.env.EXPO_PUBLIC_BACKEND_URL ?? '').replace(/\/$/, '');
   useWebSocket(WS_URL, token ?? null, handleWebSocketResult);
 
-  const STROKES_KEY = (id && userId) ? scopedKey(userId, `veridian_strokes:${id}`) : null;
+  const strokeScope = userId ?? (isDemoMode() ? 'demo' : null);
+  const STROKES_KEY = id && strokeScope ? scopedKey(strokeScope, `veridian_strokes:${id}`) : null;
   const pageIndex = currentPage - 1;
   const currentStrokes = useMemo(() => strokesByPage[pageIndex] ?? [], [strokesByPage, pageIndex]);
   const currentProblem = isProblemMode ? problems[pageIndex] : null;
@@ -669,14 +671,18 @@ export default function DocumentScreen() {
   return (
     <SafeAreaView style={styles.screen}>
       <View style={styles.header}>
-        <Pressable
-          style={({ pressed }) => [styles.headerBackBtn, pressed && { opacity: 0.7 }]}
-          onPress={() => router.back()}
-          hitSlop={{ top: 12, bottom: 12, left: 12, right: 12 }}
-          accessibilityRole="button"
-          accessibilityLabel="Back">
-          <MaterialCommunityIcons name="arrow-left" size={24} color={palette.primary} />
-        </Pressable>
+        {!(isDemoMode() && isDefault) ? (
+          <Pressable
+            style={({ pressed }) => [styles.headerBackBtn, pressed && { opacity: 0.7 }]}
+            onPress={() => router.back()}
+            hitSlop={{ top: 12, bottom: 12, left: 12, right: 12 }}
+            accessibilityRole="button"
+            accessibilityLabel="Back">
+            <MaterialCommunityIcons name="arrow-left" size={24} color={palette.primary} />
+          </Pressable>
+        ) : (
+          <View style={styles.headerBackBtn} />
+        )}
         <Text style={styles.title} numberOfLines={1}>{headerTitle}</Text>
         <View style={styles.headerActions}>
           {checkButtonVisible && (

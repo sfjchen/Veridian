@@ -131,7 +131,7 @@ After migrations: assignments load without config errors; corpus upload works.
 
 ## Production Deployment
 
-Frontends deploy to Vercel (veridian.fyi, s.veridian.fyi). Backends on Render: teacher `https://veridian-teach.onrender.com`, student `https://veridian-fi00.onrender.com`. Set `EXPO_PUBLIC_API_URL` / `EXPO_PUBLIC_STUDENT_API_URL` (teacher) and `EXPO_PUBLIC_BACKEND_URL` (student) in Vercel env. See `plans/production-deployment.md`.
+**Whiteboard deploy (current):** Vercel `veridian-student` → https://veridian-student.vercel.app (alias https://www.veridian.fyi); Render `veridian-student-backend` → https://veridian-student-backend.onrender.com; Supabase `tpqasmpieyteutvdntda`. See **`plans/whiteboard-deployment.md`**. Full teacher/student stack: `plans/production-deployment.md`.
 
 ## Development
 

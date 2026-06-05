@@ -30,6 +30,6 @@ services:
       - key: SUPABASE_JWT_SECRET
         sync: false
       - key: CORS_ALLOWED_ORIGINS
-        value: https://veridian-student.vercel.app,https://s.veridian.fyi
+        value: https://veridian-student.vercel.app,https://www.veridian.fyi
       - key: WS_CORS_ORIGINS
-        value: https://veridian-student.vercel.app,https://s.veridian.fyi
+        value: https://veridian-student.vercel.app,https://www.veridian.fyi

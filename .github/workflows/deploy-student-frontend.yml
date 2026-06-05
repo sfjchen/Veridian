@@ -13,28 +13,46 @@ concurrency:
   group: deploy-student-frontend-${{ github.ref }}
   cancel-in-progress: true
 
+env:
+  EXPO_PUBLIC_SUPABASE_URL: ${{ vars.EXPO_PUBLIC_SUPABASE_URL || 'https://tpqasmpieyteutvdntda.supabase.co' }}
+
 jobs:
   deploy:
     runs-on: ubuntu-latest
     permissions:
       contents: read
+    defaults:
+      run:
+        working-directory: student/frontend
     steps:
       - uses: actions/checkout@v6
 
-      - name: Validate Vercel secrets
+      - name: Validate deploy configuration
+        working-directory: .
         run: |
           missing=0
-          for name in VERCEL_TOKEN VERCEL_ORG_ID VERCEL_PROJECT_ID; do
+          for name in VERCEL_TOKEN VERCEL_ORG_ID VERCEL_PROJECT_ID EXPO_PUBLIC_SUPABASE_ANON_KEY; do
             if [ -z "${!name}" ]; then
-              echo "::error::Missing repository secret: $name (Settings → Secrets and variables → Actions)"
+              echo "::error::Missing repository secret: $name"
               missing=1
             fi
           done
+          if [ -z "$EXPO_PUBLIC_BACKEND_URL" ]; then
+            echo "::error::Missing repository variable EXPO_PUBLIC_BACKEND_URL (Settings → Secrets and variables → Actions → Variables)"
+            missing=1
+          fi
+          if [ -z "$EXPO_PUBLIC_SUPABASE_URL" ]; then
+            echo "::error::Missing EXPO_PUBLIC_SUPABASE_URL"
+            missing=1
+          fi
           exit "$missing"
         env:
           VERCEL_TOKEN: ${{ secrets.VERCEL_TOKEN }}
           VERCEL_ORG_ID: ${{ secrets.VERCEL_ORG_ID }}
           VERCEL_PROJECT_ID: ${{ secrets.VERCEL_PROJECT_ID }}
+          EXPO_PUBLIC_BACKEND_URL: ${{ vars.EXPO_PUBLIC_BACKEND_URL }}
+          EXPO_PUBLIC_SUPABASE_URL: ${{ vars.EXPO_PUBLIC_SUPABASE_URL || 'https://tpqasmpieyteutvdntda.supabase.co' }}
+          EXPO_PUBLIC_SUPABASE_ANON_KEY: ${{ secrets.EXPO_PUBLIC_SUPABASE_ANON_KEY }}
 
       - uses: actions/setup-node@v6
         with:
@@ -42,9 +60,41 @@ jobs:
           cache: npm
           cache-dependency-path: student/frontend/package-lock.json
 
-      - name: Deploy to Vercel (remote build)
-        run: npx vercel@54.9.1 deploy --prod --token "$VERCEL_TOKEN"
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Build Expo web (bake EXPO_PUBLIC_* at compile time)
+        run: npx expo export -p web
+        env:
+          EXPO_PUBLIC_BACKEND_URL: ${{ vars.EXPO_PUBLIC_BACKEND_URL }}
+          EXPO_PUBLIC_SUPABASE_URL: ${{ vars.EXPO_PUBLIC_SUPABASE_URL || 'https://tpqasmpieyteutvdntda.supabase.co' }}
+          EXPO_PUBLIC_SUPABASE_ANON_KEY: ${{ secrets.EXPO_PUBLIC_SUPABASE_ANON_KEY }}
+
+      - name: Verify bundle env (block stale hackathon / fi00 URLs)
+        run: |
+          bundle=$(ls dist/_expo/static/js/web/entry-*.js | head -1)
+          if grep -q 'daxwryjtzesdfjldvwsi' "$bundle"; then
+            echo "::error::Bundle still references hackathon Supabase daxwryjtzesdfjldvwsi"
+            exit 1
+          fi
+          if grep -q 'veridian-fi00.onrender.com' "$bundle"; then
+            echo "::error::Bundle still references stale backend veridian-fi00.onrender.com"
+            exit 1
+          fi
+          if ! grep -q 'tpqasmpieyteutvdntda' "$bundle"; then
+            echo "::error::Bundle missing Jchen04 Supabase ref tpqasmpieyteutvdntda"
+            exit 1
+          fi
+          echo "Bundle env OK"
+
+      - name: Deploy prebuilt dist to Vercel
+        working-directory: .
+        run: npx vercel@54.9.1 deploy student/frontend/dist --prod --yes --token "$VERCEL_TOKEN"
         env:
           VERCEL_TOKEN: ${{ secrets.VERCEL_TOKEN }}
           VERCEL_ORG_ID: ${{ secrets.VERCEL_ORG_ID }}
           VERCEL_PROJECT_ID: ${{ secrets.VERCEL_PROJECT_ID }}
+
+      - name: Smoke check production bundle
+        working-directory: .
+        run: ./scripts/smoke-whiteboard.sh --url https://veridian-student.vercel.app

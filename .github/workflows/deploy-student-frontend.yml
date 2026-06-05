@@ -88,13 +88,12 @@ jobs:
           echo "Bundle env OK"
 
       - name: Deploy prebuilt dist to Vercel
-        working-directory: .
-        run: npx vercel@54.9.1 deploy student/frontend/dist --prod --yes --token "$VERCEL_TOKEN"
+        run: npx vercel@54.9.1 deploy dist --prod --yes --token "$VERCEL_TOKEN"
         env:
           VERCEL_TOKEN: ${{ secrets.VERCEL_TOKEN }}
           VERCEL_ORG_ID: ${{ secrets.VERCEL_ORG_ID }}
           VERCEL_PROJECT_ID: ${{ secrets.VERCEL_PROJECT_ID }}
 
       - name: Smoke check production bundle
-        working-directory: .
+        working-directory: ${{ github.workspace }}
         run: ./scripts/smoke-whiteboard.sh --url https://veridian-student.vercel.app

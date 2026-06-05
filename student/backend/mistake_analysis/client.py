@@ -75,12 +75,24 @@ class MistakeAnalyzer:
         self.max_tokens = max(1024, max_tokens) if max_tokens is not None else max(1024, _cap)
 
         backend = (os.getenv("MISTAKE_ANALYSIS_BACKEND", "anthropic") or "anthropic").strip().lower()
-        self._backend = "openai" if backend == "openai" else "anthropic"
-        if self._backend == "openai":
+        if backend in ("openrouter", "open_router"):
+            from openrouter_client import get_openrouter_client
+
+            self._backend = "openrouter"
+            self.client = None
+            self._openai_client = get_openrouter_client()
+            self._openai_model = (
+                os.getenv("MISTAKE_ANALYSIS_OPENROUTER_MODEL")
+                or os.getenv("MISTAKE_ANALYSIS_OPENAI_MODEL")
+                or "anthropic/claude-sonnet-4"
+            ).strip()
+        elif backend == "openai":
+            self._backend = "openai"
             self.client = None
             self._openai_client = OpenAI()
             self._openai_model = (os.getenv("MISTAKE_ANALYSIS_OPENAI_MODEL", "gpt-4o") or "gpt-4o").strip()
         else:
+            self._backend = "anthropic"
             self.client = anthropic.Anthropic()  # uses ANTHROPIC_API_KEY env var
             validate_anthropic_thinking_support(self.client)
             self._openai_client = None
@@ -119,7 +131,7 @@ class MistakeAnalyzer:
         anthropic_model: str,
         use_thinking: bool = False,
     ) -> str:
-        """Call LLM (Anthropic or OpenAI per MISTAKE_ANALYSIS_BACKEND) and return response text."""
+        """Call LLM (Anthropic, OpenAI, or OpenRouter per MISTAKE_ANALYSIS_BACKEND)."""
         if self._backend == "anthropic":
             kwargs = {
                 "model": anthropic_model,
@@ -133,10 +145,16 @@ class MistakeAnalyzer:
             response = self._call_api(context, **kwargs)
             return extract_text(response)
         if self._openai_client is None:
-            raise ValueError("OpenAI backend is not configured.")
+            raise ValueError("OpenAI/OpenRouter backend is not configured.")
+        if self._backend == "openrouter":
+            from openrouter_client import normalize_openrouter_model
+
+            model = normalize_openrouter_model(anthropic_model or self._openai_model)
+        else:
+            model = self._openai_model
         try:
             response = self._openai_client.chat.completions.create(
-                model=self._openai_model,
+                model=model,
                 max_completion_tokens=max_tokens,
                 messages=[
                     {"role": "system", "content": system},
@@ -144,10 +162,12 @@ class MistakeAnalyzer:
                 ],
             )
         except Exception as exc:
-            raise ValueError(f"OpenAI API error during {context}: {exc}") from exc
+            label = "OpenRouter" if self._backend == "openrouter" else "OpenAI"
+            raise ValueError(f"{label} API error during {context}: {exc}") from exc
         content = (response.choices[0].message.content or "").strip()
         if not content:
-            raise ValueError(f"OpenAI returned empty response during {context}")
+            label = "OpenRouter" if self._backend == "openrouter" else "OpenAI"
+            raise ValueError(f"{label} returned empty response during {context}")
         return content
 
     def _analyze(

@@ -15,6 +15,18 @@ services:
     envVars:
       - key: PYTHON_VERSION
         value: "3.11.9"
+      - key: MISTAKE_ANALYSIS_BACKEND
+        value: openrouter
+      - key: OPENROUTER_API_KEY
+        sync: false
+      - key: MISTAKE_ANALYSIS_OPENROUTER_MODEL
+        value: anthropic/claude-sonnet-4
+      - key: MISTAKE_COORD_OPENROUTER_MODEL
+        value: anthropic/claude-sonnet-4
+      - key: MISTAKE_ANALYSIS_MODEL
+        value: anthropic/claude-sonnet-4
+      - key: MISTAKE_ANALYSIS_THINKING
+        value: "0"
       - key: ANTHROPIC_API_KEY
         sync: false
       - key: OPENAI_API_KEY

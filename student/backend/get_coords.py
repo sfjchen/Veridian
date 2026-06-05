@@ -99,7 +99,12 @@ def _cors_origins() -> list[str] | list | str:
     return "*"
 
 
-client = Anthropic(api_key=ANTHROPIC_API_KEY)
+def _get_anthropic_client() -> Anthropic:
+    if not ANTHROPIC_API_KEY:
+        raise RuntimeError("ANTHROPIC_API_KEY is required when MISTAKE_ANALYSIS_BACKEND=anthropic")
+    return Anthropic(api_key=ANTHROPIC_API_KEY)
+
+
 app = Flask(__name__)
 app.config["MAX_CONTENT_LENGTH"] = 16 * 1024 * 1024  # 16 MB upload limit
 CORS(app, origins=_cors_origins())
@@ -853,7 +858,7 @@ def _build_vision_message(prompt: str, encoded_image: str, media_type: str) -> L
 
 def _call_claude_vision(messages: List[Dict[str, Any]], annotation_count: int) -> str:
     try:
-        response = client.messages.create(
+        response = _get_anthropic_client().messages.create(
             model=CLAUDE_MODEL,
             max_tokens=_max_output_tokens(annotation_count),
             temperature=0,
@@ -867,6 +872,58 @@ def _call_claude_vision(messages: List[Dict[str, Any]], annotation_count: int) -
     if not raw_output:
         raise RuntimeError("Claude returned an empty response.")
     return raw_output
+
+
+def _call_openrouter_vision(
+    prompt: str, encoded_image: str, media_type: str, annotation_count: int
+) -> str:
+    from openrouter_client import get_openrouter_client, normalize_openrouter_model
+
+    coord_model = (
+        os.getenv("MISTAKE_COORD_OPENROUTER_MODEL")
+        or os.getenv("MISTAKE_COORD_MODEL")
+        or CLAUDE_MODEL
+        or os.getenv("MISTAKE_ANALYSIS_OPENROUTER_MODEL")
+        or "anthropic/claude-sonnet-4"
+    )
+    model = normalize_openrouter_model(coord_model)
+    data_uri = f"data:{media_type};base64,{encoded_image}"
+    try:
+        response = get_openrouter_client().chat.completions.create(
+            model=model,
+            max_completion_tokens=_max_output_tokens(annotation_count),
+            temperature=0,
+            messages=[
+                {
+                    "role": "user",
+                    "content": [
+                        {"type": "text", "text": prompt},
+                        {"type": "image_url", "image_url": {"url": data_uri}},
+                    ],
+                }
+            ],
+        )
+    except Exception as exc:
+        raise RuntimeError(f"OpenRouter vision API call failed: {exc}") from exc
+
+    raw_output = (response.choices[0].message.content or "").strip()
+    if not raw_output:
+        raise RuntimeError("OpenRouter returned an empty vision response.")
+    return raw_output
+
+
+def _call_vision_coords(
+    prompt: str,
+    encoded_image: str,
+    media_type: str,
+    messages: List[Dict[str, Any]],
+    annotation_count: int,
+) -> str:
+    from openrouter_client import is_openrouter_mistake_backend
+
+    if is_openrouter_mistake_backend():
+        return _call_openrouter_vision(prompt, encoded_image, media_type, annotation_count)
+    return _call_claude_vision(messages, annotation_count)
 
 
 def _parse_coord_response(
@@ -884,8 +941,9 @@ def _run_mistake_coord_pipeline(
     annotations, dims = _parse_and_validate_annotations(latex, image_bytes)
     prompt = _build_vision_prompt(annotations, dims)
     encoded_image = base64.b64encode(image_bytes).decode("utf-8")
-    messages = _build_vision_message(prompt, encoded_image, media_type or "image/png")
-    raw_output = _call_claude_vision(messages, len(annotations))
+    media = media_type or "image/png"
+    messages = _build_vision_message(prompt, encoded_image, media)
+    raw_output = _call_vision_coords(prompt, encoded_image, media, messages, len(annotations))
     result: Dict[str, Any] = _parse_coord_response(raw_output, annotations, dims)
     result["mistakes"] = _add_dot_coords(result["mistakes"], dims)
     result["_image_dims"] = dims

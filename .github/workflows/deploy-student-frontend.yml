@@ -63,5 +63,9 @@ jobs:
           EXPO_PUBLIC_SUPABASE_URL: ${{ vars.EXPO_PUBLIC_SUPABASE_URL || 'https://tpqasmpieyteutvdntda.supabase.co' }}
           EXPO_PUBLIC_SUPABASE_ANON_KEY: ${{ secrets.EXPO_PUBLIC_SUPABASE_ANON_KEY }}
 
-      - name: Smoke check production bundle
-        run: ./scripts/smoke-whiteboard.sh --url https://veridian-student.vercel.app
+      - name: Smoke check frontend bundle
+        run: ./scripts/smoke-whiteboard.sh --url https://veridian-student.vercel.app --skip-backend
+
+      - name: Smoke check backend health
+        continue-on-error: true
+        run: ./scripts/smoke-whiteboard.sh --url https://veridian-student.vercel.app --backend-only

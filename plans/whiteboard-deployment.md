@@ -12,7 +12,7 @@ Deployment-only workflow for the **student whiteboard slice**: Expo web on Verce
 | GitHub var `EXPO_PUBLIC_BACKEND_URL` | **You set** | `https://veridian-student-backend.onrender.com` |
 | GitHub secret `EXPO_PUBLIC_SUPABASE_ANON_KEY` | **You set** | Jchen04 anon key |
 | Render backend `/health` | **Blocked** | `veridian-student-backend.onrender.com` → **502** until Render secrets set |
-| Vercel prod bundle env | **Blocked** | Still hackathon `daxwryjtzesdfjldvwsi` + `veridian-fi00` until next GHA deploy with vars |
+| Vercel prod bundle env | **Done** | GHA `--build-env` bakes `tpqasmpieyteutvdntda` + `veridian-student-backend` |
 | Supabase auth redirects | **You verify** | Add `https://www.veridian.fyi/**` if using custom domain |
 
 **Smoke:** `./scripts/smoke-whiteboard.sh`

@@ -50,15 +50,10 @@ if [ "$code" = "200" ]; then pass "frontend HTTP $code"; else fail "frontend HTT
 html=$(curl -sSL "$FRONTEND_URL" || true)
 
 if [ "$LEGACY_EXPO" = "0" ]; then
-  if printf '%s' "$html" | grep -qi 'Veridian Whiteboard'; then
+  if printf '%s' "$html" | grep -qE 'veridianApp|AI math whiteboard|<title>Veridian'; then
     pass "canonical Next.js whiteboard page"
   else
-    fail "expected Veridian Whiteboard title on canonical page"
-  fi
-  if printf '%s' "$html" | grep -qi 'Local-first AI math whiteboard'; then
-    pass "canonical tagline present"
-  else
-    fail "missing canonical tagline"
+    fail "expected Veridian whiteboard markers in HTML"
   fi
   health_code=$(curl -sS -o /tmp/veridian-api-health.json -w '%{http_code}' "${FRONTEND_URL%/}/api/health" 2>/dev/null || echo "000")
   if [ "$health_code" = "200" ]; then

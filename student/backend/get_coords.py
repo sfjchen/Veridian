@@ -72,7 +72,7 @@ load_dotenv(override=True)
 
 ANTHROPIC_API_KEY = os.getenv("ANTHROPIC_API_KEY")
 CLAUDE_MODEL = os.getenv("CLAUDE_MODEL")
-MISTAKE_ANALYSIS_MODEL = os.getenv("MISTAKE_ANALYSIS_MODEL", "claude-opus-4-6").strip()
+MISTAKE_ANALYSIS_MODEL = os.getenv("MISTAKE_ANALYSIS_MODEL", "claude-sonnet-5-5").strip()
 OPENAI_API_KEY = os.getenv("OPENAI_API_KEY")
 DEFAULT_ARTIFACT_OWNER_ID = os.getenv("SUPABASE_DEFAULT_OWNER_ID", "").strip()
 
@@ -861,7 +861,6 @@ def _call_claude_vision(messages: List[Dict[str, Any]], annotation_count: int) -
         response = _get_anthropic_client().messages.create(
             model=CLAUDE_MODEL,
             max_tokens=_max_output_tokens(annotation_count),
-            temperature=0,
             messages=messages,
         )
     except Exception as exc:
@@ -877,14 +876,14 @@ def _call_claude_vision(messages: List[Dict[str, Any]], annotation_count: int) -
 def _call_openrouter_vision(
     prompt: str, encoded_image: str, media_type: str, annotation_count: int
 ) -> str:
-    from openrouter_client import get_openrouter_client, normalize_openrouter_model
+    from openrouter_client import DEFAULT_CLAUDE_OPENROUTER_MODEL, get_openrouter_client, normalize_openrouter_model
 
     coord_model = (
         os.getenv("MISTAKE_COORD_OPENROUTER_MODEL")
         or os.getenv("MISTAKE_COORD_MODEL")
         or CLAUDE_MODEL
         or os.getenv("MISTAKE_ANALYSIS_OPENROUTER_MODEL")
-        or "anthropic/claude-sonnet-4"
+        or DEFAULT_CLAUDE_OPENROUTER_MODEL
     )
     model = normalize_openrouter_model(coord_model)
     data_uri = f"data:{media_type};base64,{encoded_image}"
@@ -892,7 +891,6 @@ def _call_openrouter_vision(
         response = get_openrouter_client().chat.completions.create(
             model=model,
             max_completion_tokens=_max_output_tokens(annotation_count),
-            temperature=0,
             messages=[
                 {
                     "role": "user",

@@ -21,17 +21,17 @@ services:
       - key: OPENROUTER_API_KEY
         sync: false
       - key: MISTAKE_ANALYSIS_OPENROUTER_MODEL
-        value: anthropic/claude-sonnet-4
+        value: anthropic/claude-sonnet-5.5
       - key: MISTAKE_COORD_OPENROUTER_MODEL
-        value: anthropic/claude-sonnet-4
+        value: anthropic/claude-sonnet-5.5
       - key: MISTAKE_ANALYSIS_MODEL
-        value: anthropic/claude-sonnet-4
+        value: anthropic/claude-sonnet-5.5
       - key: MISTAKE_ANALYSIS_THINKING
         value: "0"
       - key: CHAT_BACKEND
         value: openrouter
       - key: CHAT_OPENROUTER_MODEL
-        value: anthropic/claude-sonnet-4
+        value: anthropic/claude-sonnet-5.5
       - key: MATH_OCR_BACKEND
         value: openrouter
       - key: MATH_OCR_OPENROUTER_MODEL
@@ -41,7 +41,7 @@ services:
       - key: OPENAI_API_KEY
         sync: false
       - key: CLAUDE_MODEL
-        value: claude-sonnet-4-5-20250929
+        value: claude-sonnet-5-5
       - key: SUPABASE_URL
         value: https://tpqasmpieyteutvdntda.supabase.co
       - key: SUPABASE_ANON_KEY

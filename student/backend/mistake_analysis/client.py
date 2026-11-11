@@ -29,6 +29,7 @@ from openai import OpenAI
 try:
     from anthropic_guard import (
         build_adaptive_thinking,
+        build_off_thinking,
         validate_anthropic_thinking_support,
     )
 except ModuleNotFoundError:
@@ -37,6 +38,7 @@ except ModuleNotFoundError:
     sys.path.insert(0, str(Path(__file__).resolve().parent.parent))
     from anthropic_guard import (
         build_adaptive_thinking,
+        build_off_thinking,
         validate_anthropic_thinking_support,
     )
 from .constants import TAG_BANK, SEVERITIES, TAG_TO_SEVERITY, ALL_TAGS
@@ -55,9 +57,9 @@ class MistakeAnalyzer:
     def __init__(
         self,
         mistakes_json_path: str = "mistakes.json",
-        analysis_model: str = "claude-opus-4-6",
-        grader_model: str = "claude-sonnet-4-5-20250929",
-        continuation_model: str = "claude-sonnet-4-5-20250929",
+        analysis_model: str = "claude-sonnet-5-5",
+        grader_model: str = "claude-sonnet-5-5",
+        continuation_model: str = "claude-sonnet-5-5",
         use_extended_thinking: bool = True,
         max_tokens: int | None = None,
     ):
@@ -76,7 +78,7 @@ class MistakeAnalyzer:
 
         backend = (os.getenv("MISTAKE_ANALYSIS_BACKEND", "anthropic") or "anthropic").strip().lower()
         if backend in ("openrouter", "open_router"):
-            from openrouter_client import get_openrouter_client
+            from openrouter_client import DEFAULT_CLAUDE_OPENROUTER_MODEL, get_openrouter_client
 
             self._backend = "openrouter"
             self.client = None
@@ -84,7 +86,7 @@ class MistakeAnalyzer:
             self._openai_model = (
                 os.getenv("MISTAKE_ANALYSIS_OPENROUTER_MODEL")
                 or os.getenv("MISTAKE_ANALYSIS_OPENAI_MODEL")
-                or "anthropic/claude-sonnet-4"
+                or DEFAULT_CLAUDE_OPENROUTER_MODEL
             ).strip()
         elif backend == "openai":
             self._backend = "openai"
@@ -138,10 +140,8 @@ class MistakeAnalyzer:
                 "max_tokens": max_tokens,
                 "system": system,
                 "messages": [{"role": "user", "content": user_msg}],
+                "thinking": build_adaptive_thinking() if use_thinking else build_off_thinking(),
             }
-            if use_thinking:
-                kwargs["temperature"] = 1
-                kwargs["thinking"] = build_adaptive_thinking()
             response = self._call_api(context, **kwargs)
             return extract_text(response)
         if self._openai_client is None:
@@ -183,7 +183,7 @@ class MistakeAnalyzer:
             f"<reference_solution>\n{reference_tex}\n</reference_solution>\n\n"
             f"<student_attempt>\n{student_tex}\n</student_attempt>"
         )
-        use_thinking = self.use_extended_thinking and "opus" in self.analysis_model.lower()
+        use_thinking = self.use_extended_thinking
 
         for attempt in range(2):
             text = self._request_text(

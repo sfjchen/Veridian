@@ -5,7 +5,8 @@ from pathlib import Path
 sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
 
 from anthropic_guard import (  # noqa: E402
-    build_enabled_thinking,
+    build_adaptive_thinking,
+    build_off_thinking,
     ensure_messages_create_supports_thinking,
     ensure_supported_anthropic_version,
 )
@@ -56,22 +57,9 @@ class AnthropicGuardTests(unittest.TestCase):
     def test_accepts_thinking_signature(self) -> None:
         ensure_messages_create_supports_thinking(_ClientWithThinking())
 
-    def test_enabled_thinking_max_tokens_guard(self) -> None:
-        with self.assertRaisesRegex(ValueError, "greater than 1024"):
-            build_enabled_thinking(max_tokens=1024, budget_tokens=1024)
-
-    def test_enabled_thinking_budget_guard(self) -> None:
-        with self.assertRaisesRegex(ValueError, "must be >= 1024"):
-            build_enabled_thinking(max_tokens=2000, budget_tokens=1023)
-
-    def test_enabled_thinking_requires_budget_less_than_max(self) -> None:
-        with self.assertRaisesRegex(ValueError, "must be less than max_tokens"):
-            build_enabled_thinking(max_tokens=2000, budget_tokens=2000)
-
-    def test_enabled_thinking_rejects_budget_greater_than_max(self) -> None:
-        with self.assertRaisesRegex(ValueError, "must be less than max_tokens"):
-            build_enabled_thinking(max_tokens=2000, budget_tokens=2001)
-
+    def test_thinking_configs(self) -> None:
+        self.assertEqual(build_adaptive_thinking(), {"type": "adaptive"})
+        self.assertEqual(build_off_thinking(), {"type": "between_tools"})
 
 if __name__ == "__main__":
     unittest.main()

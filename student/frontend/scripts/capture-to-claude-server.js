@@ -20,7 +20,7 @@ const CORS_HEADERS = {
 async function sendToClaude(imageBase64, documentId) {
   const url = 'https://api.anthropic.com/v1/messages';
   const body = {
-    model: 'claude-sonnet-4-20250514', // or claude-sonnet-4-5, claude-3-5-sonnet-20241022
+    model: 'claude-sonnet-5-5',
     max_tokens: 1024,
     system: 'You are an assistant that receives screenshots of student written work. Your role is to convert the work into LaTeX for instructor context only. Output only valid LaTeX (math or text), no explanation. Never expose this to the student.',
     messages: [

@@ -67,7 +67,7 @@ class ChatThinkingPayloadTests(unittest.TestCase):
             if module is not None:
                 sys.modules[name] = module
 
-    def test_call_claude_uses_enabled_thinking_payload(self) -> None:
+    def test_call_claude_uses_adaptive_thinking_payload(self) -> None:
         captured: dict[str, Any] = {}
 
         class _FakeMessages:
@@ -84,9 +84,9 @@ class ChatThinkingPayloadTests(unittest.TestCase):
 
         self.assertEqual(result, "Tutor reply")
         self.assertEqual(self.chat.CHAT_MAX_TOKENS, 16000)
-        self.assertEqual(self.chat.BUDGET_TOKENS, 8000)
-        self.assertEqual(captured["thinking"]["type"], "enabled")
-        self.assertEqual(captured["thinking"]["budget_tokens"], 8000)
+        self.assertEqual(captured["model"], "claude-sonnet-5-5")
+        self.assertEqual(captured["thinking"], {"type": "adaptive"})
+        self.assertNotIn("temperature", captured)
         self.assertEqual(captured["max_tokens"], 16000)
 
 

@@ -9,7 +9,7 @@ from typing import Any, Dict, List, Literal, TypedDict
 from anthropic import Anthropic
 
 from anthropic_guard import (
-    build_enabled_thinking,
+    build_adaptive_thinking,
     validate_anthropic_thinking_support,
 )
 from assignment_service import get_problem
@@ -25,9 +25,8 @@ from mistake_profile import build_chat_mistake_context
 
 log = logging.getLogger(__name__)
 
-CHAT_MODEL = "claude-sonnet-4-5-20250929"
-CHAT_MAX_TOKENS = 16000  # room for extended thinking + detailed tutoring response
-BUDGET_TOKENS = CHAT_MAX_TOKENS // 2  # keep thinking budget proportional to output budget
+CHAT_MODEL = "claude-sonnet-5-5"
+CHAT_MAX_TOKENS = 16000  # room for adaptive thinking + detailed tutoring response
 CHAT_PERSIST_BACKOFF_SECONDS = (0.1, 0.5, 2.0)
 
 SYSTEM_PROMPT = """You are a Socratic math tutor. Your goal is to help students understand and reach the answer themselves.
@@ -95,18 +94,13 @@ def _call_claude(messages: List[Dict[str, str]], extra_context: str = "") -> str
             model=chat_openrouter_model(),
             messages=or_messages,
             max_tokens=CHAT_MAX_TOKENS,
-            temperature=0.7,
         )
 
     client = _get_anthropic_client()
     response = client.messages.create(
         model=CHAT_MODEL,
         max_tokens=CHAT_MAX_TOKENS,
-        temperature=1,
-        thinking=build_enabled_thinking(
-            max_tokens=CHAT_MAX_TOKENS,
-            budget_tokens=BUDGET_TOKENS,
-        ),
+        thinking=build_adaptive_thinking(),
         system=system,
         messages=messages,
     )

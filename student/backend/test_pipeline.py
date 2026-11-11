@@ -139,7 +139,6 @@ Annotated LaTeX:
     response = client.messages.create(
         model=os.getenv("CLAUDE_MODEL"),
         max_tokens=2048,
-        temperature=0,
         messages=[{
             "role": "user",
             "content": [

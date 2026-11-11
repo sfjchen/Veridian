@@ -1,12 +1,14 @@
 """OpenRouter (OpenAI-compatible API) for LLM calls."""
 
 import os
+import re
 from functools import lru_cache
 from typing import Any
 
 from openai import OpenAI
 
 OPENROUTER_BASE_URL = "https://openrouter.ai/api/v1"
+DEFAULT_CLAUDE_OPENROUTER_MODEL = "anthropic/claude-sonnet-5.5"
 
 
 def _backend_flag(name: str, default: str = "anthropic") -> str:
@@ -47,7 +49,7 @@ def default_openrouter_model() -> str:
     return (
         os.getenv("MISTAKE_ANALYSIS_OPENROUTER_MODEL")
         or os.getenv("MISTAKE_ANALYSIS_MODEL")
-        or "anthropic/claude-sonnet-4"
+        or DEFAULT_CLAUDE_OPENROUTER_MODEL
     ).strip()
 
 
@@ -55,7 +57,7 @@ def chat_openrouter_model() -> str:
     return normalize_openrouter_model(
         os.getenv("CHAT_OPENROUTER_MODEL")
         or os.getenv("CHAT_MODEL")
-        or "anthropic/claude-sonnet-4"
+        or DEFAULT_CLAUDE_OPENROUTER_MODEL
     )
 
 
@@ -74,7 +76,9 @@ def normalize_openrouter_model(model: str) -> str:
     if "/" in m:
         return m
     if m.startswith("claude-"):
-        return f"anthropic/{m}"
+        # maps Anthropic IDs (claude-sonnet-5-5, claude-sonnet-4-5-20250929) to OpenRouter's dotted form
+        m = re.sub(r"-\d{8}$", "", m)
+        return "anthropic/" + re.sub(r"-(\d+)-(\d+)$", r"-\1.\2", m)
     if m.startswith("gpt-"):
         return f"openai/{m}"
     if m.startswith("gemini-"):
@@ -103,15 +107,12 @@ def openrouter_chat_completion(
     model: str,
     messages: list[dict[str, Any]],
     max_tokens: int,
-    temperature: float | None = None,
 ) -> str:
     kwargs: dict[str, Any] = {
         "model": normalize_openrouter_model(model),
         "messages": messages,
         "max_completion_tokens": max_tokens,
     }
-    if temperature is not None:
-        kwargs["temperature"] = temperature
     response = get_openrouter_client().chat.completions.create(**kwargs)
     content = (response.choices[0].message.content or "").strip()
     if not content:

@@ -14,8 +14,9 @@ def convert_pdf_to_latex(pdf_bytes: bytes) -> str:
     pdf_b64 = base64.standard_b64encode(pdf_bytes).decode("utf-8")
 
     message = client.messages.create(
-        model="claude-sonnet-4-5-20250929",
+        model="claude-sonnet-5-5",
         max_tokens=8192,
+        thinking={"type": "between_tools"},  # plain transcription, no reasoning needed
         messages=[{
             "role": "user",
             "content": [

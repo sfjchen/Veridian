@@ -90,13 +90,13 @@ class MistakeAnalysisThinkingPayloadTests(unittest.TestCase):
             system="system",
             user_msg="user",
             max_tokens=2048,
-            anthropic_model="claude-opus-4-6",
+            anthropic_model="claude-sonnet-5-5",
             use_thinking=True,
         )
         self.assertEqual(captured["thinking"], {"type": "adaptive"})
-        self.assertEqual(captured["temperature"], 1)
+        self.assertNotIn("temperature", captured)
 
-    def test_request_text_skips_thinking_when_disabled(self) -> None:
+    def test_request_text_turns_thinking_off_when_disabled(self) -> None:
         analyzer = self.client_module.MistakeAnalyzer(use_extended_thinking=False)
         captured: dict[str, Any] = {}
 
@@ -110,10 +110,10 @@ class MistakeAnalysisThinkingPayloadTests(unittest.TestCase):
             system="system",
             user_msg="user",
             max_tokens=2048,
-            anthropic_model="claude-opus-4-6",
+            anthropic_model="claude-sonnet-5-5",
             use_thinking=False,
         )
-        self.assertNotIn("thinking", captured)
+        self.assertEqual(captured["thinking"], {"type": "between_tools"})
 
 
 if __name__ == "__main__":

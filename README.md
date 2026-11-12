@@ -133,7 +133,7 @@ After migrations: assignments load without config errors; corpus upload works.
 
 **Whiteboard demo (canonical):** [https://sfjc.dev/veridian](https://sfjc.dev/veridian) — Next.js app in [`sfjchen/veridian-whiteboard`](https://github.com/sfjchen/veridian-whiteboard) (nested under Jon-fun). No login.
 
-**Legacy EdTech deploy (this repo):** `www.veridian.fyi` → redirects to sfjc.dev/veridian; Expo + Render `veridian-student-backend-kz5l` + Supabase `tpqasmpieyteutvdntda` for classroom features. See **`plans/whiteboard-deployment.md`**. Full stack: `plans/production-deployment.md`.
+**Legacy EdTech deploy (this repo):** `www.veridian.fyi` → redirects to sfjc.dev/veridian; Expo + Render `veridian-student-backend-free` (free plan) + Supabase `tpqasmpieyteutvdntda` for classroom features. See **`plans/whiteboard-deployment.md`**. Full stack: `plans/production-deployment.md`.
 
 ## Development
 

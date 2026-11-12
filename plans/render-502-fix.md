@@ -4,10 +4,10 @@
 
 | URL | Status |
 |-----|--------|
-| `https://veridian-student-backend-kz5l.onrender.com` | **Live** — use this in Vercel |
+| `https://veridian-student-backend-free.onrender.com` | **Live** — use this in Vercel |
 | `https://veridian-student-backend.onrender.com` | **Stale** — Blueprint name without active deploy (`no-deploy`) |
 
-Set `EXPO_PUBLIC_BACKEND_URL=https://veridian-student-backend-kz5l.onrender.com` on Vercel + GitHub `vars`.
+Set `EXPO_PUBLIC_BACKEND_URL=https://veridian-student-backend-free.onrender.com` on Vercel + GitHub `vars`.
 
 If `curl https://veridian-student-backend.onrender.com/health` returns **502**, the web process is crashing on boot (not a missing API key — `/health` needs no keys).
 

@@ -1,14 +1,15 @@
 # Render Blueprint — whiteboard slice (student Flask backend only).
 # Connect repo at https://dashboard.render.com/blueprints → New Blueprint Instance.
 # Set secret env vars in the Render dashboard after first deploy.
-# Live URL may include a suffix (e.g. veridian-student-backend-kz5l.onrender.com).
+# Reference only: the live service veridian-student-backend-free (free plan) was created from this spec through the
+# Render API on 2026-11-11 and is not Blueprint-managed. Blueprint auto-sync is off. Change its env vars in the dashboard.
 
 services:
   - type: web
-    name: veridian-student-backend
+    name: veridian-student-backend-free
     runtime: python
     region: oregon
-    plan: starter
+    plan: free
     rootDir: student/backend
     buildCommand: pip install -r requirements.txt
     startCommand: gunicorn --worker-class gthread --threads 8 --timeout 120 -w 1 -b 0.0.0.0:$PORT get_coords:app
